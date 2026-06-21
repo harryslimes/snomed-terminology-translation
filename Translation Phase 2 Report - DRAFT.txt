@@ -1,0 +1,218 @@
+﻿Report on Machine Translation of SNOMED CT  
+2025-10-09 - DRAFT
+
+
+
+
+
+
+
+
+
+
+
+
+Report on Machine Translation of SNOMED CT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Prepared by Will Hardman, Veratai Ltd & Rory Davidson, SNOMED International.  
+September 2025
+________________
+
+
+
+
+Contents
+Introduction        3
+Phase 1 Summary        3
+Phase 2 Summary & Outcomes        3
+Mono-lingual Data Sources        4
+Paired Translations        4
+Additional Resources        4
+Agent Design        4
+Findings, Learnings and Implications        7
+Recommendations and Future Directions        8
+Bibliography        8
+________________
+Introduction
+This short project tackled the question: can modern Large Language Models (LLMs) reduce the cost to translate SNOMED CT from English into another language?
+Sub-goals
+1. How accurately can an LLM translate into a target language?
+2. What tools and resources do we have to provide for this level of accuracy?
+3. How does an improvement in accuracy affect translation costs?
+This short paper describes what we did and what we learned. It closes with a discussion of the possible paths forward from here.
+
+
+Phase 1 Summary
+In 2024, we conducted an initial exploration using LLMs to translate SNOMED CT into various “target” languages. Our findings were:
+* LLMs that relied solely on pre-training knowledge were no more accurate than traditional Neural Machine Translation (NMT) services like DeepL.
+* Where related translations in a National Extension already existed (e.g. a concept’s parents are translated) and the LLM is given access to them, LLM translations improve above those of NMT services.
+* Fine-tuning an LLM on existing translations further improves translation accuracy.
+
+
+Phase 2 Summary & Outcomes
+This was a short, 12-day project looking at improving the capability of LLMs to translate SNOMED CT. We focused on a single target language: Estonian. At the outset, we had two hypotheses:
+1. Increasing the quantity of related content given to an LLM should further improve the translations. Specifically: 
+   1. Relevant paired translations provide clues for translating from English → Target.
+   2. Relevant (mono-lingual) clinical text in the Target language should tell the LLM how specific words and phrases are used in practise.
+2. Fine-tuning likely improves translations because the LLM learns to generate content that matches the “house style” of an NRC. (Not because it is learning the Target language better) Therefore, making translation guidelines explicit and available to the LLM should improve the accuracy of the translation.
+We began by acquiring and preparing a set of clinical data sources to be used as “ground truth” references by the LLM. These were grouped into mono-lingual resources (Estonian language only) and paired translation resources (English ↔ Estonian pairs.)
+________________
+Mono-lingual Data Sources
+Source
+	Description
+	Quantity
+	eesti_arst
+	A range of articles from Estonia’s leading medical journal.
+	14,270 articles in PDF format
+	haiglateliit
+	Patient and Information leaflets covering medical conditions.
+	470 PDF files
+	kliinikum
+	Laboratory Information leaflets covering substances, bacteria and viruses.
+	528 PDF files
+	emea
+	Estonian language medication list from the European Medication Agency.
+	45,784 medication names
+	sonaveeb
+	Estonian language clinical dictionary.
+	45,078 definitions and terms
+	ravimregister
+	Patient Information Leaflets for medications.
+	52,484 leaflets
+	
+
+Paired Translations
+Source
+	Quantity
+	SNOMED CT EE Extension
+	2,000
+	ICD-10
+	14,000
+	ICD-11
+	140,000
+	LOINC
+	1,000
+	NOMESCO
+	9,000
+	WHO Clinical Terms
+	1,400
+	
+
+Additional Resources
+The following additional reference sources were used:
+* The SNOMED CT International Edition.
+* The written Estonian NRC Translation Guidelines.
+
+
+Agent Design
+In this phase of the translation project, we opted for an agentic design pattern for the translation process. The system was given minimal agency to re-translate the terms several times until it either reached a level of confidence in the result or could not improve it further.
+[Figure 1] shows the process followed by our translation agent. The steps are detailed below.
+ Figure 1: State Diagram for the Translation Agent 
+
+Figure 1: State Diagram for the Translation Agent
+
+
+Steps
+Prepare Initial Hints
+An initial collection of translation hints is compiled for the LLM. These include:
+* Synonyms, parents and defining attributes for the concept from SNOMED CT.
+* Content of the Translation Guidelines relevant to the kind of term being translated.
+* Paired translations where the English term is semantically similar to the term being translated, or which share clinical keywords.
+
+
+Initial Translation Step
+Claude 3.7 Sonnet (New) was used for the translations. The LLM was prompted to return the following information:
+* Its reasoning and justification for the translation it has produced.
+* The Estonian translation of the input term.
+* A Boolean indicating whether it is confident in the translation. It is instructed to only be confident if every clinical term in the response is found somewhere within the paired translation hints.
+If not confident, the candidate translation is sent to the Enrichment Step, otherwise, it is returned as the best answer.
+
+
+Enrichment Step
+The system searches for Estonian language sources which either semantically or syntactically match the generated translation. The hypothesis is that all of the components of correctly translated terms will be in clinical usage and, therefore, should exist in a sufficiently diverse set of sources.
+The system searches the following sources:
+* All of the mono-lingual resources described above.
+* The Estonian components of the paired translation resources.
+* Google Scholar citations.
+Any (potentially) relevant source material is compiled into a “document of hints” for the LLM, and the system proceeds to the Reflection Step.
+
+
+Reflection Step
+The LLM is presented with the original translation request, a copy of its response to that request and the compiled hints. Its task is to use the new Estonian-language hints to improve its previous response, if possible. Again, it is asked for an assessment of confidence, which can only be true if every term in the revised translation has been found in the hints.
+Given the complexity of the Reflection Step, Claude 3.5 Opus was used as a translation engine.
+If it is not confident or a maximum number of revisions have been made, the system moves to a Forced Revision Step; otherwise, the revised translation (which may not have been altered from the initial response) is returned.
+
+
+Forced Revision Step
+If the system has entered this state, it means that at least one of the clinically meaningful terms has not been found in the Estonian sources. This could be because the term is incorrect, or the gathered sources are incomplete.
+To make further progress, in the Forced Revision Step, the LLM is required to change its translation and generate a plausible new variant. This is sent back to the Enrichment Step, where the system will look for Estonian sources which contain elements of the revised translation.
+________________
+Findings, Learnings and Implications
+We performed human evaluations of the translations of 100 SNOMED CT terms, selected by the Estonian NRC. For each term, the team reviewed both a DeepL translation and one of our agents’ translations. Each was classified as either “Good enough to use” or “Not good enough to use”.
+The evaluation exercise reported that 44% of DeepL’s translations were graded “good enough” vs 75% of the agent’s.  Furthermore, in the 80% cases where the agentic system had reported confidence in the translation, 84% were marked as “good enough”, representing a near doubling in accuracy from the DeepL baseline.
+The review also highlighted problems in our translation agentic process, including:
+* The retrieval augmentation pipeline needed further tuning. It was not always retrieving the most relevant results.
+* The “chunking” of source documents should have been more granular with a more intelligently selected splitting criterion.
+* We had some issues with corruption of one of the backend search indexes, which degraded the search process.
+In addition to opportunities to remediate the existing process developed during this project, four other opportunities to improve translation quality suggest themselves:
+1. It is highly likely that methods developed by researchers using knowledge graphs to augment LLM retrieval processes - e.g. (Jiang et al., 2024), (Peng et al., 2024) - will work well for the terminology translation task, given the strength of these data structures at linking short-form, information-dense concepts to long-form instances of semantic context.
+2. Since the agent’s confidence in its translation proved to be a good indicator of quality, further work would likely result in better calibration of the reliability of outputs. This would enable translations to be sorted, with human reviews concentrated on the most suspect outputs.
+3. No effort was made during this project to incorporate human feedback. When a reviewer corrects a translation, this information should be used in all future translations involving the same concept, thereby further increasing the accuracy of the results.
+4. Due to time constraints, not all potential sources of mono-lingual Estonian clinical documentation were loaded and used. More data would likely entail better results.
+For these reasons, we believe it is highly likely that the agentic translation methodology could improve substantially from its current level of 75% “good enough” accuracy.
+________________
+Recommendations and Future Directions
+The agentic approach to translation worked extremely well, required no fine-tuning of the translation model and can certainly be improved. The accuracy ceiling of this approach is difficult to determine, but is likely to be in excess of 90% “good enough”.
+However, the value of an agentic translation capability to the SNOMED community will depend on the real-world pay-off that accrues as translations become more accurate. An open question for the translation community is how such improvements could be used to reduce the degree of human involvement in the review and correction process.
+This is an operational question. If a human review process is required for any translation system that is less than 100% accurate, then the marginal gains are limited to reducing the number of times that a human needs to actually correct. If, on the other hand, a certain accuracy percentage (say 95%) is considered “good enough”, then a translation agent would represent a considerable economic efficiency.
+Since the agentic translation process does not require an LLM to be hosted, the costs of serving and running the agent are limited to two components:
+1. The cost of acquiring and preparing the paired and monolingual translation hints.
+2. The inference costs for running the agent.
+In this project, the preparation took one individual around six working days.
+As regards inference costs: since this short project took place, there has been another across-the-board decrease in per-token pricing for frontier LLMs. Using the token-counts recorded from our evaluation exercise, we estimate the mean cost of a translation using Gemini-2.5 Pro or GPT-5 today would be $0.10 US, implying a total translation cost for all concepts in SNOMED CT of $37,000. However, these costs are a moving target at the moment and are expected to be much lower in practice.
+How could NRCs make use of this work?
+1. The process, as documented above, is replicable by any team willing to invest the time and effort.
+2. SNOMED International could centralise efforts to improve the agentic translation methodology and distribute any findings and software assets to the NRCs. The lightweight nature of the software assets and the focus on quality and quantity of data required to make it work (the acquisition of which will be a distinct task for each NRC) suggest that the agentic translation is not suited to be a SaaS service but could be a “centre of excellence” supported by SNOMED.
+
+
+________________
+Bibliography
+* Jiang, X., Zhang, R., Xu, Y., Qiu, R., Fang, Y., Wang, Z., Tang, J., Ding, H., Chu, X., Zhao, J., & Wang, Y. (2024). HyKGE: A hypothesis knowledge graph enhanced framework for accurate and reliable medical LLMs responses. arXiv. https://arxiv.org/abs/2312.15883v2
+* Peng, B., Zhu, Y., Liu, Y., Bo, X., Shi, H., Hong, C., Zhang, Y., & Tang, S. (2024). Graph retrieval-augmented generation: A survey. arXiv. https://arxiv.org/abs/2408.08921
