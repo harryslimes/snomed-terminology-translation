@@ -20,7 +20,7 @@ import logging
 import os
 import re
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
 
 log = logging.getLogger(__name__)

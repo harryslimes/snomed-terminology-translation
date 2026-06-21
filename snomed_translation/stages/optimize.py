@@ -6,7 +6,7 @@ Reuses the DSPy harness from `scripts/optimization/dspy_translate.py`
 from a PipelineConfig + the flow graph's wired datasets instead:
 
 * ``trainset`` / ``devset`` arrive as resolved dataset dicts (csv path + the
-  role->column mapping detected by ``pipelines.graph.source_schema``), so any
+  role->column mapping detected by ``snomed_translation.graph.source_schema``), so any
   dataset that provides (sctid, en, target) works regardless of column names.
 * the task LM is the translation candidate the config resolves (same selection
   rule as the translate stage), so the guide is optimised for the model that
@@ -30,7 +30,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from pipelines.config import OptimizationStageSpec, PipelineConfig
+from snomed_translation.config import OptimizationStageSpec, PipelineConfig
 from pipelines.context import RunContext, StageResult
 
 log = logging.getLogger(__name__)

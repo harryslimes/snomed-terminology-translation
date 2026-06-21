@@ -36,11 +36,11 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
-from pipelines.exemplars import ExemplarError, ensure_exemplars
-from pipelines.scoring import norm_text
-from pipelines.stages.translate import _build_prompts, _load_eval_rows
+from snomed_translation.exemplars import ExemplarError, ensure_exemplars
+from snomed_translation.scoring import norm_text
+from snomed_translation.stages.translate import _build_prompts, _load_eval_rows
 from scripts.translation.translate_korean_with_lookup import (
     format_pairs_table,
     translate_one,

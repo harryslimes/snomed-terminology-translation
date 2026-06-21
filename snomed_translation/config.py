@@ -1,7 +1,7 @@
 """PipelineConfig — the single source of truth for a SNOMED translation run.
 
 Loadable from JSON or YAML; emits either. The wizard produces an instance of
-this model; the staged runners (pipelines.stages.*) consume it.
+this model; the staged runners (snomed_translation.stages.*) consume it.
 
 Design rules:
   * Defaults match today's Korean pipeline behaviour so existing scripts keep
@@ -512,7 +512,7 @@ class TranslationStageSpec(BaseModel):
             "Optional default style guide. Style guides are flow artifacts: "
             "translate steps in a flow supply their own (typically a path to "
             "a saved style guide file, or a $opt.optimized_style_guide ref). "
-            "Set this only if you want single-stage `python -m pipelines.run "
+            "Set this only if you want single-stage `python -m snomed_translation.run "
             "--stage translate` invocations to have something to fall back on."
         ),
     )
@@ -760,7 +760,7 @@ class ProjectSpec(BaseModel):
     rarely-varying stage recipes (evaluation/optimization/sme). A flow names
     a project by ``name`` (the configs/<name>.json stem) and picks which of
     its building blocks to compose. The assembler
-    (:func:`pipelines.assemble.assemble_pipeline_config`) materialises a
+    (:func:`snomed_translation.assemble.assemble_pipeline_config`) materialises a
     :class:`PipelineConfig` from a project + the referenced blocks + a flow.
     """
 

@@ -10,7 +10,7 @@ things:
    with a single candidate skip the judge.
 2. **Scoring** — the chosen translation is scored against the gold reference
    with the same scorers as the plain evaluate stage (exact + chrF, via
-   :mod:`pipelines.scoring`).
+   :mod:`snomed_translation.scoring`).
 3. **Calibration** — using the wired gold reference as the canonical answer, it
    scores *every* candidate, finds the **oracle** (the candidate closest to the
    canonical), and records whether the **LLM judge** and the **majority /
@@ -40,11 +40,11 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
-from pipelines.scoring import best_ref_by_chrf as _best_ref_by_chrf
-from pipelines.scoring import norm_text as _norm
-from pipelines.stages.evaluate import _load_eval_refs
+from snomed_translation.scoring import best_ref_by_chrf as _best_ref_by_chrf
+from snomed_translation.scoring import norm_text as _norm
+from snomed_translation.stages.evaluate import _load_eval_refs
 from scripts.translation.translate_korean_with_lookup import (
     translate_one,
     wait_for_server,

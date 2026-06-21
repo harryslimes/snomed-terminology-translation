@@ -1,4 +1,4 @@
-"""CLI entry point: `python -m pipelines.run --config X --stage Y`.
+"""CLI entry point: `python -m snomed_translation.run --config X --stage Y`.
 
 This is the unified launcher used by both the wizard's subprocess runner and
 manual command-line invocations.
@@ -15,9 +15,9 @@ import sys
 import time
 from pathlib import Path
 
-from pipelines.config import EvalSetSpec, PipelineConfig
+from snomed_translation.config import EvalSetSpec, PipelineConfig
 from pipelines.context import RunContext
-from pipelines.registry import get_stage, list_stages
+from snomed_translation.stages import get_stage, list_stages
 
 
 def _apply_run_overrides(
@@ -86,7 +86,7 @@ def main() -> int:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    log = logging.getLogger("pipelines.run")
+    log = logging.getLogger("snomed_translation.run")
 
     cfg = PipelineConfig.from_file(args.config)
     _apply_run_overrides(

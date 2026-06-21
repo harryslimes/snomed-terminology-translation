@@ -167,7 +167,7 @@ def build_translator(
     GEPA cannot mutate. None/empty => behaviour identical to the pre-hard-rules
     path (2-input signature).
     """
-    from pipelines.hard_rules import frozen_block, load_hard_rules
+    from snomed_translation.hard_rules import frozen_block, load_hard_rules
 
     instructions = Path(style_guide_path).read_text(encoding="utf-8")
     lookup_cache = json.loads(Path(lookup_cache_path).read_text(encoding="utf-8"))
@@ -186,10 +186,10 @@ def build_translator(
 # ---------------------------------------------------------------------------
 
 
-# Canonical home is pipelines.scoring (shared with the evaluate stage, which
+# Canonical home is snomed_translation.scoring (shared with the evaluate stage, which
 # must stay free of this module's dspy import chain). Same names, same maths.
-from pipelines.scoring import best_ref_by_chrf as _best_ref_by_chrf  # noqa: E402
-from pipelines.scoring import norm_text as _norm  # noqa: E402
+from snomed_translation.scoring import best_ref_by_chrf as _best_ref_by_chrf  # noqa: E402
+from snomed_translation.scoring import norm_text as _norm  # noqa: E402
 
 
 # Default Korean hints — used when no hints file is supplied. Kept here so
@@ -264,7 +264,7 @@ def make_metric(hints: dict | Path | str | None = None,
     the disallowed form. Both default to None for backward-compatible behaviour
     (bundled Korean hints, no penalties).
     """
-    from pipelines.hard_rules import find_violations, load_hard_rules, penalty_for
+    from snomed_translation.hard_rules import find_violations, load_hard_rules, penalty_for
 
     hints_data = _load_hints(hints)
     enforced_rules = [r for r in load_hard_rules(hard_rules) if r.enforce]

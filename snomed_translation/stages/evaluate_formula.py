@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import logging
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
-from pipelines.formula import FormulaError, eval_formula
+from snomed_translation.formula import FormulaError, eval_formula
 
 log = logging.getLogger(__name__)
 

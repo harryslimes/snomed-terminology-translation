@@ -1,7 +1,7 @@
-"""Smoke tests for pipelines.hard_rules — runnable with pytest or `python`.
+"""Smoke tests for snomed_translation.hard_rules — runnable with pytest or `python`.
 
 Deliberately free of dspy/LiteLLM so the hard-rules logic can be checked
-without the model stack (mirrors why pipelines.scoring was extracted).
+without the model stack (mirrors why snomed_translation.scoring was extracted).
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from pipelines.hard_rules import (  # noqa: E402
+from snomed_translation.hard_rules import (  # noqa: E402
     find_violations,
     frozen_block,
     load_hard_rules,

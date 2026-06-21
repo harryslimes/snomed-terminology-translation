@@ -4,7 +4,7 @@ Scores a translations CSV against the eval set's reference column using the
 scorer mix declared in `cfg.evaluation.scorers`. Multi-reference (`all_references`)
 is honoured when `cfg.evaluation.multi_ref` is true.
 
-Uses pipelines.scoring (shared with the DSPy/GEPA harness) so scoring is
+Uses snomed_translation.scoring (shared with the DSPy/GEPA harness) so scoring is
 bit-identical to the DSPy-driven eval path — without importing dspy/LiteLLM.
 """
 from __future__ import annotations
@@ -20,10 +20,10 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
-from pipelines.scoring import best_ref_by_chrf as _best_ref_by_chrf
-from pipelines.scoring import norm_text as _norm
+from snomed_translation.scoring import best_ref_by_chrf as _best_ref_by_chrf
+from snomed_translation.scoring import norm_text as _norm
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _load_eval_refs(cfg: PipelineConfig) -> dict[str, dict]:
     if cfg.eval_set is None:
         raise RuntimeError(
             "evaluate stage requires an eval set; pass --eval-set to "
-            "pipelines.run, or bake one into the config's eval_set block."
+            "snomed_translation.run, or bake one into the config's eval_set block."
         )
     out: dict[str, dict] = {}
     cols = cfg.eval_set.columns

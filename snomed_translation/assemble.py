@@ -2,7 +2,7 @@
 
 This is the keystone of the block-library design. The wizard manages
 independent libraries — Models, Data sources, Resources, Eval sets, Style
-guides — plus a shared :class:`~pipelines.config.ProjectSpec` (the environment:
+guides — plus a shared :class:`~snomed_translation.config.ProjectSpec` (the environment:
 language, paths, Qdrant, overlap defaults, and the rarely-varying stage
 recipes). A :class:`~pipelines.flow.FlowSpec` *composes* those blocks as a node
 graph: datasource nodes reference registered sources, translate/evaluate nodes
@@ -10,10 +10,10 @@ wire to upstream outputs.
 
 At run time :func:`assemble_pipeline_config` materialises an in-memory
 ``PipelineConfig`` from (project + referenced blocks + flow), so the existing
-stage runners (``pipelines.stages.*``) execute against it unchanged. The
+stage runners (``snomed_translation.stages.*``) execute against it unchanged. The
 per-node wiring (which datasource feeds the term list vs the exemplar pool,
 which model each translate node uses) is applied by the graph compiler
-(:mod:`pipelines.graph`) on a deep copy per node. The assembler's obligations
+(:mod:`snomed_translation.graph`) on a deep copy per node. The assembler's obligations
 are to expose every datasource node's source in ``sources.data_sources`` and
 every translate node's model in ``translation.candidates``.
 """
@@ -23,7 +23,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pipelines.config import (
+from snomed_translation.config import (
     BilingualPoolSpec,
     DataSourceSpec,
     JobSpec,
@@ -125,7 +125,10 @@ def _referenced_model_keys(flow: FlowSpec, project: ProjectSpec) -> list[str]:
     guide *for* a task model, selected by the same candidate mechanism."""
     keys: list[str] = []
     for node in flow.nodes:
-        if node.type not in ("translate", "translate_consistency", "optimize"):
+        # Post-split flows collapse stage types to a generic ``function`` node
+        # whose ``params.function`` names the former type; accept both shapes.
+        fn = node.params.get("function") if node.type == "function" else node.type
+        if fn not in ("translate", "translate_consistency", "optimize"):
             continue
         mk = node.params.get("model_key")
         if isinstance(mk, str) and mk:
@@ -170,7 +173,7 @@ def assemble_pipeline_config(
     block reference, so the UI and CLI can show actionable messages.
     """
     # --- Data sources: every source a datasource node references. The
-    #   per-node compiler (pipelines.graph) picks which feeds the pool vs the
+    #   per-node compiler (snomed_translation.graph) picks which feeds the pool vs the
     #   term list at run time, so pool.sources is left empty here. If the flow
     #   has no datasource nodes yet, fall back to all enabled sources so the
     #   base config + exemplar-collection name still resolve.

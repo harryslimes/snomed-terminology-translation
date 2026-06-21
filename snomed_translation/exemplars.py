@@ -9,7 +9,7 @@ successful re-index), while unchanged sources keep their embeddings across
 runs forever.
 
 Indexing belongs to the *source's* lifecycle: trigger it from the Sources page
-in the wizard or via ``python -m pipelines.index_exemplars --source <id>``.
+in the wizard or via ``python -m snomed_translation.index_exemplars --source <id>``.
 The translate stage verifies the collection at run time and only falls back to
 indexing inline (loudly) when it's missing.
 
@@ -31,7 +31,7 @@ import logging
 from pathlib import Path
 from typing import Iterator
 
-from pipelines.config import DataSourceSpec, PipelineConfig
+from snomed_translation.config import DataSourceSpec, PipelineConfig
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def _csv_digest(path: Path) -> str:
 
 def _source_roles(spec: DataSourceSpec) -> dict[str, str]:
     """role->column for the source, or raise if it can't serve exemplars."""
-    from pipelines.graph import source_schema
+    from snomed_translation.graph import source_schema
 
     schema = source_schema(spec)
     if not schema["built"]:
@@ -305,7 +305,7 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
                 "Exemplar embeddings for %r are missing/incomplete "
                 "(collection %r) — generating them now. Tip: pre-generate "
                 "from the wizard's Sources page (or `python -m "
-                "pipelines.index_exemplars --source %s`) to keep translate "
+                "snomed_translation.index_exemplars --source %s`) to keep translate "
                 "runs fast.", spec.id, collection, spec.id)
             index_source(spec, cfg.language.code, cfg.qdrant.url, bgem3_model,
                          embedder=embedder)

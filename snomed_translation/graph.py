@@ -22,10 +22,11 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from pipelines.assemble import Registries
-from pipelines.config import EvalSetColumns, EvalSetSpec, PipelineConfig
-from pipelines.flow import PORT_REQUIRES, ROLE_LABELS, FlowNode, FlowSpec
-from pipelines.publish import PublishError, validate_publish_name
+from snomed_translation.assemble import Registries
+from snomed_translation.config import EvalSetColumns, EvalSetSpec, PipelineConfig
+from pipelines.flow import FlowNode, FlowSpec
+from snomed_translation.publish import PublishError, validate_publish_name
+from snomed_translation.schema import PORT_REQUIRES, ROLE_LABELS
 
 
 class GraphError(Exception):
@@ -461,7 +462,7 @@ def build_evaluate_formula(node: FlowNode, base_cfg: PipelineConfig,
                            resolved: dict[str, dict]) -> tuple[PipelineConfig, dict]:
     """Compile a formula score node: a safe arithmetic expression over the
     metric vector of its wired upstream evaluate node -> one scalar."""
-    from pipelines.formula import FormulaError, compile_formula
+    from snomed_translation.formula import FormulaError, compile_formula
 
     if not node.inputs.get("metrics"):
         raise GraphError(

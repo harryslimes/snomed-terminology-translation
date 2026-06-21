@@ -30,8 +30,8 @@ import argparse
 import json
 from pathlib import Path
 
-from pipelines.assemble import Registries, assemble_pipeline_config
-from pipelines.config import (
+from snomed_translation.assemble import Registries, assemble_pipeline_config
+from snomed_translation.config import (
     DataSourceSpec,
     ModelSpec,
     PipelineConfig,
@@ -235,7 +235,7 @@ def main() -> int:
 
 
 def registries_jobs(raw_models: dict) -> dict:
-    from pipelines.config import JobSpec
+    from snomed_translation.config import JobSpec
     return {k: JobSpec.model_validate(v) for k, v in raw_models.get("jobs", {}).items()}
 
 

@@ -23,7 +23,7 @@ clause lower-scoring, so it dies in selection. Use both to truly lock a rule.
 
 This module is deliberately dependency-light (stdlib + PyYAML only) so the
 metric, the DSPy harness, and any future production-prompt path can all share
-it without dragging in dspy/LiteLLM — same reasoning as ``pipelines.scoring``.
+it without dragging in dspy/LiteLLM — same reasoning as ``snomed_translation.scoring``.
 """
 from __future__ import annotations
 

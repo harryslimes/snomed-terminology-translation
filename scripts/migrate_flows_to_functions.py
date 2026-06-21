@@ -39,6 +39,15 @@ STAGE_TYPES = {
 # bespoke node kind.
 INPUT_FUNCTION_TYPES = {"style_guide"}
 
+# Score nodes read a *specific* output port of their upstream evaluate node (its
+# `metrics` vector, not the scored `rows`). The old editor routed this
+# implicitly via INPUT_REQUIRES_OUTPUT; the generic engine needs it spelled out
+# on the wire as ``upstream_id:metrics``. Map: function -> {input_port -> port}.
+INPUT_REQUIRES_OUTPUT = {
+    "evaluate_formula": {"metrics": "metrics"},
+    "score_workflow_llm": {"metrics": "metrics"},
+}
+
 
 def migrate_flow(flow: dict) -> dict:
     flow = copy.deepcopy(flow)
@@ -52,6 +61,14 @@ def migrate_flow(flow: dict) -> dict:
         if ntype in STAGE_TYPES or ntype in INPUT_FUNCTION_TYPES:
             node["type"] = "function"
             params["function"] = ntype
+
+        # Spell out the specific upstream output port a score node consumes, so
+        # the generic engine wires the metric vector (not the primary output).
+        port_map = INPUT_REQUIRES_OUTPUT.get(ntype, {})
+        for in_port, out_port in port_map.items():
+            ref = node.get("inputs", {}).get(in_port)
+            if isinstance(ref, str) and ":" not in ref:
+                node["inputs"][in_port] = f"{ref}:{out_port}"
 
         publish_as = params.pop("publish_as", None)
         if publish_as:

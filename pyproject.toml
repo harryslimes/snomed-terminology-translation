@@ -1,10 +1,13 @@
 [project]
-name = "snomed-translation-v2"
+name = "snomed-terminology-translation"
 version = "0.1.0"
-description = "Add your description here"
+description = "SNOMED CT terminology-translation plugin for semi-automated-research: translate/evaluate/optimize node functions, Korean/SNOMED configs, style guides, and the VLLM/Qdrant stack."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    # The generic app + flow engine this plugin registers its functions into.
+    "semi-automated-research",
+    "sacrebleu>=2.4.0",
     "bs4>=0.0.2",
     "chromadb>=1.0.21",
     "cohere>=5.18.0",
@@ -34,3 +37,23 @@ dependencies = [
     "uvicorn>=0.30.0",
     "yake>=0.4.0",
 ]
+
+# Node functions this plugin registers into the app's flow engine. The factory
+# returns every FunctionSpec; the app's registry coerces a zero-arg callable.
+[project.entry-points."semi_automated_research.functions"]
+snomed_translation = "snomed_translation.functions:specs"
+
+# Resolver for datasource nodes that name a project `source` (a built CSV etc.).
+[project.entry-points."semi_automated_research.sources"]
+snomed_translation = "snomed_translation.functions:resolve_source"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["snomed_translation"]
+
+# The app isn't published yet; resolve it from the sibling repo for local dev.
+[tool.uv.sources]
+semi-automated-research = { path = "../semi-automated-research", editable = true }

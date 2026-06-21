@@ -26,7 +26,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from pipelines.config import CsvSourceColumns, DataSourceSpec, PipelineConfig
+from snomed_translation.config import CsvSourceColumns, DataSourceSpec, PipelineConfig
 from pipelines.context import RunContext
 from pipelines.flow import FlowNode
 

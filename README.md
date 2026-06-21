@@ -15,7 +15,7 @@ via the `semi_automated_research.functions` entry-point group (see
 
 | Path           | Purpose                                                           |
 | -------------- | ---------------------------------------------------------------- |
-| `pipelines/`   | Stage runners + config schema for translate/evaluate/optimize etc. |
+| `snomed_translation/`   | Stage runners + config schema for translate/evaluate/optimize etc. |
 | `scripts/`     | Standalone runners: translation, evaluation, optimization, analysis, data prep, SME review |
 | `configs/`     | Korean/SNOMED project, flow, source, eval-set, hard-rule, and resource configs |
 | `style_guide/` | Korean translator style guides and their version lineage          |

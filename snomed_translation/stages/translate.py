@@ -20,9 +20,9 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from pipelines.config import PipelineConfig
+from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
-from pipelines.exemplars import ExemplarError, ensure_exemplars
+from snomed_translation.exemplars import ExemplarError, ensure_exemplars
 from scripts.translation.translate_korean_with_lookup import (
     translate_one,
     format_pairs_table,
@@ -66,7 +66,7 @@ def _load_eval_rows(cfg: PipelineConfig, limit: int | None) -> list[dict]:
     if cfg.eval_set is None:
         raise RuntimeError(
             "translate stage requires an eval set; pass --eval-set to "
-            "pipelines.run, or bake one into the config's eval_set block."
+            "snomed_translation.run, or bake one into the config's eval_set block."
         )
     csv_path = cfg.eval_set.csv
     cols = cfg.eval_set.columns

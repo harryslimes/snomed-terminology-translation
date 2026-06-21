@@ -1,6 +1,6 @@
 # Korean-specific rule-violation hints used by the GEPA metric.
 #
-# Loaded by pipelines.stages.optimize / scripts/optimization/dspy_translate.py
+# Loaded by snomed_translation.stages.optimize / scripts/optimization/dspy_translate.py
 # via make_metric(cfg). Each rule type is processed by a handler in the
 # metric; the YAML carries only the data, not the logic.
 #

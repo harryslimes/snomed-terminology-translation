@@ -1,8 +1,8 @@
-"""CLI: ``python -m pipelines.index_exemplars --source <id>``.
+"""CLI: ``python -m snomed_translation.index_exemplars --source <id>``.
 
 Embeds a registered data source's (en, target) pairs with BGE-M3 and indexes
 them into the source's per-content Qdrant collection (see
-:mod:`pipelines.exemplars`). Idempotent: a complete collection returns
+:mod:`snomed_translation.exemplars`). Idempotent: a complete collection returns
 immediately; an interrupted index resumes; superseded collections for the
 same source are dropped. The wizard's Sources page drives this same entry
 point as a tracked run job.
@@ -13,8 +13,8 @@ import argparse
 import logging
 import sys
 
-from pipelines.assemble import AssemblyError, Registries, load_project
-from pipelines.exemplars import ExemplarError, index_source
+from snomed_translation.assemble import AssemblyError, Registries, load_project
+from snomed_translation.exemplars import ExemplarError, index_source
 
 
 def main() -> int:
@@ -31,7 +31,7 @@ def main() -> int:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    log = logging.getLogger("pipelines.index_exemplars")
+    log = logging.getLogger("snomed_translation.index_exemplars")
 
     try:
         project = load_project(args.project, args.configs_dir)

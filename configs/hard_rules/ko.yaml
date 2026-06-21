@@ -1,6 +1,6 @@
 # Korean hard rules — non-negotiable translation constraints.
 #
-# Read by pipelines.hard_rules.load_hard_rules and wired into GEPA via
+# Read by snomed_translation.hard_rules.load_hard_rules and wired into GEPA via
 # scripts/optimization/dspy_translate.make_metric (scored penalty) and
 # build_translator (frozen prompt block). Referenced from a project/optimization
 # recipe as `optimization.hard_rules_file`.
