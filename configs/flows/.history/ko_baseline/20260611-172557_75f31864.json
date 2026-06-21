@@ -1,0 +1,74 @@
+{
+  "name": "ko_baseline",
+  "description": "tweaked",
+  "project": "project",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "kr_snomed"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate_full",
+      "type": "translate",
+      "pos": {
+        "x": 359.0,
+        "y": 120.0
+      },
+      "params": {
+        "model_key": "gemma4-26b",
+        "output_tag": "gemma4-26b_v5_1_pipeline",
+        "publish_as": "translate_run_1"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style_guide_v5_1"
+      }
+    },
+    {
+      "id": "evaluate_full",
+      "type": "evaluate",
+      "pos": {
+        "x": 680.0,
+        "y": 120.0
+      },
+      "params": {},
+      "inputs": {
+        "translations": "translate_full",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "style_guide_v5_1",
+      "type": "style_guide",
+      "pos": {
+        "x": 40.0,
+        "y": 380.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v5_1.md"
+      },
+      "inputs": {}
+    }
+  ]
+}

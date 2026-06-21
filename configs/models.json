@@ -1,0 +1,245 @@
+{
+  "models": {
+    "gemma4-26b": {
+      "hf_id": "cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit",
+      "quantization": "compressed-tensors",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.4,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [],
+      "port": 8083,
+      "container_name": "snomed-gemma4",
+      "notes": "Gemma 4 26B-A4B MoE (4B active). AWQ-4bit ~13GB weights. Smoke-tested gpu_memory_utilization.",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "enable_thinking": false
+      }
+    },
+    "gemma4-26b-qat": {
+      "hf_id": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+      "quantization": "compressed-tensors",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [],
+      "port": 8086,
+      "container_name": "snomed-gemma4-qat",
+      "notes": "Gemma 4 26B-A4B MoE (4B active), QAT AWQ-INT4 (compressed-tensors pack-quantized, group_size 32). QAT variant of gemma4-26b — expect better quality at same ~13GB weight footprint.",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "enable_thinking": false
+      }
+    },
+    "qwen35b": {
+      "hf_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+      "quantization": "gptq_marlin",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 8192,
+      "max_num_batched_tokens": 2096,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--language-model-only",
+        "--reasoning-parser",
+        "qwen3"
+      ],
+      "port": 8002,
+      "container_name": "snomed-vllm",
+      "notes": "Qwen 3.5 35B-A3B MoE GPTQ-Int4."
+    },
+    "qwen122b": {
+      "hf_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+      "quantization": "gptq_marlin",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.85,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--language-model-only",
+        "--reasoning-parser",
+        "qwen3"
+      ],
+      "port": 8001,
+      "container_name": "snomed-vllm-122b",
+      "notes": "Qwen 3.5 122B-A10B MoE. Large model, needs most of GPU."
+    },
+    "gemma4-31b-remote": {
+      "hf_id": "gemma-4-31b",
+      "port": 18000,
+      "host": "192.168.1.76",
+      "notes": "LilaRest/gemma-4-31B-it-NVFP4-turbo served via vLLM on LAN. 8192 max_model_len — use style_guide_ko_v3_abbr.md. Set VLLM_BASE_URL=http://192.168.1.76:18000 to target."
+    },
+    "gemma4-26b-nvfp4-remote": {
+      "hf_id": "gemma-4-26b-a4b",
+      "port": 18000,
+      "host": "192.168.1.76",
+      "notes": "RedHatAI/gemma-4-26B-A4B-it-NVFP4 served via vLLM on LAN. Same base model as local gemma4-26b but NVFP4 quant. 8192 max_model_len — use style_guide_ko_v3_abbr.md."
+    },
+    "qwen36b": {
+      "hf_id": "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+      "quantization": "compressed-tensors",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--reasoning-parser",
+        "qwen3"
+      ],
+      "port": 8084,
+      "container_name": "snomed-qwen36b",
+      "notes": "Qwen 3.6 35B-A3B MoE (3B active). AWQ-4bit ~22GB weights."
+    },
+    "qwen37-max-remote": {
+      "hf_id": "qwen3.7-max",
+      "port": 443,
+      "host": "dashscope-intl.aliyuncs.com",
+      "notes": "Qwen 3.7 Max via Alibaba Model Studio (OpenAI-compatible). Thinking model — set enable_thinking=false in llm_params for direct output. Auth via DASHSCOPE_API_KEY env var (read by translate script's _auth_headers()). Use VLLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode to target."
+    },
+    "gpt-oss-120b": {
+      "hf_id": "openai/gpt-oss-120b",
+      "quantization": "mxfp4",
+      "dtype": "auto",
+      "gpu_memory_utilization": 0.7,
+      "max_model_len": 8192,
+      "max_num_batched_tokens": 8192,
+      "max_num_seqs": 256,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--moe-backend",
+        "flashinfer_cutlass",
+        "--kv-cache-dtype",
+        "fp8",
+        "--load-format",
+        "fastsafetensors"
+      ],
+      "port": 8085,
+      "container_name": "snomed-gpt-oss-120b",
+      "image": "dgx-vllm-mxfp4:latest",
+      "env": {
+        "VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"
+      },
+      "notes": "OpenAI gpt-oss-120b on DGX Spark (GB10, MXFP4 native). Served via dgx-vllm-mxfp4 image; FlashInfer + CUTLASS MoE + FP8 KV cache. Tuned for batch throughput (max_num_seqs=256). See ~/Projects/dgx-docker-images/vllm-mxfp4/Dockerfile."
+    },
+    "qwen122b-gguf": {
+      "backend": "llamacpp",
+      "model_path": "/models/Qwen3.5-122B-A10B-UD-Q4_K_XL/UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf",
+      "ctx_size": 8192,
+      "n_gpu_layers": 99,
+      "parallel": 8,
+      "flash_attn": true,
+      "extra_args": [
+        "--reasoning",
+        "off"
+      ],
+      "port": 8082,
+      "container_name": "snomed-qwen122b",
+      "notes": "Qwen 3.5 122B via llama.cpp GGUF Q4_K_XL."
+    },
+    "qwen36plus-remote": {
+      "hf_id": "qwen3.6-plus",
+      "port": 443,
+      "host": "dashscope-intl.aliyuncs.com",
+      "notes": "Qwen 3.6 Plus via Dashscope. Thinking model — use enable_thinking=false."
+    }
+  },
+  "jobs": {
+    "translate_korean_lookup": {
+      "script": "scripts/translation/translate_korean_with_lookup.py",
+      "description": "EN->KO procedure translation with Qdrant bilingual pair lookup + style guide",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "eval_set": "data/evals/korean/procedure_eval_set.csv",
+      "output_dir": "data/evals/korean",
+      "qdrant_collection": "paired_translations_ko",
+      "lookup_topn": 5,
+      "style_guide": "style_guide/style_guide_ko.md",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "enable_thinking": false
+      }
+    },
+    "translate_korean_baseline": {
+      "script": "scripts/translation/translate_korean_sample.py",
+      "description": "EN->KO baseline translation (no lookup, optional style guide)",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "eval_set": "data/evals/korean/procedure_eval_sample_100.csv",
+      "output_dir": "data/evals/korean",
+      "style_guide": "style_guide/style_guide_ko.md",
+      "llm_params": {
+        "max_tokens": 128,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ]
+      }
+    },
+    "score_korean": {
+      "script": "scripts/evaluation/score_korean_translations.py",
+      "description": "Score translations against KR extension reference (char_sim, token_jaccard, exact)"
+    },
+    "judge_korean": {
+      "script": "scripts/evaluation/judge_korean_translations.py",
+      "description": "LLM-as-judge: classify non-matching translations as ACCEPTABLE / PARTIAL / WRONG",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "notes": "For Qwen3 reasoning models, disable thinking — otherwise the model burns all tokens on reasoning and returns null content."
+    }
+  }
+}

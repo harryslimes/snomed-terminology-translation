@@ -1,0 +1,90 @@
+{
+  "id": "temp-1-0-3",
+  "name": "temp 1.0",
+  "description": "",
+  "project": "mcp-temp-sweep-demo2",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 12.0,
+        "y": 56.0
+      },
+      "params": {
+        "source": "kr_test_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 18.0,
+        "y": 242.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate_full",
+      "type": "translate",
+      "pos": {
+        "x": 312.0,
+        "y": 214.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "gemma4-26b_v5_1_pipeline",
+        "publish_as": "translate_run_1",
+        "temperature": 1
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style_guide_v5_1"
+      }
+    },
+    {
+      "id": "evaluate_full",
+      "type": "evaluate",
+      "pos": {
+        "x": 616.0,
+        "y": 57.0
+      },
+      "params": {},
+      "inputs": {
+        "translations": "translate_full",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "style_guide_v5_1",
+      "type": "style_guide",
+      "pos": {
+        "x": 12.0,
+        "y": 374.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v5_1.md"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "evaluate_formula_1781540727451",
+      "type": "evaluate_formula",
+      "pos": {
+        "x": 950.0,
+        "y": 34.0
+      },
+      "params": {
+        "expression": "exact_match_pct"
+      },
+      "inputs": {
+        "metrics": "evaluate_full"
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "translate_run_1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/published/translate_run_1/5952d0617f4e.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  },
+  "provenance": {
+    "flow": "temp 1.0",
+    "node": "translate_full",
+    "stage": "translate",
+    "run_id": "5952d0617f4e",
+    "run_dir": "data/wizard_runs/5952d0617f4e",
+    "published_at": "2026-06-17T16:28:49",
+    "params": {
+      "model_key": "gemma4-26b-qat",
+      "output_tag": "gemma4-26b_v5_1_pipeline",
+      "publish_as": "translate_run_1",
+      "temperature": 1
+    },
+    "inputs": {
+      "terms": "terms",
+      "exemplars": "exemplars",
+      "style_guide": "style_guide_v5_1"
+    },
+    "style_guide": "style_guide/style_guide_ko_v5_1.md",
+    "model_key": "gemma4-26b-qat"
+  }
+}

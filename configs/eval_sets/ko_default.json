@@ -1,0 +1,11 @@
+{
+  "csv": "data/evals/korean/procedure_eval_set.csv",
+  "columns": {
+    "sctid": "sctid",
+    "source_term": "preferred_term",
+    "reference": "ko_reference",
+    "all_references": "ko_all"
+  },
+  "multi_ref_separator": "|",
+  "splits_dir": "data/evals/korean/dspy_splits"
+}

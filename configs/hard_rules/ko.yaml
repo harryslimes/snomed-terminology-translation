@@ -1,0 +1,73 @@
+# Korean hard rules — non-negotiable translation constraints.
+#
+# Read by pipelines.hard_rules.load_hard_rules and wired into GEPA via
+# scripts/optimization/dspy_translate.make_metric (scored penalty) and
+# build_translator (frozen prompt block). Referenced from a project/optimization
+# recipe as `optimization.hard_rules_file`.
+#
+# Two independent switches per rule:
+#   freeze:  true  -> injected verbatim into the prompt as a constant input
+#                     field. GEPA mutates the style-guide instruction string;
+#                     it cannot touch this field, so the rule survives every
+#                     generation.
+#   enforce: true  -> the metric subtracts `penalty` (default 0.25 of the
+#                     [0,1] score) when the output violates the rule. This is
+#                     what actually stops GEPA exploring the disallowed form:
+#                     it removes the reward signal. Freeze without enforce can
+#                     still be contradicted by a new mutable clause.
+#
+# Match modes (surface-form, scope-agnostic for now):
+#   forbidden:        list of substrings that must never appear in the output.
+#   forbidden_regex:  list of regex patterns that must never match the output.
+#   canonical:        preferred form(s) — documentation for the frozen block
+#                     and the violation message; not matched directly.
+
+language: ko
+
+rules:
+
+  # --- Output-hygiene invariants. Uncontroversial, safe to enforce. ---------
+
+  - id: no-trailing-punctuation
+    description: >-
+      Korean SNOMED terms do not end in punctuation (commas appear only inside
+      list-like constructions, never as a terminator).
+    forbidden_regex:
+      - '[.,;:]\s*$'
+    enforce: true
+    freeze: true
+    penalty: 0.25
+
+  - id: no-wrapping-quotes
+    description: Never wrap the translation in quotation marks.
+    forbidden_regex:
+      - '^\s*["“‘]'
+      - '["”’]\s*$'
+    enforce: true
+    freeze: true
+    penalty: 0.25
+
+  # --- ILLUSTRATIVE: the "70:30 inconsistency" pattern. --------------------
+  # This is the shape you reach for when the reference data is split between
+  # two acceptable forms and you want to pin the majority one. Here: prefer the
+  # native body-site form and forbid the Sino-Korean alternatives.
+  #
+  # DISABLED ON PURPOSE. A prior ablation found that *forcing* native body
+  # sites (팔/다리) and prescriptive KR authorities hurt translation quality —
+  # see docs/imaging_resources_ablation_findings_2026-04-20.md and the
+  # "prescriptive vs descriptive resources" finding. Validate on a clean,
+  # leak-free eval split (cache-leakage caveat applies) before flipping this on.
+  - id: example-native-body-site
+    description: >-
+      EXAMPLE ONLY — prefer native Korean body sites over Sino-Korean. Enable
+      only after validating against the chosen 70% reference convention.
+    canonical:
+      - 팔
+      - 다리
+    forbidden:
+      - 상지
+      - 위팔
+      - 하지
+    enforce: false
+    freeze: false
+    penalty: 0.5

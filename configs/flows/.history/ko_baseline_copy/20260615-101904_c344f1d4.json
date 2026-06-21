@@ -1,0 +1,75 @@
+{
+  "id": "ko_baseline_copy",
+  "name": "ko_baseline_best_of_3",
+  "description": "",
+  "project": "project",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "kr_test_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style_guide_v5_1",
+      "type": "style_guide",
+      "pos": {
+        "x": 40.0,
+        "y": 380.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v5_1.md"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate_consistency_1781515006456",
+      "type": "translate_consistency",
+      "pos": {
+        "x": 359.0,
+        "y": 84.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style_guide_v5_1"
+      }
+    },
+    {
+      "id": "evaluate_consistency_1781515006457",
+      "type": "evaluate_consistency",
+      "pos": {
+        "x": 655.0,
+        "y": 46.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat"
+      },
+      "inputs": {
+        "candidates": "translate_consistency_1781515006456",
+        "reference": "terms"
+      }
+    }
+  ]
+}

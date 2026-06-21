@@ -1,0 +1,9 @@
+{
+  "id": "kr_snomed",
+  "kind": "snomed_national_extension",
+  "enabled": true,
+  "output_csv": "data/EN-KO/snomed_kr.csv",
+  "rf2_root": "data/korean/SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z",
+  "description_file": "data/korean/SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z/Snapshot/Terminology/sct2_Description_Snapshot-ko_KR1000267_20251215.txt",
+  "language_refset_id": "21000267104"
+}

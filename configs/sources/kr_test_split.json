@@ -1,0 +1,12 @@
+{
+  "id": "kr_test_split",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/evals/korean/dspy_splits/test.csv",
+  "csv_path": "data/evals/korean/dspy_splits/test.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "ko_reference"
+  }
+}

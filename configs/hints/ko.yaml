@@ -1,0 +1,46 @@
+# Korean-specific rule-violation hints used by the GEPA metric.
+#
+# Loaded by pipelines.stages.optimize / scripts/optimization/dspy_translate.py
+# via make_metric(cfg). Each rule type is processed by a handler in the
+# metric; the YAML carries only the data, not the logic.
+#
+# Adding new language? Copy this file, swap the strings. Empty lists are
+# fine — chrF and exact-match still work without any hints.
+
+language: ko
+
+# Imaging-modality / procedure compounds the KR-extension and SMEs both
+# expect written *solid* (no internal whitespace). Trigger a hint when the
+# reference contains the solid form but the candidate spaces it.
+solid_compounds:
+  - 자기공명영상         # MRI
+  - 컴퓨터단층촬영       # CT
+  - 초음파검사           # ultrasonography
+  - 혈관조영술           # angiography
+  - 정맥조영술           # venography
+  - 관절조영             # arthrography (root)
+
+# Native (고유어) vs Sino-Korean (한자어) body-site pairs. Trigger a hint
+# when the candidate uses one form and the reference uses the other.
+# Native is listed first in each pair.
+native_vs_sino:
+  - [팔, 상지]
+  - [팔, 위팔]
+  - [다리, 하지]
+  - [허리, 요부]
+  - [후복막, 복막뒤]
+  - [신경얼기, 신경총]
+
+# Modifiers that must appear at the FRONT of the term (KR-extension and
+# SME convention). Trigger a hint if both candidate and reference contain
+# the marker but candidate doesn't put it first.
+front_markers:
+  - 조영제 사용         # with contrast
+  - 조영제 미사용       # without contrast
+
+# Derivational suffix preservation. Each entry pairs (long_form, root):
+# if the reference contains the long_form but the candidate has only the
+# root, the suffix was dropped.
+suffix_preservation:
+  - [조영술, 조영]      # -graphy → -술 dropped
+  - [조영상, 조영]      # -gram → -상 dropped

@@ -1,0 +1,29 @@
+{
+  "id": "evaluate_without_thinking",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/published/evaluate_without_thinking/d7834cbe337d.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  },
+  "provenance": {
+    "flow": "ko_baseline_best_of_5",
+    "node": "evaluate_consistency_1781515006457",
+    "stage": "evaluate_consistency",
+    "run_id": "d7834cbe337d",
+    "run_dir": "data/wizard_runs/d7834cbe337d",
+    "published_at": "2026-06-16T00:48:01",
+    "params": {
+      "model_key": "gemma4-26b-qat",
+      "publish_as": "evaluate_without_thinking"
+    },
+    "inputs": {
+      "candidates": "translate_consistency_1781515006456",
+      "reference": "terms"
+    },
+    "style_guide": null,
+    "model_key": "gemma4-26b"
+  }
+}

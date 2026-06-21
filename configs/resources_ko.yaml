@@ -1,0 +1,156 @@
+# Korean SNOMED translation resource manifest.
+#
+# Each entry is a (scope, kind, payload) triple consulted per concept during
+# translation. The scope is an ECL expression that says which concepts the
+# resource applies to; the kind determines how the payload is used.
+#
+# Kinds:
+#   prompt_addendum   Markdown text appended to the base style prompt when a
+#                     concept matches scope.
+#   term_dictionary   Deterministic key/value lookup. Key is extracted from the
+#                     concept (see key_path). Matching key injects a reference
+#                     line into the user prompt.
+#   retrieval_corpus  Embed-and-retrieve over a document corpus; scope gates
+#                     whether retrieval runs for this concept.
+#   exemplar_set      Similar EN→KO pairs from a prior translation (e.g. the KR
+#                     release). Retrieved per concept via BGE-M3 similarity.
+#
+# Overlap policy (defaults):
+#   prompt_addendum   additive       All matching addenda inject, in declared order.
+#   term_dictionary   most_specific  Narrower ECL scope wins when scopes nest.
+#                                    Disjoint scopes all fire.
+#   retrieval_corpus  additive
+#   exemplar_set      union_dedupe   Union results, dedupe by exemplar SCTID.
+#
+# key_path DSL (term_dictionary only):
+#   $self.fsn                 The target concept's English FSN.
+#   $self.fsn.tokens          Tokenise FSN; match each token against the table.
+#   $attr.<ATTR_ID>.fsn       English FSN of the target concept's attribute value.
+#                             Example: $attr.363704007.fsn = procedure site target's FSN.
+
+version: 1
+language: ko
+
+defaults:
+  overlap:
+    prompt_addendum: additive
+    term_dictionary: most_specific
+    retrieval_corpus: additive
+    exemplar_set: union_dedupe
+
+resources:
+
+  # -----------------------------------------------------------------------
+  # Base style guide — always applies.
+  # -----------------------------------------------------------------------
+  - id: base_style_guide
+    kind: prompt_addendum
+    scope: "<<138875005"                  # SNOMED CT Concept (root)
+    payload:
+      path: style_guide/style_guide_ko_v3.md
+      position: system
+    description: Korean style guide derived from KR release analysis.
+
+  # -----------------------------------------------------------------------
+  # Imaging: radiology editorial guide addendum.
+  # Scope verified against International Edition 2026-04: 7,059 descendants
+  # of 363679005 |Imaging (procedure)|.
+  # -----------------------------------------------------------------------
+  - id: radiology_editorial_guide
+    kind: prompt_addendum
+    scope: "<<363679005"                  # Imaging (procedure)
+    payload:
+      path: style_guide/addenda/radiology_editorial_guide_ko.md
+      position: after_base
+    description: >-
+      Word-order templates, modality synonym rankings, and contrast / view /
+      timing / approach patterns extracted from the KHIS radiology editorial
+      guide (data/korean/RadiologyEditorialGuide_markdown/RadiologyEditorialGuide.md).
+
+  # -----------------------------------------------------------------------
+  # KAA anatomy termbase — triggered by body-site attributes.
+  # Two variants because procedures use Procedure site (363704007) and
+  # findings use Finding site (363698007); payload is the same termbase.
+  # -----------------------------------------------------------------------
+  - id: kaa_anatomy
+    kind: term_dictionary
+    variants:
+      - scope: "<<71388002 : 363704007=*"
+        key_path: "$attr.363704007.fsn"
+      - scope: "<<404684003 : 363698007=*"
+        key_path: "$attr.363698007.fsn"
+    payload:
+      path: data/korean/dictionaries/kaa_anatomy.tsv
+      key_normalize: lowercase_trim_strip_article
+      value_column: ko_preferred
+      fallback_column: ko_synonyms
+      inject_as: "KAA reference for {key}: {value}"
+      on_miss: silent
+    description: >-
+      Korean Association of Anatomies termbase. Extracted from
+      data/korean/RadiologyEditorialGuide_markdown/Terms_from_KoreanAssociation_of_Anatomies.md
+      (Korean / English / Latin triples). Authoritative reference for body-structure
+      term choice when concept has a body-site attribute.
+
+  # -----------------------------------------------------------------------
+  # KARP radiation / imaging glossary — imaging and radiotherapy concepts.
+  # -----------------------------------------------------------------------
+  - id: karp_radiation
+    kind: term_dictionary
+    scope: "<<363679005 OR <<108290001"   # Imaging OR Radiation oncology / radiotherapy
+    payload:
+      path: data/korean/dictionaries/karp_radiation.tsv
+      key_path: "$self.fsn.tokens"
+      key_normalize: lowercase_trim
+      match_mode: multi                   # multiple tokens may hit the table
+      value_column: ko
+      inject_as: "Radiation-term references:\n{matches_table}"
+      on_miss: silent
+    description: >-
+      Korean Association for Radiation Protection English→Korean glossary.
+      Extracted from
+      data/korean/RadiologyEditorialGuide_markdown/Terms_from_TheKoreanAssociation_for_RadiationProtection.md.
+      Covers dose, exposure, beam, fraction, and imaging-technology terms.
+
+  # -----------------------------------------------------------------------
+  # KFDA diagnostic-appropriateness corpus — phase 2 (findings/disorders).
+  # Parked. Re-enable when the finding/disorder hierarchy is in scope.
+  # -----------------------------------------------------------------------
+  - id: kfda_diagnosis_rag
+    kind: retrieval_corpus
+    scope: "<<404684003"                  # Clinical finding
+    enabled: false
+    payload:
+      collection: qdrant://kfda_diagnosis_ko
+      query_template: "{fsn_en}"
+      top_k: 3
+      min_score: 0.72
+      inject_as: "Bilingual context from KFDA diagnosis guideline:\n{snippets}"
+    description: >-
+      Korean(English) bilingual pairs and clinical context mined from the KFDA
+      diagnostic imaging justification guideline
+      (data/korean/RadiologyEditorialGuide_markdown/RadiologicalDiagnosisGuideline(KoreanFDA).md).
+
+  # -----------------------------------------------------------------------
+  # KR release exemplars — universal, no structural filtering.
+  #
+  # Matches the current pipeline behaviour: for any concept, retrieve top-K
+  # similar EN→KO pairs from the entire KR release via BGE-M3 hybrid search.
+  # Whether this should be filtered by SNOMED structure is an open research
+  # question tracked in docs/todo_exemplar_retrieval_investigation.md.
+  # -----------------------------------------------------------------------
+  - id: kr_release_exemplars
+    kind: exemplar_set
+    scope: "<<138875005"                  # universal
+    payload:
+      source: kr_release_2025_12
+      index: qdrant://paired_translations_ko
+      direction: EN->KO
+      top_k: 5
+      ranking: bge_m3_hybrid
+      format: "|{en_fsn}|{ko_preferred}|"
+    description: >-
+      Existing Qdrant lookup over the KR release preferred-term pairs. No
+      SNOMED-structural filtering — mirrors today's pipeline. See
+      docs/todo_exemplar_retrieval_investigation.md for the investigation
+      into whether retrieval should be pre-filtered.

@@ -1,0 +1,30 @@
+{
+  "id": "evaluate_with_thinking",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/published/evaluate_with_thinking/22ac87b0080f.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  },
+  "provenance": {
+    "flow": "ko_baseline_best_of_5",
+    "node": "evaluate_consistency_1781520065846",
+    "stage": "evaluate_consistency",
+    "run_id": "22ac87b0080f",
+    "run_dir": "data/wizard_runs/22ac87b0080f",
+    "published_at": "2026-06-16T00:43:09",
+    "params": {
+      "model_key": "gemma4-26b-qat",
+      "thinking": "on",
+      "publish_as": "evaluate_with_thinking"
+    },
+    "inputs": {
+      "candidates": "translate_consistency_1781515006456",
+      "reference": "terms"
+    },
+    "style_guide": null,
+    "model_key": "gemma4-26b"
+  }
+}

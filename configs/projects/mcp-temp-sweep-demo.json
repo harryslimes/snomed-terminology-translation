@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "name": "mcp-temp-sweep-demo",
+  "description": "Compare translation temperatures 0, 0.5, 1.0",
+  "language": {
+    "code": "ko",
+    "name": "Korean",
+    "direction": "EN->KO",
+    "tokenizer_lang": "en"
+  },
+  "paths": {
+    "root": ".",
+    "data_dir": "data",
+    "output_dir": "data/evals/korean",
+    "lookup_cache": "data/evals/korean/lookup_cache.json"
+  },
+  "qdrant": {
+    "url": "http://localhost:6333",
+    "bgem3": {
+      "model_name": "BAAI/bge-m3",
+      "use_fp16": false,
+      "batch_size": 256,
+      "max_length": 512
+    }
+  },
+  "overlap_defaults": {
+    "prompt_addendum": "additive",
+    "term_dictionary": "most_specific",
+    "retrieval_corpus": "additive",
+    "exemplar_set": "union_dedupe"
+  },
+  "pool_output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+  "pool_dedup_key": [
+    "en_lower",
+    "target"
+  ],
+  "evaluation": {
+    "scorers": [
+      {
+        "kind": "exact_match",
+        "weight": 0.2,
+        "params": {}
+      },
+      {
+        "kind": "chrf",
+        "weight": 0.5,
+        "params": {}
+      },
+      {
+        "kind": "cosine_similarity",
+        "weight": 0.3,
+        "params": {}
+      }
+    ],
+    "multi_ref": true,
+    "judge": {
+      "kind": "none",
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "concurrency": 8
+    }
+  },
+  "optimization": {
+    "seed_style_guide": "style_guide/style_guide_ko_v5_1.md",
+    "splits_dir": "data/evals/korean/dspy_splits",
+    "lookup_cache": "data/sme_review/2026-04-24/lookup_cache.json",
+    "gepa": {
+      "auto": "medium",
+      "track_stats": true
+    },
+    "reflection_candidates": [],
+    "reflection_lm": {
+      "model_id": "openai/qwen3.7-max",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "disable_thinking": true,
+      "temperature": 1.0,
+      "max_tokens": 4000
+    },
+    "hints_file": "configs/hints/ko.yaml"
+  },
+  "sme": {
+    "sample_size": 100,
+    "stratify_by": [
+      "modality",
+      "hierarchy"
+    ],
+    "output_dir": "data/sme_review",
+    "reviewer": {
+      "kind": "sonnet"
+    },
+    "prepare_lookups": true
+  },
+  "default_model_key": "gemma4-26b"
+}

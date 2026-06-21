@@ -1,0 +1,12 @@
+{
+  "id": "pooled_legacy",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+  "csv_path": "data/EN-KO/all_bilingual_pairs.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "en_term",
+    "target": "target_term"
+  }
+}
