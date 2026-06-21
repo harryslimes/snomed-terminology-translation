@@ -30,26 +30,28 @@
     },
     {
       "id": "style_guide_v5_1",
-      "type": "style_guide",
+      "type": "function",
       "pos": {
         "x": 40.0,
         "y": 380.0
       },
       "params": {
-        "path": "style_guide/style_guide_ko_v5_1.md"
+        "path": "style_guide/style_guide_ko_v5_1.md",
+        "function": "style_guide"
       },
       "inputs": {}
     },
     {
       "id": "translate_consistency_1781515006456",
-      "type": "translate_consistency",
+      "type": "function",
       "pos": {
         "x": 427.0,
         "y": 142.0
       },
       "params": {
         "model_key": "gemma4-26b-qat",
-        "temperature": "0.8"
+        "temperature": "0.8",
+        "function": "translate_consistency"
       },
       "inputs": {
         "terms": "terms",
@@ -59,18 +61,32 @@
     },
     {
       "id": "evaluate_consistency_1781515006457",
-      "type": "evaluate_consistency",
+      "type": "function",
       "pos": {
         "x": 842.0,
         "y": 73.0
       },
       "params": {
         "model_key": "gemma4-26b-qat",
-        "publish_as": "evaluate_without_thinking"
+        "function": "evaluate_consistency"
       },
       "inputs": {
         "candidates": "translate_consistency_1781515006456",
         "reference": "terms"
+      }
+    },
+    {
+      "id": "evaluate_consistency_1781515006457__promote",
+      "type": "promote",
+      "pos": {
+        "x": 1062.0,
+        "y": 213.0
+      },
+      "params": {
+        "name": "evaluate_without_thinking"
+      },
+      "inputs": {
+        "value": "evaluate_consistency_1781515006457"
       }
     }
   ]

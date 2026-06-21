@@ -30,7 +30,7 @@
     },
     {
       "id": "translate_full",
-      "type": "translate",
+      "type": "function",
       "pos": {
         "x": 311.0,
         "y": 216.0
@@ -38,8 +38,8 @@
       "params": {
         "model_key": "gemma4-26b-qat",
         "output_tag": "gemma4-26b_v5_1_pipeline",
-        "publish_as": "translate_run_1",
-        "temperature": 1
+        "temperature": 1,
+        "function": "translate"
       },
       "inputs": {
         "terms": "terms",
@@ -49,12 +49,14 @@
     },
     {
       "id": "evaluate_full",
-      "type": "evaluate",
+      "type": "function",
       "pos": {
         "x": 616.0,
         "y": 57.0
       },
-      "params": {},
+      "params": {
+        "function": "evaluate"
+      },
       "inputs": {
         "translations": "translate_full",
         "reference": "terms"
@@ -62,28 +64,44 @@
     },
     {
       "id": "style_guide_v5_1",
-      "type": "style_guide",
+      "type": "function",
       "pos": {
         "x": 12.0,
         "y": 374.0
       },
       "params": {
-        "path": "style_guide/style_guide_ko_v5_1.md"
+        "path": "style_guide/style_guide_ko_v5_1.md",
+        "function": "style_guide"
       },
       "inputs": {}
     },
     {
       "id": "evaluate_formula_1781540727451",
-      "type": "evaluate_formula",
+      "type": "function",
       "pos": {
         "x": 950.0,
         "y": 34.0
       },
       "params": {
-        "expression": "exact_match_pct"
+        "expression": "exact_match_pct",
+        "function": "evaluate_formula"
       },
       "inputs": {
-        "metrics": "evaluate_full"
+        "metrics": "evaluate_full:metrics"
+      }
+    },
+    {
+      "id": "translate_full__promote",
+      "type": "promote",
+      "pos": {
+        "x": 531.0,
+        "y": 356.0
+      },
+      "params": {
+        "name": "translate_run_1"
+      },
+      "inputs": {
+        "value": "translate_full"
       }
     }
   ]
