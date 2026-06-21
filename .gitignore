@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+wheels/
+.venv/
+.eggs/
+
+# Environment
+.env
+.env.local
+build.log
+*.log
+
+# Runtime data & model weights — never committed (regenerate via scripts)
+data/
+models/
+chroma/
+notebooks/chroma/
+snomed_graph/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
