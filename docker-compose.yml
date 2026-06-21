@@ -1,0 +1,243 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: snomed-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  # TranslateGemma 12B (GGUF Q8_0) served via llama.cpp
+  # Uses shared dgx-llama-cpp image (built from ~/Projects/dgx-docker-images)
+  # Provides OpenAI-compatible API at http://localhost:8081/v1
+  llamacpp:
+    image: dgx-llama-cpp:latest
+    container_name: snomed-translategemma
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./models:/models:ro
+    command: >
+      --model /models/translategemma-12b-it-GGUF/translategemma-12b-it-Q8_0.gguf
+      --host 0.0.0.0
+      --port 8080
+      --n-gpu-layers 99
+      --ctx-size 4096
+      --parallel 4
+      --cont-batching
+      --flash-attn on
+      --no-jinja
+      --chat-template chatml
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Qwen 3.5 122B-A10B (GGUF Q4_K_XL) served via llama.cpp
+  # MoE model: 122B total, 10B active params per token
+  # Provides OpenAI-compatible API at http://localhost:8082/v1
+  llamacpp-qwen:
+    image: dgx-llama-cpp:latest
+    container_name: snomed-qwen122b
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./models:/models:ro
+    command: >
+      --model /models/Qwen3.5-122B-A10B-UD-Q4_K_XL/UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf
+      --host 0.0.0.0
+      --port 8080
+      --n-gpu-layers 99
+      --ctx-size 8192
+      --parallel 8
+      --cont-batching
+      --flash-attn on
+      --reasoning off
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Qwen 3.5 35B (GPTQ) for subjective analysis via vLLM
+  # Uses shared dgx-vllm image (built from ~/Projects/dgx-docker-images)
+  # Provides OpenAI-compatible API at http://localhost:8002/v1
+  vllm:
+    image: dgx-vllm:latest
+    container_name: snomed-vllm
+    ipc: host
+    ports:
+      - "8002:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/vllm:/root/.cache/vllm
+      - ~/.cache/triton:/root/.cache/triton
+    command: >
+      Qwen/Qwen3.5-35B-A3B-GPTQ-Int4
+      --quantization gptq_marlin
+      --dtype bfloat16
+      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.6
+      --max-model-len 8192
+      --max-num-batched-tokens 2096
+      --enable-prefix-caching
+      --language-model-only
+      --reasoning-parser qwen3
+      --trust-remote-code
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Qwen 3.5 122B-A10B (GPTQ-Int4) via vLLM
+  # Provides OpenAI-compatible API at http://localhost:8001/v1
+  vllm-122b:
+    image: dgx-vllm:latest
+    container_name: snomed-vllm-122b
+    ipc: host
+    ports:
+      - "8001:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/vllm:/root/.cache/vllm
+      - ~/.cache/triton:/root/.cache/triton
+    command: >
+      Qwen/Qwen3.5-122B-A10B-GPTQ-Int4
+      --quantization gptq_marlin
+      --dtype bfloat16
+      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.85
+      --max-model-len 16384
+      --max-num-batched-tokens 16384
+      --enable-prefix-caching
+      --language-model-only
+      --reasoning-parser qwen3
+      --trust-remote-code
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Qwen 3.6 35B-A3B (AWQ-4bit) via vLLM
+  # MoE model: 35B total, 3B active params per token
+  # Provides OpenAI-compatible API at http://localhost:8084/v1
+  vllm-qwen36b:
+    image: dgx-vllm:latest
+    container_name: snomed-qwen36b
+    ipc: host
+    ports:
+      - "8084:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/vllm:/root/.cache/vllm
+      - ~/.cache/triton:/root/.cache/triton
+    command: >
+      cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+      --quantization compressed-tensors
+      --dtype bfloat16
+      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.60
+      --max-model-len 16384
+      --max-num-batched-tokens 16384
+      --enable-prefix-caching
+      --reasoning-parser qwen3
+      --trust-remote-code
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Gemma 4 26B-A4B (AWQ-4bit) via vLLM
+  # MoE model: 26B total, 4B active params per token
+  # Provides OpenAI-compatible API at http://localhost:8083/v1
+  vllm-gemma4:
+    image: dgx-vllm:latest
+    container_name: snomed-gemma4
+    ipc: host
+    ports:
+      - "8083:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/vllm:/root/.cache/vllm
+      - ~/.cache/triton:/root/.cache/triton
+    command: >
+      cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit
+      --quantization compressed-tensors
+      --dtype bfloat16
+      --gpu-memory-utilization 0.60
+      --max-model-len 16384
+      --max-num-batched-tokens 16384
+      --enable-prefix-caching
+      --trust-remote-code
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Gemma 4 26B-A4B (QAT AWQ-INT4) via vLLM
+  # MoE model: 26B total, 4B active params per token
+  # QAT (quantization-aware training) variant — expect better quality than the
+  # post-training AWQ sibling above. Same compressed-tensors INT4 format (group_size 32).
+  # Provides OpenAI-compatible API at http://localhost:8086/v1
+  vllm-gemma4-qat:
+    image: dgx-vllm:latest
+    container_name: snomed-gemma4-qat
+    ipc: host
+    ports:
+      - "8086:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/vllm:/root/.cache/vllm
+      - ~/.cache/triton:/root/.cache/triton
+    command: >
+      cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --quantization compressed-tensors
+      --dtype bfloat16
+      --gpu-memory-utilization 0.60
+      --max-model-len 16384
+      --max-num-batched-tokens 16384
+      --enable-prefix-caching
+      --trust-remote-code
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
