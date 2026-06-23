@@ -39,7 +39,10 @@ from snomed_translation.assemble import (
     AssemblyError,
     Registries,
     assemble_pipeline_config,
-    load_project,
+    load_environment,
+    load_investigation,
+    recipe_from_investigation,
+    resolve_environment,
 )
 from snomed_translation.config import PipelineConfig
 from snomed_translation.schema import PORT_REQUIRES
@@ -64,10 +67,14 @@ def _registries(ctx: RunContext) -> Registries:
 
 
 def _assemble(ctx: RunContext) -> PipelineConfig:
-    """Assemble (and cache) the project ``PipelineConfig`` for this run.
+    """Assemble (and cache) the run ``PipelineConfig``.
 
     Needs the running flow on ``ctx.flow`` (the app sets it) so the candidate
     whitelist + sources are derived from the same blocks the legacy path used.
+    A Run = Flow × Environment × Investigation: the investigation is chosen at
+    run time (``ctx.investigation``, with the flow's legacy ``project`` binding
+    as a fallback), and the environment is the run-time choice
+    (``ctx.environment``) or the investigation's default (#22/#23).
     """
     cached = ctx.extras.get("base_cfg")
     if cached is not None:
@@ -78,8 +85,19 @@ def _assemble(ctx: RunContext) -> PipelineConfig:
             "no flow on the run context — the engine must set ctx.flow before "
             "running translation functions")
     base = Path(ctx.configs_dir) if ctx.configs_dir else Path("configs")
-    project = load_project(flow.project, base)
-    cfg = assemble_pipeline_config(flow, project, _registries(ctx))
+    inv_name = getattr(ctx, "investigation", None) or getattr(flow, "project", None)
+    if not inv_name:
+        raise AssemblyError(
+            "no investigation for this run — set ctx.investigation (or the "
+            "flow's legacy project) so the environment + recipe resolve")
+    investigation = load_investigation(inv_name, base)
+    env_name = getattr(ctx, "environment", None)
+    environment = (
+        load_environment(env_name, base) if env_name
+        else resolve_environment(investigation, base)
+    )
+    recipe = recipe_from_investigation(investigation)
+    cfg = assemble_pipeline_config(flow, environment, recipe, _registries(ctx))
     ctx.extras["base_cfg"] = cfg
     return cfg
 

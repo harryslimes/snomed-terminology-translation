@@ -751,33 +751,80 @@ class SmeStageSpec(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ProjectSpec(BaseModel):
-    """Shared environment block (configs/project.json) referenced by flows.
+def _spec_from_file(cls, path: Path | str):
+    path = Path(path)
+    raw = path.read_text(encoding="utf-8")
+    if path.suffix.lower() in (".yaml", ".yml"):
+        import yaml
+        data = yaml.safe_load(raw)
+    else:
+        data = json.loads(raw)
+    return cls, data
 
-    This is the 'where + how this language's runs are wired' that doesn't
-    change per experiment: language, filesystem paths, Qdrant/embedder, the
-    overlap-resolution policy, the pool-composition defaults, and the
-    rarely-varying stage recipes (evaluation/optimization/sme). A flow names
-    a project by ``name`` (the configs/<name>.json stem) and picks which of
-    its building blocks to compose. The assembler
-    (:func:`snomed_translation.assemble.assemble_pipeline_config`) materialises a
-    :class:`PipelineConfig` from a project + the referenced blocks + a flow.
+
+def _spec_save(self, path: Path | str) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = self.model_dump(mode="json", exclude_none=True)
+    if path.suffix.lower() in (".yaml", ".yml"):
+        import yaml
+        path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+                        encoding="utf-8")
+    else:
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
+                        encoding="utf-8")
+
+
+# Environment fields that legacy flat project.json files carried inline, lifted
+# into an inline :class:`EnvironmentSpec` so old files keep loading (#23).
+_ENV_KEYS = ("language", "paths", "qdrant", "overlap_defaults", "default_model_key")
+
+
+class EnvironmentSpec(BaseModel):
+    """The run *context* a flow executes in (configs/environments/<name>.json).
+
+    The 'where + how runs are wired' that doesn't change per experiment:
+    language, filesystem paths, Qdrant/embedder, the overlap-resolution policy
+    and the fallback model. A reusable, named block an :class:`InvestigationSpec`
+    chooses as its default and a Run may override — so the same flow run under
+    two environments is directly comparable (#22).
     """
 
     version: int = 1
     name: str = Field(
-        default="project",
+        default="default",
         pattern=r"^[a-zA-Z0-9_-]+$",
-        description="Stable id; the configs/projects/<name>.json filename stem.",
+        description="Stable id; the configs/environments/<name>.json filename stem.",
     )
     description: str = Field(
         default="",
-        description="Free-text statement of the project's purpose / goal.",
+        description="Free-text note on what this run context is for.",
     )
     language: LanguageSpec
     paths: PathsSpec = PathsSpec()
     qdrant: QdrantSpec = QdrantSpec()
     overlap_defaults: OverlapDefaults = OverlapDefaults()
+    default_model_key: str | None = None
+
+    @classmethod
+    def from_file(cls, path: Path | str) -> "EnvironmentSpec":
+        cls, data = _spec_from_file(cls, path)
+        return cls.model_validate(data)
+
+    save = _spec_save
+
+
+class RecipeSpec(BaseModel):
+    """Translation-domain stage recipes + pool-composition defaults.
+
+    Owned by the domain plugin, not the generic app: these ride as top-level
+    keys on the investigation file and are read here (extra keys ignored) so the
+    generic :class:`InvestigationSpec` never needs to know them (#16). The
+    assembler reads recipe fields from this, environment fields from the
+    :class:`EnvironmentSpec`.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     # Pool-composition defaults; the flow picks which source ids to include.
     pool_output_csv: Path | None = None
@@ -788,31 +835,61 @@ class ProjectSpec(BaseModel):
     optimization: OptimizationStageSpec | None = None
     sme: SmeStageSpec | None = None
 
-    # Fallback model when a translate step omits model_key.
-    default_model_key: str | None = None
+
+class InvestigationSpec(BaseModel):
+    """A research grouping: a question + the runs and results under it.
+
+    Thin by design — it chooses a default :class:`EnvironmentSpec` (the run
+    context) by name and optional default eval data; runs pick the environment
+    at run time. The domain plugin's :class:`RecipeSpec` fields ride along as
+    extra keys (``extra="allow"``) so they are preserved untouched on a UI
+    round-trip even though the generic spec does not type them (#16).
+
+    Back-compat: a legacy flat project.json (env fields inline, no
+    ``environment`` key) is loaded by lifting those fields into an inline
+    environment, so existing deployments keep working (#23).
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    version: int = 1
+    name: str = Field(
+        default="investigation",
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Stable id; the configs/investigations/<name>.json filename stem.",
+    )
+    description: str = Field(
+        default="",
+        description="Free-text statement of the investigation's question / goal.",
+    )
+    environment: str | EnvironmentSpec = Field(
+        default="default",
+        description="Default run context: a configs/environments/<name>.json name, "
+                    "or an inline environment (legacy flat files are lifted here).",
+    )
+    default_eval_set: str | None = Field(
+        default=None,
+        description="Default eval-set id for runs grouped under this investigation.",
+    )
 
     @classmethod
-    def from_file(cls, path: Path | str) -> "ProjectSpec":
-        path = Path(path)
-        raw = path.read_text(encoding="utf-8")
-        if path.suffix.lower() in (".yaml", ".yml"):
-            import yaml
-            data = yaml.safe_load(raw)
-        else:
-            data = json.loads(raw)
+    def from_file(cls, path: Path | str) -> "InvestigationSpec":
+        cls, data = _spec_from_file(cls, path)
+        if isinstance(data, dict) and "environment" not in data \
+                and any(k in data for k in _ENV_KEYS):
+            data = dict(data)
+            env: dict = {"name": data.get("name", "default"), "description": ""}
+            for k in _ENV_KEYS:
+                if k in data:
+                    env[k] = data.pop(k)
+            data["environment"] = env
         return cls.model_validate(data)
 
-    def save(self, path: Path | str) -> None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        data = self.model_dump(mode="json", exclude_none=True)
-        if path.suffix.lower() in (".yaml", ".yml"):
-            import yaml
-            path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
-                            encoding="utf-8")
-        else:
-            path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
-                            encoding="utf-8")
+    save = _spec_save
+
+
+# Back-compat alias: the entity was called ``Project`` before the rename (#21).
+ProjectSpec = InvestigationSpec
 
 
 # ---------------------------------------------------------------------------
