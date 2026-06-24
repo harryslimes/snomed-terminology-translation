@@ -13,24 +13,24 @@ one preferred Korean synonym in the KR release.
 from __future__ import annotations
 
 import csv
+import os
 import re
 from pathlib import Path
 
 import networkx as nx
 
-KR_DIR = Path(
-    "/home/jc2301/Projects/snomed_translation_poc_2/data/korean/"
-    "SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z/Snapshot"
+# Data lives in this repo's own data/ dir (repo root is two levels up from
+# scripts/data_prep/). Override with DATA_DIR if the data lives elsewhere.
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+
+KR_DIR = (
+    DATA_DIR / "korean"
+    / "SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z/Snapshot"
 )
 KR_DESC = KR_DIR / "Terminology/sct2_Description_Snapshot-ko_KR1000267_20251215.txt"
 KR_LANG = KR_DIR / "Refset/Language/der2_cRefset_LanguageSnapshot-ko_KR1000267_20251215.txt"
-GRAPH_PATH = Path(
-    "/home/jc2301/Projects/snomed_translation_poc_2/data/snomed_graph/full_concept_graph.gml"
-)
-OUT_CSV = Path(
-    "/home/jc2301/Projects/snomed_translation_poc_2/data/evals/korean/"
-    "procedure_eval_set.csv"
-)
+GRAPH_PATH = DATA_DIR / "snomed_graph/full_concept_graph.gml"
+OUT_CSV = DATA_DIR / "evals/korean/procedure_eval_set.csv"
 
 PROCEDURE_ROOT = "71388002"
 TYPE_SYNONYM = "900000000000013009"
