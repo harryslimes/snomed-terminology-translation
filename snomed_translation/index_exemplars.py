@@ -13,7 +13,12 @@ import argparse
 import logging
 import sys
 
-from snomed_translation.assemble import AssemblyError, Registries, load_project
+from snomed_translation.assemble import (
+    AssemblyError,
+    Registries,
+    load_investigation,
+    resolve_environment,
+)
 from snomed_translation.exemplars import ExemplarError, index_source
 
 
@@ -22,8 +27,10 @@ def main() -> int:
         description="Index a data source's exemplar embeddings into Qdrant.")
     p.add_argument("--source", required=True,
                    help="Source id (configs/sources/<id>.json).")
-    p.add_argument("--project", default="project",
-                   help="Project block supplying language + Qdrant settings.")
+    p.add_argument("--investigation", "--project", dest="investigation",
+                   default="project",
+                   help="Investigation whose environment supplies language + "
+                        "Qdrant settings (--project is a deprecated alias).")
     p.add_argument("--configs-dir", default="configs")
     args = p.parse_args()
 
@@ -34,7 +41,8 @@ def main() -> int:
     log = logging.getLogger("snomed_translation.index_exemplars")
 
     try:
-        project = load_project(args.project, args.configs_dir)
+        inv = load_investigation(args.investigation, args.configs_dir)
+        environment = resolve_environment(inv, args.configs_dir)
         registries = Registries.load()
     except AssemblyError as exc:
         log.error("%s", exc)
@@ -46,8 +54,9 @@ def main() -> int:
         return 1
 
     try:
-        result = index_source(spec, project.language.code, project.qdrant.url,
-                              project.qdrant.bgem3.model_name)
+        result = index_source(spec, environment.language.code,
+                              environment.qdrant.url,
+                              environment.qdrant.bgem3.model_name)
     except ExemplarError as exc:
         log.error("%s", exc)
         return 1

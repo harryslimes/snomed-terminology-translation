@@ -26,10 +26,12 @@ from pathlib import Path
 from snomed_translation.config import (
     BilingualPoolSpec,
     DataSourceSpec,
+    EnvironmentSpec,
+    InvestigationSpec,
     JobSpec,
     ModelSpec,
     PipelineConfig,
-    ProjectSpec,
+    RecipeSpec,
     ResourceManifest,
     ResourceSpec,
     SourcesSpec,
@@ -99,27 +101,61 @@ class Registries:
                    resources_manifest=manifest)
 
 
-def load_project(name: str, configs_dir: str | Path = "configs") -> ProjectSpec:
-    """Resolve a project by name to its spec file.
-
-    Looks in ``configs/projects/<name>.{json,yaml,yml}`` first (the multi-project
-    library), then falls back to the legacy singleton location
-    ``configs/<name>.json`` so older layouts keep working.
-    """
+def load_environment(name: str, configs_dir: str | Path = "configs") -> EnvironmentSpec:
+    """Resolve an environment by name to its spec file
+    (``configs/environments/<name>.{json,yaml,yml}``)."""
     base = Path(configs_dir)
-    for parent in (base / "projects", base):
-        for ext in (".json", ".yaml", ".yml"):
-            p = parent / f"{name}{ext}"
-            if p.exists():
-                return ProjectSpec.from_file(p)
+    for ext in (".json", ".yaml", ".yml"):
+        p = base / "environments" / f"{name}{ext}"
+        if p.exists():
+            return EnvironmentSpec.from_file(p)
     raise AssemblyError(
-        f"project {name!r} not found under {base} "
-        f"(looked in projects/ and the legacy root for {name}.json/.yaml/.yml)."
+        f"environment {name!r} not found under {base / 'environments'} "
+        f"({name}.json/.yaml/.yml)."
     )
 
 
-def _referenced_model_keys(flow: FlowSpec, project: ProjectSpec) -> list[str]:
-    """Every model_key a translate or optimize node names, plus the project
+def load_investigation(
+    name: str, configs_dir: str | Path = "configs"
+) -> InvestigationSpec:
+    """Resolve an investigation by name to its spec file.
+
+    Looks in ``configs/investigations/<name>.*`` first, then the legacy
+    ``configs/projects/<name>.*`` and the singleton ``configs/<name>.json`` so
+    older layouts keep working (#21/#23).
+    """
+    base = Path(configs_dir)
+    for parent in (base / "investigations", base / "projects", base):
+        for ext in (".json", ".yaml", ".yml"):
+            p = parent / f"{name}{ext}"
+            if p.exists():
+                return InvestigationSpec.from_file(p)
+    raise AssemblyError(
+        f"investigation {name!r} not found under {base} (looked in "
+        f"investigations/, projects/ and the legacy root for {name}.json/.yaml/.yml)."
+    )
+
+
+def resolve_environment(
+    inv: InvestigationSpec, configs_dir: str | Path = "configs"
+) -> EnvironmentSpec:
+    """The investigation's environment: the inline block (legacy flat files), or
+    the named one loaded from the environment library."""
+    env = inv.environment
+    if isinstance(env, EnvironmentSpec):
+        return env
+    return load_environment(env, configs_dir)
+
+
+def recipe_from_investigation(inv: InvestigationSpec) -> RecipeSpec:
+    """The domain recipe (evaluation/optimization/sme/pool) carried as extra
+    keys on the investigation file — read here without the generic spec typing
+    them (#16)."""
+    return RecipeSpec.model_validate(inv.model_dump(mode="python"))
+
+
+def _referenced_model_keys(flow: FlowSpec, environment: EnvironmentSpec) -> list[str]:
+    """Every model_key a translate or optimize node names, plus the environment
     default — de-duplicated, order preserved. This is the translation
     candidate whitelist: optimize nodes count because GEPA optimises the
     guide *for* a task model, selected by the same candidate mechanism."""
@@ -133,8 +169,8 @@ def _referenced_model_keys(flow: FlowSpec, project: ProjectSpec) -> list[str]:
         mk = node.params.get("model_key")
         if isinstance(mk, str) and mk:
             keys.append(mk)
-    if project.default_model_key:
-        keys.append(project.default_model_key)
+    if environment.default_model_key:
+        keys.append(environment.default_model_key)
     seen: set[str] = set()
     return [k for k in keys if not (k in seen or seen.add(k))]
 
@@ -165,9 +201,13 @@ def _make_candidate(key: str, model: ModelSpec) -> TranslationCandidate:
 
 
 def assemble_pipeline_config(
-    flow: FlowSpec, project: ProjectSpec, registries: Registries
+    flow: FlowSpec,
+    environment: EnvironmentSpec,
+    recipe: RecipeSpec,
+    registries: Registries,
 ) -> PipelineConfig:
-    """Materialise a ``PipelineConfig`` from a flow + project + registries.
+    """Materialise a ``PipelineConfig`` from a flow + environment + recipe +
+    registries.
 
     Raises :class:`AssemblyError` (naming the offending id) on any unresolved
     block reference, so the UI and CLI can show actionable messages.
@@ -211,7 +251,7 @@ def assemble_pipeline_config(
         ) from exc
 
     # --- Translation candidates derived from the flow's translate steps.
-    model_keys = _referenced_model_keys(flow, project)
+    model_keys = _referenced_model_keys(flow, environment)
     missing_m = [k for k in model_keys if k not in registries.models]
     if missing_m:
         raise AssemblyError(
@@ -220,7 +260,7 @@ def assemble_pipeline_config(
         )
     candidates = [_make_candidate(k, registries.models[k]) for k in model_keys]
     default_model_key = (
-        project.default_model_key
+        environment.default_model_key
         or (model_keys[0] if model_keys else None)
     )
 
@@ -231,8 +271,8 @@ def assemble_pipeline_config(
 
     pool = BilingualPoolSpec(
         sources=pool_source_ids,
-        output_csv=project.pool_output_csv or BilingualPoolSpec().output_csv,
-        dedup_key=list(project.pool_dedup_key),
+        output_csv=recipe.pool_output_csv or BilingualPoolSpec().output_csv,
+        dedup_key=list(recipe.pool_dedup_key),
     )
 
     # Construct via the model so every validator (candidate uniqueness,
@@ -240,17 +280,17 @@ def assemble_pipeline_config(
     # file-loaded config. eval_set stays None — each step supplies one.
     return PipelineConfig(
         version=1,
-        language=project.language,
-        paths=project.paths,
+        language=environment.language,
+        paths=environment.paths,
         sources=SourcesSpec(data_sources=data_sources, pool=pool),
         eval_set=None,
         resources=resources,
-        overlap_defaults=project.overlap_defaults,
-        qdrant=project.qdrant,
+        overlap_defaults=environment.overlap_defaults,
+        qdrant=environment.qdrant,
         models=registries.models,
         jobs=registries.jobs,
         translation=translation,
-        evaluation=project.evaluation,
-        optimization=project.optimization,
-        sme=project.sme,
+        evaluation=recipe.evaluation,
+        optimization=recipe.optimization,
+        sme=recipe.sme,
     )
