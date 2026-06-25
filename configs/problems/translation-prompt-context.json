@@ -9,7 +9,22 @@
     "nodes": [],
     "edges": []
   },
-  "notes": [],
+  "notes": [
+    {
+      "id": "note-concept-context",
+      "body": "**Adding SNOMED concept context to the EN->KO prompt is neutral overall but helps the ambiguous tail — and ONLY if the context is fenced off.** Translated 960 concepts (120 each across 8 hierarchies, gemma4-26b-qat) under three prompts — bare / +semantic-tag / +parent hierarchy — scored vs the KR gold (multi-reference chrF + BGE semantic).\n\n- First, a trap: naively appending '(organism)'/parent lists LEAKED into the output (땅콩(균) and HURT quality (chrF 58.0 -> 54.0). Fencing the context with explicit 'context only, do NOT include' labels fixed the leak (5/960 artifacts).\n- Fenced, context is ~neutral overall: bare 58.0 / +tag 58.0 / +parents **58.5** chrF (sem ~0.82 flat).\n- But it helps SELECTIVELY on ambiguous hierarchies: organism +2.8 chrF (53.2->56.0), qualifier value +3.5 (59.4->62.9); flat/slightly negative on concrete types (disorder, procedure, substance) the model already nails.\n\nCaveats: deltas are modest and n=120/hierarchy (noisy); chrF/sem-to-gold penalises valid alternative translations, so it may UNDERSTATE context value for precision — an SME spot-check on the ambiguous tail is the real test. Text definitions (only ~2.4% of concepts) untested as a sub-condition.\n\nImplication for prompt optimisation: don't blanket-add context — add it CONDITIONALLY for ambiguous/rare concept types, and the format must clearly separate context from the term. This is the signal to feed GEPA: let the optimiser learn WHEN to pull which context. Reproduced by scripts/analysis/concept_context_translation.py (scripted, not yet a flow node).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "concept-context translation investigation"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    }
+  ],
   "plan": {
     "tasks": [],
     "gates": []

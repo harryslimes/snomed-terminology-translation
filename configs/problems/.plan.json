@@ -241,6 +241,40 @@
       "depends_on": [],
       "status": "todo",
       "proposed_by": ""
+    },
+    {
+      "id": "task-20",
+      "title": "Concept-context in the translation prompt (tag/parents)",
+      "rationale": "does SNOMED context improve EN->KO? Neutral overall, helps ambiguous tail (organism/qualifier); context must be fenced",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-21",
+      "title": "Prompt optimisation (GEPA) with conditional context access",
+      "rationale": "let the optimiser learn WHEN to pull which SNOMED context (ambiguous/rare types); productionise a context-aware translate node",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-20"
+      ],
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-22",
+      "title": "SME spot-check of context value on the ambiguous tail",
+      "rationale": "chrF/sem-to-gold may understate context value (penalises valid divergence); confirm with human rating on organisms/qualifier values",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-20"
+      ],
+      "status": "todo",
+      "proposed_by": ""
     }
   ],
   "gates": [
