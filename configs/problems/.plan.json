@@ -255,7 +255,7 @@
     {
       "id": "task-21",
       "title": "Prompt optimisation (GEPA) with conditional context access",
-      "rationale": "let the optimiser learn WHEN to pull which SNOMED context (ambiguous/rare types); productionise a context-aware translate node",
+      "rationale": "blind judge shows parent context wins ~2:1 on ambiguous types (organism 69%, qualifier 66%, finding 57%) but HURTS concrete ones (body structure 26%, disorder 44%); GEPA should learn conditional context access by concept type. Productionise a context-aware translate node.",
       "problem": "translation-prompt-context",
       "addresses": [],
       "depends_on": [
