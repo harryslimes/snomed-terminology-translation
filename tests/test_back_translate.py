@@ -36,6 +36,33 @@ def test_back_translate_node(tmp_path, monkeypatch):
     assert "model_id" in functions.back_translate(ctx, {"queries": str(q)}, {}).message
 
 
+def test_translategemma_prompt_and_completion(monkeypatch):
+    p = bt.translategemma_prompt("심장마비")
+    assert "Korean (ko) to English (en)" in p
+    assert p.rstrip().endswith("<start_of_turn>model")
+    assert "심장마비" in p
+
+    captured = {}
+
+    class _R:
+        def raise_for_status(self): pass
+        def json(self): return {"choices": [{"text": "Heart attack\n"}]}
+
+    def _post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["prompt"] = json["prompt"]
+        return _R()
+
+    monkeypatch.setattr(bt.requests, "post", _post)
+    out = bt.translate_completion("http://x", "translategemma", "심장마비")
+    assert out == "Heart attack"
+    assert captured["url"].endswith("/v1/completions")     # not /chat/completions
+    # the fmt switch routes back_translate_terms through the completions path
+    assert bt.back_translate_terms(["심장마비"], base_url="http://x",
+                                   model_id="m", fmt="translategemma") == ["Heart attack"]
+
+
 def test_registered():
     s = next((s for s in functions.specs() if s.name == "back_translate"), None)
     assert s is not None and [o.name for o in s.outputs] == ["translations"]
+    assert {"format", "source_lang_code", "target_lang_code"} <= {p.name for p in s.params}

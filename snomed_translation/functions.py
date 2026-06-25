@@ -599,6 +599,11 @@ def back_translate(ctx: RunContext, inputs: dict[str, Any],
     out_col = str(params.get("out_col") or "query")
     from snomed_translation.back_translate import DEFAULT_SYSTEM, back_translate_terms
     system = str(params.get("system") or DEFAULT_SYSTEM)
+    fmt = str(params.get("format") or "chat")
+    src_lang = str(params.get("source_lang") or "Korean")
+    src_code = str(params.get("source_lang_code") or "ko")
+    tgt_lang = str(params.get("target_lang") or "English")
+    tgt_code = str(params.get("target_lang_code") or "en")
 
     rows: list[tuple[str, str]] = []
     with Path(qpath).open(encoding="utf-8") as f:
@@ -607,8 +612,10 @@ def back_translate(ctx: RunContext, inputs: dict[str, Any],
     if not rows:
         return FunctionResult(ok=False, message=f"back_translate: no rows in {qpath}")
     try:
-        english = back_translate_terms([k for _, k in rows], base_url=base_url,
-                                       model_id=str(model_id), system=system)
+        english = back_translate_terms(
+            [k for _, k in rows], base_url=base_url, model_id=str(model_id),
+            system=system, fmt=fmt, source_lang=src_lang, source_code=src_code,
+            target_lang=tgt_lang, target_code=tgt_code)
     except Exception as exc:
         return FunctionResult(ok=False, message=f"back-translation failed: {exc}")
 
@@ -791,6 +798,19 @@ back_translate_spec = FunctionSpec(
         ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
         ParamSpec(name="out_col", label="Output column", kind="text", default="query"),
         ParamSpec(name="system", label="System prompt", kind="textarea"),
+        ParamSpec(name="format", label="Prompt format", kind="select",
+                  default="chat", options=["chat", "translategemma"],
+                  help="`chat` = system+user instruction (most models). "
+                       "`translategemma` = structured translation prompt via the "
+                       "completions endpoint (for google/translategemma-*)."),
+        ParamSpec(name="source_lang", label="Source language", kind="text",
+                  default="Korean"),
+        ParamSpec(name="source_lang_code", label="Source code", kind="text",
+                  default="ko"),
+        ParamSpec(name="target_lang", label="Target language", kind="text",
+                  default="English"),
+        ParamSpec(name="target_lang_code", label="Target code", kind="text",
+                  default="en"),
     ],
     runner=f"{_RUN}:back_translate",
 )
