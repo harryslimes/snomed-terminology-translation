@@ -57,3 +57,35 @@ def test_build_index_manifest_and_points(monkeypatch, tmp_path):
     assert manifest["collection"] == store.created[0]
     assert {p["sctid"] for p in store.points} == {"22298006", "73211009"}
     assert any(p["text"] == "Heart attack" for p in store.points)
+
+
+def test_build_snomed_index_node(monkeypatch):
+    """The function-node runner maps the manifest to outputs/metrics and fails
+    cleanly on a bad rf2_root (without loading the embedder)."""
+    from snomed_translation import functions, snomed_index
+
+    bad = functions.build_snomed_index(None, {}, {"rf2_root": "/no/such/release"})
+    assert bad.ok is False and "not found" in bad.message
+
+    missing = functions.build_snomed_index(None, {}, {})
+    assert missing.ok is False and "rf2_root" in missing.message
+
+    monkeypatch.setattr(snomed_index, "build_index", lambda *a, **k: {
+        "kind": "snomed_index", "collection": "snomed_idx_x",
+        "release_id": "INT_20260101", "embedding_model": "BAAI/bge-m3",
+        "vector_dim": 1024, "n_concepts": 15, "n_points": 93,
+        "scope_size": None, "qdrant_url": "http://x:6333"})
+    monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
+    res = functions.build_snomed_index(None, {}, {"rf2_root": "/tmp/rel"})
+    assert res.ok is True
+    assert res.outputs["index"]["collection"] == "snomed_idx_x"
+    assert res.metrics["n_concepts"] == 15.0
+    assert "INT_20260101" in res.message
+
+
+def test_build_snomed_index_registered():
+    from snomed_translation.functions import specs
+    spec = next((s for s in specs() if s.name == "build_snomed_index"), None)
+    assert spec is not None and spec.category == "index"
+    assert [o.name for o in spec.outputs] == ["index"]
+    assert {p.name for p in spec.params} >= {"rf2_root", "embedding_model"}

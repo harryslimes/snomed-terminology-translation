@@ -293,6 +293,50 @@ def style_guide(ctx: RunContext, inputs: dict[str, Any],
                           message=f"style guide {p.name}")
 
 
+def _read_sctids(path: str) -> set[str] | None:
+    """Read a column of concept ids (sctid / conceptId / id) from a CSV, to scope
+    an index build. None if the file is absent or empty."""
+    import csv as _csv
+    p = Path(str(path))
+    if not p.exists():
+        return None
+    ids: set[str] = set()
+    with p.open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            v = row.get("sctid") or row.get("conceptId") or row.get("id")
+            if v and v.strip():
+                ids.add(v.strip())
+    return ids or None
+
+
+def build_snomed_index(ctx: RunContext, inputs: dict[str, Any],
+                       params: dict[str, Any]) -> FunctionResult:
+    """Build a hybrid semantic index over the SNOMED terminology (FSN + synonyms)
+    from a local International RF2 release, for back-translation lookup. Emits an
+    index manifest (a DataObject to promote + reuse)."""
+    rf2 = params.get("rf2_root")
+    if not rf2:
+        return FunctionResult(ok=False, message="build_snomed_index needs `rf2_root`")
+    if not Path(str(rf2)).exists():
+        return FunctionResult(ok=False, message=f"rf2_root not found: {rf2}")
+    model = str(params.get("embedding_model") or "BAAI/bge-m3")
+    scope = _read_sctids(params["scope_csv"]) if params.get("scope_csv") else None
+    try:
+        from snomed_translation.snomed_index import build_index
+        manifest = build_index(str(rf2), embedding_model=model, scope=scope)
+    except Exception as exc:  # surfaced in the run journal, not raised
+        return FunctionResult(ok=False, message=f"index build failed: {exc}")
+    return FunctionResult(
+        ok=True,
+        outputs={"index": manifest},
+        metrics={"n_concepts": float(manifest["n_concepts"]),
+                 "n_points": float(manifest["n_points"])},
+        message=(f"indexed {manifest['n_concepts']} concepts "
+                 f"({manifest['n_points']} surface forms) from "
+                 f"{manifest['release_id']} -> {manifest['collection']}"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Source resolver: a datasource node naming a project ``source``.
 # ---------------------------------------------------------------------------
@@ -485,12 +529,34 @@ style_guide_spec = FunctionSpec(
     runner=f"{_RUN}:style_guide",
 )
 
+build_snomed_index_spec = FunctionSpec(
+    name="build_snomed_index", label="Build SNOMED index", category="index",
+    description="Embed concept surface forms (FSN + synonyms) from a local "
+                "International RF2 release into a hybrid Qdrant collection for "
+                "back-translation lookup. Outputs an index manifest to promote "
+                "as a reusable DataObject (it records the release + embedding "
+                "model so a rebuild is reproducible).",
+    inputs=[],
+    outputs=[PortSpec(name="index", kinds=["index"])],
+    params=[
+        ParamSpec(name="rf2_root", label="RF2 release root", kind="text",
+                  required=True,
+                  help="Path to a SNOMED International RF2 release directory."),
+        ParamSpec(name="embedding_model", label="Embedding model", kind="text",
+                  default="BAAI/bge-m3"),
+        ParamSpec(name="scope_csv", label="Scope CSV (optional)", kind="text",
+                  help="CSV with an sctid column to restrict the index; "
+                       "empty = the whole terminology."),
+    ],
+    runner=f"{_RUN}:build_snomed_index",
+)
+
 
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
-        score_workflow_llm_spec, style_guide_spec,
+        score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
     ]
 
 
