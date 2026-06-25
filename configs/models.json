@@ -52,6 +52,28 @@
         "enable_thinking": false
       }
     },
+    "translategemma-27b": {
+      "hf_id": "kaitchup/translategemma-27b-it-autoround-w4a16",
+      "quantization": "auto-round",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [],
+      "port": 8087,
+      "container_name": "snomed-translategemma27b",
+      "notes": "TranslateGemma 27B-it (google/translategemma-27b-it) AutoRound w4a16 — 4-bit, group_size 128, gptq packing (auto_round:auto_gptq), ~17GB weights. Translation-specialised Gemma 3. Registered for KO->EN back-translation comparison vs gemma4-26b-qat. Serve as its own vLLM container on :8087; if quantization=auto-round is unsupported by the installed vLLM, fall back to gptq_marlin. gemma3 multimodal arch — text-only is fine for back-translation.",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ]
+      }
+    },
     "qwen35b": {
       "hf_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
       "quantization": "gptq_marlin",
