@@ -1,0 +1,17 @@
+{
+  "id": "translation-prompt-context",
+  "title": "Supporting context for translation performance",
+  "prose": "What supporting context — beyond the bare term — maximises EN->KO translation quality? Candidates from SNOMED itself: the semantic tag (always present, cheap disambiguation), the parent / is-a hierarchy (sense + domain), synonyms, and text definitions (rich but only ~2.4% of concepts). Plus the existing levers: retrieval exemplars and the style guide. This is the TRANSLATION-PERFORMANCE arm of the project — reduce errors at the source — distinct from the confidence thread (output-translations-confidence), which PRIORITISES review of what remains. Both serve the root goal of minimising terminologist effort, and they interact: better context lowers the error rate, and some context (e.g. detected ambiguity) may itself feed a confidence signal.",
+  "parent": "snomed-translation",
+  "created": "2026-06-25T18:30:00",
+  "retired": false,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}
