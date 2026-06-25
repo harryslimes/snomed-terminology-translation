@@ -1,0 +1,50 @@
+{
+  "id": "snomed-bt-scale-dense",
+  "name": "snomed-bt-scale-dense",
+  "description": "Re-retrieve the cached full-extension back-translations in DENSE mode (cosine scores) to build the per-item confidence curve. No LLM re-run.",
+  "nodes": [
+    {
+      "id": "bt",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "kr_backtrans_en_full"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "dense",
+        "search_depth": 10
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

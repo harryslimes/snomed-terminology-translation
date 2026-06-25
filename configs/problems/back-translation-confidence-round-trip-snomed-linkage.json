@@ -308,6 +308,30 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-confidence-signal",
+      "body": "**The match score is a real but moderate confidence signal — it tops out at ~82% precision.** On the full 36k extension (dense retrieval of the cached back-translations):\n\n- Raw cosine (top_score): AUC 0.696. cosine>=0.95 keeps 62% of translations at 80% precision (base 68%).\n- **Margin** (top1 minus the next *different* concept's score): better, AUC 0.737. margin>=0.09 keeps **55% at 82% precision**; >=0.18 keeps 18% at 85%.\n- Cosine+margin+second_score combined (5-fold logistic): AUC 0.738 — **no gain over margin alone**; precision plateaus ~82% across 30-70% coverage.\n- The cross-encoder rerank score is useless here: it saturates near 1.0 even when wrong (precision only 74% at score>=0.999).\n\nSo a single margin threshold cleanly carves out a high-confidence subset (~55% of items at ~82% precision) and flags the rest for review — useful for human-in-the-loop, but not a strong auto-accept gate. The ~82% ceiling is the retrieval embeddings failing to separate a concept from its near-synonym competitors. Breaking it needs an *external* check — the prime candidate is round-trip consistency: translate the matched concept's English FSN back to Korean and compare to the input Korean. Numbers live in the linked runs; see scripts/analysis/confidence_curve.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "355ef88e11b7",
+          "label": "dense + margin (AUC 0.74)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "2fc3afa567f8",
+          "label": "dense baseline (recall@1 68%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {

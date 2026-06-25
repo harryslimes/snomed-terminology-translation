@@ -170,6 +170,12 @@ def retrieve_concepts(
         ranked = query_index(collection, query, limit=max(search_depth, limit),
                              mode=mode, embedder=embedder, store=store)
         top = ranked[0] if ranked else {}
+        top_score = float(top.get("score", 0.0))
+        # margin to the next *different* concept (consecutive hits can be other
+        # surface forms of the same sctid): a big gap = an unambiguous match,
+        # a deployable confidence signal that needs no gold.
+        second_score = next((float(h["score"]) for h in ranked[1:]
+                             if str(h.get("sctid")) != str(top.get("sctid"))), 0.0)
         correct_rank, correct_score = 0, None
         if original_sctid:
             for i, h in enumerate(ranked, 1):
@@ -181,7 +187,9 @@ def retrieve_concepts(
             "query": query,
             "top_sctid": top.get("sctid"),
             "top_fsn": top.get("fsn"),
-            "top_score": round(float(top.get("score", 0.0)), 4),
+            "top_score": round(top_score, 4),
+            "second_score": round(second_score, 4),
+            "margin": round(top_score - second_score, 4),
             "top_text": top.get("matched_text"),
             "correct_rank": correct_rank,
             "correct_score": (round(float(correct_score), 4)
