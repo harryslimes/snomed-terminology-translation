@@ -289,6 +289,25 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-scale-hierarchy",
+      "body": "**The back-translation score holds up at full-extension scale, and varies ~40 points by hierarchy.** Tracked run over the *entire* Korean extension (36,389 concepts, gemma4-26b-qat back-translation -> hybrid retrieval, no rerank):\n\n- Overall recall@1 **62.9%**, @5 78.9%, @10 82.6%, MRR 0.70 — i.e. it does not degrade vs the 60-concept pilot (48%@1, hybrid); if anything the larger, disorder-heavy set scores higher. The method is robust at scale.\n- By hierarchy (recall@1): situation 85.6, event 77.9, substance 73.7, observable entity 66.7, **disorder 66.2** (n=19,218, the bulk), procedure 58.5, finding 56.4, body structure 56.0, qualifier value 50.7, organism 49.7, physical object 48.8, morphologic abnormality 46.2.\n\nPattern: hierarchies with distinctive multi-word clinical phrases (situations, disorders, substances) round-trip well; terse or language-neutral terms (organisms = Latin binomials, morphologic abnormalities, body structures) round-trip worst. Concurrency=24 left ~2.4x throughput unused (GPU KV cache <1%); a sweep plateaus ~128. Numbers live in the linked run; see scripts/analysis/recall_by_hierarchy.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "eab48498e285",
+          "label": "full extension (36,389) @1=63%"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {

@@ -813,8 +813,9 @@ back_translate_spec = FunctionSpec(
         ParamSpec(name="target_lang_code", label="Target code", kind="text",
                   default="en"),
         ParamSpec(name="concurrency", label="Concurrency", kind="number",
-                  default=1, help="Parallel LLM calls (vLLM batches them). "
-                                  "Use 16-32 for extension-scale runs."),
+                  default=1, help="Parallel LLM calls (vLLM batches them). A "
+                                  "throughput sweep on gemma4-26b-qat plateaus "
+                                  "~128 (≈2.4x over 24); use 128 at extension scale."),
     ],
     runner=f"{_RUN}:back_translate",
 )

@@ -29,7 +29,7 @@
         "source_col": "korean",
         "id_col": "sctid",
         "out_col": "query",
-        "concurrency": 24
+        "concurrency": 128
       },
       "inputs": {
         "queries": "gold"
