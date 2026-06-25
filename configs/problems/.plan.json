@@ -229,6 +229,18 @@
       "depends_on": [],
       "status": "done",
       "proposed_by": ""
+    },
+    {
+      "id": "task-19",
+      "title": "Extend Korean references via Athena 'Maps to' (EDI/KCD7/LOINC -> SNOMED)",
+      "rationale": "reference-based validation only covers the ~39k KR-edition concepts (~11% of SNOMED); Athena mappings could extend references to untranslated concepts. Needs the Athena bundle restored + relationship-path code; filter for map quality.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_search"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": ""
     }
   ],
   "gates": [

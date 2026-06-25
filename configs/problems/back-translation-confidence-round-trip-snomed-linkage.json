@@ -427,6 +427,14 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-reference-provenance",
+      "body": "**Where Korean references come from (the basis of reference-based validation) — and how to extend them.** The strong reference check (candidate vs Korean reference, AUC ~0.98) runs on the SNOMED Korean national edition (Managed Service KR1000267, data/korean/): 56,778 active Korean descriptions across **39,056 SNOMED concepts** (~1.45 terms each, 14k with >=2). Authoritative, but only ~11% of SNOMED International's ~360k concepts — and it covers the concepts that ALREADY have Korean, not the new ones you'd want to translate. So reference-based validation is structurally limited to the already-translated set.\n\nExtension lever (Athena): the bilingual pairs already pull Korean from Athena vocabularies (EDI ~385k, KCD7 ~22k, LOINC ~11k terms) but keyed to those coding systems, not SNOMED. Athena CONCEPT_RELATIONSHIP 'Maps to' links source codes -> SNOMED standard concepts, which would turn those Korean terms into references for SNOMED concepts (incl. ones outside the KR edition). Caveats: (1) 'Maps to' is not synonymy (broader/narrower/approximate) so mapped refs are noisier — filter to 1:1 / standard targets; (2) build_en_ko_pairs.py uses only CONCEPT_SYNONYM today (relationship path is net-new); (3) the Athena CSVs are not on this machine right now (data/athena/main symlink is dead) — needs the ~3.5GB bundle restored.",
+      "attached_to": "",
+      "links": [],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
