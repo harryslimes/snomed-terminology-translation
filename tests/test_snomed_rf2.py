@@ -83,6 +83,7 @@ def test_release_id_parsed_from_filename(tmp_path):
     root = _fake_release(tmp_path, concepts=[("1", "1")],
                          descriptions=[("1", "1", "en", FSN_TYPE, "X (y)")])
     assert release_id(root) == "INT_20260101"
+    assert release_id(str(root)) == "INT_20260101"   # accepts a str path too
 
 
 def test_missing_release_errors(tmp_path):

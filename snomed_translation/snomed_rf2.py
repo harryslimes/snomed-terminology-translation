@@ -43,9 +43,9 @@ class ConceptTerms:
         return out
 
 
-def _find_one(release_root: Path, glob: str) -> Path:
+def _find_one(release_root: Path | str, glob: str) -> Path:
     """The single Snapshot/Terminology file matching ``glob`` (errors if 0 or >1)."""
-    base = release_root / "Snapshot" / "Terminology"
+    base = Path(release_root) / "Snapshot" / "Terminology"
     matches = sorted(base.glob(glob))
     if not matches:
         raise FileNotFoundError(
@@ -55,10 +55,11 @@ def _find_one(release_root: Path, glob: str) -> Path:
     return matches[0]
 
 
-def release_id(release_root: Path) -> str:
+def release_id(release_root: Path | str) -> str:
     """A short id for the release, e.g. ``INT_20260101`` — parsed from the
     description file name, falling back to the release directory name. Recorded
     in the index's provenance so a rebuild is reproducible."""
+    release_root = Path(release_root)
     name = _find_one(release_root, "sct2_Description_Snapshot-en*.txt").name
     m = re.search(r"sct2_Description_Snapshot-en_(.+?)\.txt$", name)
     return m.group(1) if m else Path(release_root).name
