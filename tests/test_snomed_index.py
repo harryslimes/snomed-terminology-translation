@@ -150,15 +150,22 @@ def test_snomed_retrieve_node(tmp_path, monkeypatch):
 
     q = tmp_path / "q.csv"
     q.write_text("sctid,query\n22298006,heart attack\n", encoding="utf-8")
+    # one concept recovered at rank 1, one only at rank 4 (in top-5, not top-1)
     monkeypatch.setattr(snomed_index, "retrieve_concepts", lambda col, qs, **k: [
         {"sctid": "22298006", "query": "heart attack", "top_sctid": "22298006",
          "top_fsn": "MI", "top_score": 1.0, "top_text": "Heart attack",
-         "correct_rank": 1, "correct_score": 1.0, "recovered": 1}])
+         "correct_rank": 1, "correct_score": 1.0, "recovered": 1},
+        {"sctid": "73211009", "query": "sugar", "top_sctid": "999",
+         "top_fsn": "Other", "top_score": 0.6, "top_text": "x",
+         "correct_rank": 4, "correct_score": 0.5, "recovered": 0}])
     ctx = RunContext(run_id="t", log_dir=tmp_path / "run")
     res = functions.snomed_retrieve(
         ctx, {"index": {"collection": "snomed_idx_x"}, "queries": str(q)},
         {"id_col": "sctid", "query_col": "query"})
-    assert res.ok and res.metrics["recovered_pct"] == 100.0
+    assert res.ok
+    assert res.metrics["recovered_pct"] == 50.0     # recall@1: only one at rank 1
+    assert res.metrics["recall_at_5_pct"] == 100.0  # both within top 5
+    assert res.metrics["recall_at_3_pct"] == 50.0   # the rank-4 one is outside top 3
     assert (tmp_path / "run" / "snomed_retrieve.csv").exists()
 
     # clean failure when nothing is wired

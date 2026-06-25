@@ -569,8 +569,14 @@ snomed_retrieve_spec = FunctionSpec(
                        "concept id (gold), for measuring recovery."),
         ParamSpec(name="query_col", label="Query column", kind="text",
                   default="query",
-                  help="Column holding the back-translated English term."),
-        ParamSpec(name="limit", label="Top-K", kind="number", default=5),
+                  help="Column holding the query term (back-translated English, "
+                       "or Korean for a direct multilingual lookup)."),
+        ParamSpec(name="mode", label="Retrieval mode", kind="select",
+                  default="hybrid", options=["hybrid", "dense", "sparse"]),
+        ParamSpec(name="search_depth", label="Search depth", kind="number",
+                  default=25,
+                  help="How deep to look for the gold concept (sets the max K for "
+                       "recall@K)."),
     ],
     runner=f"{_RUN}:snomed_retrieve",
 )
@@ -664,7 +670,8 @@ def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
 
     id_col = str(params.get("id_col") or "sctid")
     query_col = str(params.get("query_col") or "query")
-    limit = int(params.get("limit") or 5)
+    mode = str(params.get("mode") or "hybrid")
+    search_depth = int(params.get("search_depth") or 25)
     queries: list[tuple[str, str]] = []
     with Path(qpath).open(encoding="utf-8") as f:
         for row in _csv.DictReader(f):
@@ -677,7 +684,8 @@ def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
 
     try:
         from snomed_translation.snomed_index import retrieve_concepts
-        rows = retrieve_concepts(collection, queries, limit=limit)
+        rows = retrieve_concepts(collection, queries, limit=search_depth,
+                                 search_depth=search_depth, mode=mode)
     except Exception as exc:
         return FunctionResult(ok=False, message=f"retrieval failed: {exc}")
 
@@ -688,14 +696,31 @@ def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
         w.writeheader()
         w.writerows(rows)
 
-    n_gold = sum(1 for r in rows if r["sctid"])
-    recovered = sum(r["recovered"] for r in rows)
+    # recall@K: did the *correct* concept land in the top K (meaning preserved,
+    # even if not #1)? correct_rank is 0 when the gold isn't in the top search_depth.
+    gold = [r for r in rows if r["sctid"]]
+    n_gold = len(gold)
+
+    def recall_at(k: int) -> float:
+        if not n_gold:
+            return 0.0
+        return 100.0 * sum(1 for r in gold if 0 < r["correct_rank"] <= k) / n_gold
+
+    mrr = (sum(1.0 / r["correct_rank"] for r in gold if r["correct_rank"] > 0)
+           / n_gold) if n_gold else 0.0
+    metrics = {
+        "n_queries": float(len(rows)),
+        "recovered_pct": recall_at(1),     # recall@1 (kept name for back-compat)
+        "recall_at_3_pct": recall_at(3),
+        "recall_at_5_pct": recall_at(5),
+        "recall_at_10_pct": recall_at(10),
+        "mrr": round(mrr, 4),
+    }
     return FunctionResult(
-        ok=True, outputs={"matches": str(out)},
-        metrics={"n_queries": float(len(rows)),
-                 "recovered_pct": float(100.0 * recovered / n_gold) if n_gold else 0.0},
-        message=(f"retrieved {len(rows)} queries against {collection}"
-                 + (f"; recovered {recovered}/{n_gold} originals" if n_gold else "")),
+        ok=True, outputs={"matches": str(out)}, metrics=metrics,
+        message=(f"retrieved {len(rows)} queries against {collection} "
+                 f"[{mode}]; recall@1={recall_at(1):.0f}% @5={recall_at(5):.0f}% "
+                 f"@10={recall_at(10):.0f}% (n_gold={n_gold})"),
     )
 
 
