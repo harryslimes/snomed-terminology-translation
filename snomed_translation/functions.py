@@ -576,6 +576,48 @@ snomed_retrieve_spec = FunctionSpec(
 )
 
 
+def back_translate(ctx: RunContext, inputs: dict[str, Any],
+                   params: dict[str, Any]) -> FunctionResult:
+    """Translate each Korean term in the wired dataset to English (KO->EN) via an
+    LLM, for round-trip SNOMED lookup. Output dataset: {id_col, out_col=query}."""
+    import csv as _csv
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="back_translate: no `queries` dataset wired")
+    model_id = params.get("model_id")
+    if not model_id:
+        return FunctionResult(ok=False, message="back_translate needs `model_id`")
+    base_url = str(params.get("base_url") or "http://localhost:8086")
+    id_col = str(params.get("id_col") or "sctid")
+    src_col = str(params.get("source_col") or "korean")
+    out_col = str(params.get("out_col") or "query")
+    from snomed_translation.back_translate import DEFAULT_SYSTEM, back_translate_terms
+    system = str(params.get("system") or DEFAULT_SYSTEM)
+
+    rows: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for r in _csv.DictReader(f):
+            rows.append(((r.get(id_col) or "").strip(), (r.get(src_col) or "").strip()))
+    if not rows:
+        return FunctionResult(ok=False, message=f"back_translate: no rows in {qpath}")
+    try:
+        english = back_translate_terms([k for _, k in rows], base_url=base_url,
+                                       model_id=str(model_id), system=system)
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"back-translation failed: {exc}")
+
+    out = Path(ctx.log_dir) / "back_translate.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=[id_col, out_col])
+        w.writeheader()
+        for (sid, _), en in zip(rows, english):
+            w.writerow({id_col: sid, out_col: en})
+    return FunctionResult(ok=True, outputs={"translations": str(out)},
+                          metrics={"n": float(len(rows))},
+                          message=f"back-translated {len(rows)} terms via {model_id}")
+
+
 def _index_collection(value: Any) -> str | None:
     """The Qdrant collection name from a wired `index` input — a manifest dict,
     a path to its JSON, or a bare collection name."""
@@ -657,12 +699,33 @@ def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
     )
 
 
+back_translate_spec = FunctionSpec(
+    name="back_translate", label="Back-translate (KO->EN)", category="translate",
+    description="Translate each Korean term in the wired dataset to English via an "
+                "LLM (KO->EN), for round-trip SNOMED lookup. Output: {id, query}.",
+    inputs=[PortSpec(name="queries", label="Terms", kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="translations", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="model_id", label="Model id", kind="text", required=True,
+                  help="The served model id (e.g. an OpenAI-compatible vLLM id)."),
+        ParamSpec(name="base_url", label="Base URL", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="source_col", label="Korean column", kind="text",
+                  default="korean"),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="out_col", label="Output column", kind="text", default="query"),
+        ParamSpec(name="system", label="System prompt", kind="textarea"),
+    ],
+    runner=f"{_RUN}:back_translate",
+)
+
+
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
         score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
-        snomed_retrieve_spec,
+        snomed_retrieve_spec, back_translate_spec,
     ]
 
 
