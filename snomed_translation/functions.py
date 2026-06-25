@@ -652,6 +652,22 @@ def _dataset_path(value: Any) -> str | None:
     return None
 
 
+def _recall_metrics(rows: list[dict]) -> dict:
+    """recall@K + MRR over result rows (each with ``sctid`` gold + ``correct_rank``)
+    — shared by the retrieve and rerank nodes so their metrics are comparable."""
+    gold = [r for r in rows if r["sctid"]]
+    n = len(gold)
+
+    def at(k: int) -> float:
+        return 100.0 * sum(1 for r in gold if 0 < r["correct_rank"] <= k) / n if n else 0.0
+
+    mrr = (sum(1.0 / r["correct_rank"] for r in gold if r["correct_rank"] > 0)
+           / n) if n else 0.0
+    return {"n_queries": float(len(rows)), "recovered_pct": at(1),
+            "recall_at_3_pct": at(3), "recall_at_5_pct": at(5),
+            "recall_at_10_pct": at(10), "mrr": round(mrr, 4)}
+
+
 def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
                     params: dict[str, Any]) -> FunctionResult:
     """Look up back-translated English terms against a SNOMED index, emitting per
@@ -698,29 +714,64 @@ def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
 
     # recall@K: did the *correct* concept land in the top K (meaning preserved,
     # even if not #1)? correct_rank is 0 when the gold isn't in the top search_depth.
-    gold = [r for r in rows if r["sctid"]]
-    n_gold = len(gold)
-
-    def recall_at(k: int) -> float:
-        if not n_gold:
-            return 0.0
-        return 100.0 * sum(1 for r in gold if 0 < r["correct_rank"] <= k) / n_gold
-
-    mrr = (sum(1.0 / r["correct_rank"] for r in gold if r["correct_rank"] > 0)
-           / n_gold) if n_gold else 0.0
-    metrics = {
-        "n_queries": float(len(rows)),
-        "recovered_pct": recall_at(1),     # recall@1 (kept name for back-compat)
-        "recall_at_3_pct": recall_at(3),
-        "recall_at_5_pct": recall_at(5),
-        "recall_at_10_pct": recall_at(10),
-        "mrr": round(mrr, 4),
-    }
+    metrics = _recall_metrics(rows)
     return FunctionResult(
         ok=True, outputs={"matches": str(out)}, metrics=metrics,
-        message=(f"retrieved {len(rows)} queries against {collection} "
-                 f"[{mode}]; recall@1={recall_at(1):.0f}% @5={recall_at(5):.0f}% "
-                 f"@10={recall_at(10):.0f}% (n_gold={n_gold})"),
+        message=(f"retrieved {len(rows)} queries against {collection} [{mode}]; "
+                 f"recall@1={metrics['recovered_pct']:.0f}% "
+                 f"@5={metrics['recall_at_5_pct']:.0f}% "
+                 f"@10={metrics['recall_at_10_pct']:.0f}%"),
+    )
+
+
+def rerank(ctx: RunContext, inputs: dict[str, Any],
+           params: dict[str, Any]) -> FunctionResult:
+    """Retrieve the top-K candidates per query, then re-rank them with a
+    cross-encoder (BAAI/bge-reranker-v2-m3), measuring recall@K *after* rerank.
+    The reranker is multilingual, so the query may be back-translated English or
+    Korean (set mode=dense for a direct cross-lingual rerank)."""
+    import csv as _csv
+    collection = _index_collection(inputs.get("index"))
+    if not collection:
+        return FunctionResult(ok=False, message="rerank: no `index` wired")
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="rerank: no `queries` dataset wired")
+    id_col = str(params.get("id_col") or "sctid")
+    query_col = str(params.get("query_col") or "query")
+    mode = str(params.get("mode") or "hybrid")
+    top_k = int(params.get("top_k") or 10)
+    model = str(params.get("reranker_model") or "BAAI/bge-reranker-v2-m3")
+
+    queries: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            q = (row.get(query_col) or "").strip()
+            if q:
+                queries.append(((row.get(id_col) or "").strip(), q))
+    if not queries:
+        return FunctionResult(ok=False, message=f"rerank: no {query_col!r} values in {qpath}")
+
+    try:
+        from snomed_translation.rerank import Reranker, retrieve_and_rerank
+        rows = retrieve_and_rerank(collection, queries, top_k=top_k, mode=mode,
+                                   reranker=Reranker(model))
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"rerank failed: {exc}")
+
+    out = Path(ctx.log_dir) / "rerank.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    metrics = _recall_metrics(rows)
+    return FunctionResult(
+        ok=True, outputs={"matches": str(out)}, metrics=metrics,
+        message=(f"reranked top-{top_k} [{mode}] via {model}; "
+                 f"recall@1={metrics['recovered_pct']:.0f}% "
+                 f"@5={metrics['recall_at_5_pct']:.0f}% "
+                 f"@10={metrics['recall_at_10_pct']:.0f}%"),
     )
 
 
@@ -745,12 +796,36 @@ back_translate_spec = FunctionSpec(
 )
 
 
+rerank_spec = FunctionSpec(
+    name="rerank", label="Rerank (cross-encoder)", category="index",
+    description="Retrieve top-K candidates per query, then re-rank them with a "
+                "cross-encoder (BAAI/bge-reranker-v2-m3) and measure recall@K "
+                "after rerank. Multilingual — query may be back-translated English "
+                "or (with mode=dense) Korean directly.",
+    inputs=[
+        PortSpec(name="index", label="Index", kinds=["index"], required=True),
+        PortSpec(name="queries", label="Queries", kinds=["dataset"], required=True),
+    ],
+    outputs=[PortSpec(name="matches", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="query_col", label="Query column", kind="text", default="query"),
+        ParamSpec(name="mode", label="Retrieval mode", kind="select",
+                  default="hybrid", options=["hybrid", "dense", "sparse"]),
+        ParamSpec(name="top_k", label="Candidates to rerank", kind="number", default=10),
+        ParamSpec(name="reranker_model", label="Reranker", kind="text",
+                  default="BAAI/bge-reranker-v2-m3"),
+    ],
+    runner=f"{_RUN}:rerank",
+)
+
+
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
         score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
-        snomed_retrieve_spec, back_translate_spec,
+        snomed_retrieve_spec, back_translate_spec, rerank_spec,
     ]
 
 
