@@ -551,12 +551,118 @@ build_snomed_index_spec = FunctionSpec(
     runner=f"{_RUN}:build_snomed_index",
 )
 
+snomed_retrieve_spec = FunctionSpec(
+    name="snomed_retrieve", label="SNOMED retrieve", category="index",
+    description="Look up back-translated English terms against a SNOMED index "
+                "and report, per query, the top concept and whether/where the "
+                "original concept was recovered — the round-trip confidence "
+                "signal. Feeds a score/distance node.",
+    inputs=[
+        PortSpec(name="index", label="Index", kinds=["index"], required=True),
+        PortSpec(name="queries", label="Queries", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[PortSpec(name="matches", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid",
+                  help="Column in the queries dataset holding the ORIGINAL "
+                       "concept id (gold), for measuring recovery."),
+        ParamSpec(name="query_col", label="Query column", kind="text",
+                  default="query",
+                  help="Column holding the back-translated English term."),
+        ParamSpec(name="limit", label="Top-K", kind="number", default=5),
+    ],
+    runner=f"{_RUN}:snomed_retrieve",
+)
+
+
+def _index_collection(value: Any) -> str | None:
+    """The Qdrant collection name from a wired `index` input — a manifest dict,
+    a path to its JSON, or a bare collection name."""
+    if isinstance(value, dict):
+        return value.get("collection")
+    if isinstance(value, str) and value:
+        p = Path(value)
+        if value.endswith(".json") and p.exists():
+            import json as _json
+            try:
+                return _json.loads(p.read_text(encoding="utf-8")).get("collection")
+            except Exception:
+                return None
+        return value   # a bare collection name
+    return None
+
+
+def _dataset_path(value: Any) -> str | None:
+    """The CSV path from a wired dataset input (a path string or a resolved dict)."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for k in ("_primary", "dataset", "rows", "path"):
+            if isinstance(value.get(k), str):
+                return value[k]
+    return None
+
+
+def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
+                    params: dict[str, Any]) -> FunctionResult:
+    """Look up back-translated English terms against a SNOMED index, emitting per
+    query the top concept + whether/where the *original* concept was recovered —
+    the round-trip confidence signal. Wire an `index` (from build_snomed_index or
+    a promoted index) + a `queries` dataset (an id column + a query-text column)."""
+    import csv as _csv
+
+    collection = _index_collection(inputs.get("index"))
+    if not collection:
+        return FunctionResult(ok=False, message="snomed_retrieve: no `index` wired "
+                              "(connect build_snomed_index or a promoted index)")
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="snomed_retrieve: no `queries` dataset wired")
+
+    id_col = str(params.get("id_col") or "sctid")
+    query_col = str(params.get("query_col") or "query")
+    limit = int(params.get("limit") or 5)
+    queries: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            q = (row.get(query_col) or "").strip()
+            if q:
+                queries.append(((row.get(id_col) or "").strip(), q))
+    if not queries:
+        return FunctionResult(ok=False,
+                              message=f"snomed_retrieve: no {query_col!r} values in {qpath}")
+
+    try:
+        from snomed_translation.snomed_index import retrieve_concepts
+        rows = retrieve_concepts(collection, queries, limit=limit)
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"retrieval failed: {exc}")
+
+    out = Path(ctx.log_dir) / "snomed_retrieve.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+    n_gold = sum(1 for r in rows if r["sctid"])
+    recovered = sum(r["recovered"] for r in rows)
+    return FunctionResult(
+        ok=True, outputs={"matches": str(out)},
+        metrics={"n_queries": float(len(rows)),
+                 "recovered_pct": float(100.0 * recovered / n_gold) if n_gold else 0.0},
+        message=(f"retrieved {len(rows)} queries against {collection}"
+                 + (f"; recovered {recovered}/{n_gold} originals" if n_gold else "")),
+    )
+
 
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
         score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
+        snomed_retrieve_spec,
     ]
 
 

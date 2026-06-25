@@ -83,6 +83,49 @@ def test_build_snomed_index_node(monkeypatch):
     assert "INT_20260101" in res.message
 
 
+def test_retrieve_concepts_signal(monkeypatch):
+    # fake the index lookup: "heart attack" -> MI top; "chest pain" -> a different
+    # concept (MI not recovered).
+    def fake_query(collection, text, **k):
+        if "heart attack" in text:
+            return [{"sctid": "22298006", "fsn": "MI (disorder)",
+                     "matched_text": "Heart attack", "score": 1.0},
+                    {"sctid": "84114007", "fsn": "Heart failure", "matched_text": "x", "score": 0.4}]
+        return [{"sctid": "29857009", "fsn": "Chest pain", "matched_text": "Chest pain", "score": 1.0},
+                {"sctid": "22298006", "fsn": "MI (disorder)", "matched_text": "y", "score": 0.3}]
+    monkeypatch.setattr(si, "query_index", fake_query)
+
+    rows = {r["query"]: r for r in si.retrieve_concepts(
+        "col", [("22298006", "heart attack"), ("22298006", "chest pain")],
+        embedder=object(), store=object())}
+    good = rows["heart attack"]
+    assert good["recovered"] == 1 and good["correct_rank"] == 1 and good["top_score"] == 1.0
+    bad = rows["chest pain"]
+    assert bad["recovered"] == 0 and bad["correct_rank"] == 2   # MI only 2nd → low confidence
+
+
+def test_snomed_retrieve_node(tmp_path, monkeypatch):
+    from pipelines.context import RunContext
+    from snomed_translation import functions, snomed_index
+
+    q = tmp_path / "q.csv"
+    q.write_text("sctid,query\n22298006,heart attack\n", encoding="utf-8")
+    monkeypatch.setattr(snomed_index, "retrieve_concepts", lambda col, qs, **k: [
+        {"sctid": "22298006", "query": "heart attack", "top_sctid": "22298006",
+         "top_fsn": "MI", "top_score": 1.0, "top_text": "Heart attack",
+         "correct_rank": 1, "correct_score": 1.0, "recovered": 1}])
+    ctx = RunContext(run_id="t", log_dir=tmp_path / "run")
+    res = functions.snomed_retrieve(
+        ctx, {"index": {"collection": "snomed_idx_x"}, "queries": str(q)},
+        {"id_col": "sctid", "query_col": "query"})
+    assert res.ok and res.metrics["recovered_pct"] == 100.0
+    assert (tmp_path / "run" / "snomed_retrieve.csv").exists()
+
+    # clean failure when nothing is wired
+    bad = functions.snomed_retrieve(ctx, {}, {})
+    assert bad.ok is False and "index" in bad.message
+
+
 def test_build_snomed_index_registered():
     from snomed_translation.functions import specs
     spec = next((s for s in specs() if s.name == "build_snomed_index"), None)

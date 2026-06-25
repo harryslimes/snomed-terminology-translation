@@ -124,3 +124,52 @@ def query_index(
                            "matched_text": (p.payload or {}).get("text"),
                            "score": p.score}
     return sorted(best.values(), key=lambda r: r["score"], reverse=True)[:limit]
+
+
+def retrieve_concepts(
+    collection: str,
+    queries: list[tuple[str, str]],
+    *,
+    limit: int = 5,
+    search_depth: int = 25,
+    qdrant_url: str | None = None,
+    embedder=None,
+    store=None,
+) -> list[dict]:
+    """Run round-trip lookups for ``queries`` (each ``(original_sctid, query_text)``)
+    against a built index. Per query returns the top hit plus, for the *original*
+    concept, its rank + score among the results — the raw confidence signal:
+    ``recovered``/``correct_rank``≈1 with a high score ⇒ the round trip preserved
+    meaning. ``original_sctid`` may be empty when there's no gold to compare to."""
+    if embedder is None:
+        from agent.qdrant_store import BGEM3Embedder
+        embedder = BGEM3Embedder()
+    if store is None:
+        from agent.qdrant_store import QdrantHybridStore
+        store = QdrantHybridStore(qdrant_url)
+
+    rows: list[dict] = []
+    for original_sctid, query in queries:
+        ranked = query_index(collection, query, limit=max(search_depth, limit),
+                             embedder=embedder, store=store)
+        top = ranked[0] if ranked else {}
+        correct_rank, correct_score = 0, None
+        if original_sctid:
+            for i, h in enumerate(ranked, 1):
+                if str(h["sctid"]) == str(original_sctid):
+                    correct_rank, correct_score = i, h["score"]
+                    break
+        rows.append({
+            "sctid": original_sctid,
+            "query": query,
+            "top_sctid": top.get("sctid"),
+            "top_fsn": top.get("fsn"),
+            "top_score": round(float(top.get("score", 0.0)), 4),
+            "top_text": top.get("matched_text"),
+            "correct_rank": correct_rank,
+            "correct_score": (round(float(correct_score), 4)
+                              if correct_score is not None else ""),
+            "recovered": int(bool(original_sctid)
+                             and str(top.get("sctid")) == str(original_sctid)),
+        })
+    return rows
