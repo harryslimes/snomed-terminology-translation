@@ -241,6 +241,30 @@
       ],
       "author": "investigation",
       "ts": "2026-06-25T14:59:57"
+    },
+    {
+      "id": "note-rerank",
+      "body": "**Cross-encoder reranking (BAAI/bge-reranker-v2-m3) lifts recall@1, but candidate generation is the ceiling.** Two tracked runs under this investigation rerank the bi-encoder's top-10:\n\n- Back-translation -> hybrid retrieve -> rerank: recall@1 **55%** (up from ~48-50% un-reranked), @5 68%, @10 75%.\n- Direct KO query -> dense retrieve -> rerank: recall@1 **35%** (up from ~23%), but @10 only **37%** — dense cross-lingual retrieval simply never surfaces the gold for ~63% of terms, so no reranker can recover it.\n\nTakeaway: back-translation stays essential — it's what gets the gold concept into the candidate set (top-10 75% vs 37%). Reranking is a cheap +5-12pt @1 win on top of whichever retrieval feeds it. Numbers live in the linked runs (git-sha provenance), not this note.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "86ef597cfc0a",
+          "label": "back-translation + rerank (@1=55%)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7e5c5ec7378c",
+          "label": "direct-KO dense + rerank (@1=35%, ceiling 37%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
