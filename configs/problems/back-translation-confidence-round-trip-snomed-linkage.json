@@ -332,6 +332,25 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-error-detection",
+      "body": "**Back-translation does NOT work as a machine-translation error detector.** Took 3,693 real forward-translation candidates (gemma4-26b-qat + lookup, the procedure eval set), back-translated each KO->EN and retrieved: does the candidate map back to its *source* concept?\n\n- Back-translation recovers the source concept at **~67% whether the candidate is correct or incorrect** — no separation. Flagging 'did not recover' gives precision = the base error rate (no enrichment); recall ~33% (just the miss rate). AUC of both the recovered flag and the margin for predicting an incorrect translation is **~0.5 (chance)**, and this holds under a strict string label *and* a semantic (BGE cosine candidate-vs-gold) label.\n\nTwo reasons: (1) the round-trip's own ~32% retrieval miss-rate on *correct* translations is large noise that swamps any error signal; (2) the back-translation LLM is normalising — it launders a slightly-wrong Korean term back toward the intended English, recovering the source concept and masking the error. Note also the cheap 'string-match-to-one-gold' label is itself broken: most string-divergent candidates are valid Sino/native Korean synonyms (백혈구 계산 vs 백혈구 수 측정 = white blood cell count) that back-translation correctly recovers.\n\nWhere back-translation *does* help: recovered=1 is a high-precision *positive* confirmer (that bucket is ~semantically all-correct) — but it cannot flag the wrong ones, which was the goal. To measure true error detection we'd need genuinely mistranslated candidates with human (SME) labels. Numbers in the linked run; see scripts/analysis/error_detection.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "candidate back-translation (error detection, AUC~0.5)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
