@@ -1,0 +1,36 @@
+{
+  "id": "snomed-semantic-index",
+  "name": "SNOMED semantic index",
+  "description": "",
+  "project": "project",
+  "nodes": [
+    {
+      "id": "build_snomed_index",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "rf2_root": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z",
+        "embedding_model": "BAAI/bge-m3",
+        "function": "build_snomed_index"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "promote",
+      "type": "promote",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "name": "snomed_index_en"
+      },
+      "inputs": {
+        "value": "build_snomed_index"
+      }
+    }
+  ]
+}

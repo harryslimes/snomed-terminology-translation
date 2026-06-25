@@ -1,0 +1,17 @@
+{
+  "id": "output-translations-confidence",
+  "title": "Output: translations + CONFIDENCE",
+  "prose": "Focuses terminologist review effort. Confidence is an OPEN research thread (no per-translation uncertainty today — see design §12).",
+  "parent": "snomed-translation",
+  "created": "2026-06-24T18:01:55",
+  "retired": false,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

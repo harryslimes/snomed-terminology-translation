@@ -1,0 +1,250 @@
+{
+  "id": "back-translation-confidence-round-trip-snomed-linkage",
+  "title": "Back-translation confidence (round-trip SNOMED linkage)",
+  "prose": "Estimate per-translation confidence by ROUND-TRIP linkage. Given an EN->KO translation, back-translate the Korean term to English, then run that back-translation through semantic/hybrid search over SNOMED. If it links back to the ORIGINAL SNOMED expression (correct concept ranks top / high similarity), the round trip preserved meaning -> high confidence; if it lands on the wrong concept or low rank -> low confidence. This turns 'does meaning survive the round trip?' into a usable per-item confidence signal to triage terminologist review.",
+  "parent": "output-translations-confidence",
+  "created": "2026-06-25T01:15:30",
+  "retired": false,
+  "graph": {
+    "nodes": [
+      {
+        "id": "source",
+        "title": "SNOMED terminology — International RF2 (local)",
+        "description": "English FSN + synonyms per concept, read from the local International-edition RF2 release (fast access). Both the corpus to index and the ground-truth target.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "kr_ext",
+        "title": "Korean SNOMED extension (snomedct-kr)",
+        "description": "Local RF2; Korean designations linked to concept ids. Gold (concept <-> Korean term) pairs to drive + evaluate the round trip.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "candidate_ko",
+        "title": "Candidate KO translation",
+        "description": "The EN->KO translation to be scored.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 370.0
+        }
+      },
+      {
+        "id": "snomed_index",
+        "title": "Build SNOMED index  (function)",
+        "description": "Function node: reads the International RF2 source, embeds FSN+synonyms (BGE-M3, reusing QdrantHybridStore), and PRODUCES the index artifact. Params: embedding model, indexing strategy (dense/lexical/hybrid). Run once; reused.",
+        "realized_by": [
+          {
+            "to_kind": "flow",
+            "to_id": "snomed-semantic-index",
+            "label": ""
+          }
+        ],
+        "links": [],
+        "pos": {
+          "x": 320.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "index_artifact",
+        "title": "SNOMED index artifact  (DATA / DataObject)",
+        "description": "The built, reusable index — DATA, not recomputed each run. A DataObject whose provenance/meta records the build config: RF2 release id, embedding model, strategy, vector dim, concept count. Consumed by lookup as a datasource. Rebuilding with a different embedding model yields a DISTINCT artifact, so an investigation stays reproducible.",
+        "realized_by": [
+          {
+            "to_kind": "dataobject",
+            "to_id": "snomed_index_en",
+            "label": ""
+          }
+        ],
+        "links": [],
+        "pos": {
+          "x": 600.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "back_translate",
+        "title": "Back-translate KO->EN",
+        "description": "An LLM back-translates the Korean term to English (ideally several samples for self-consistency).",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 320.0,
+          "y": 370.0
+        }
+      },
+      {
+        "id": "snomed_search",
+        "title": "Index lookup / retrieval  (function)",
+        "description": "Consumes the index artifact (as a datasource); queries it with the back-translated English; returns MULTIPLE ranked candidate concepts.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 880.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "rerank",
+        "title": "Rerank candidates  (function)",
+        "description": "Re-rank the retrieved candidates: cross-encoder vs LLM vs calculated metrics. None exists today.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1160.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "distance",
+        "title": "Closeness / distance measure",
+        "description": "How close the chosen concept is to the correct one: rank, embedding-similarity distance, SNOMED hierarchy distance for near-misses.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1440.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "roundtrip_match",
+        "title": "Round-trip linkage -> confidence",
+        "description": "Turn closeness into a per-item confidence: high when the round trip recovers the original concept, low when it lands elsewhere.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1720.0,
+          "y": 200.0
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "source",
+        "target": "snomed_index"
+      },
+      {
+        "source": "source",
+        "target": "candidate_ko"
+      },
+      {
+        "source": "source",
+        "target": "distance"
+      },
+      {
+        "source": "source",
+        "target": "roundtrip_match"
+      },
+      {
+        "source": "kr_ext",
+        "target": "candidate_ko"
+      },
+      {
+        "source": "candidate_ko",
+        "target": "back_translate"
+      },
+      {
+        "source": "snomed_index",
+        "target": "index_artifact"
+      },
+      {
+        "source": "index_artifact",
+        "target": "snomed_search"
+      },
+      {
+        "source": "back_translate",
+        "target": "snomed_search"
+      },
+      {
+        "source": "snomed_search",
+        "target": "rerank"
+      },
+      {
+        "source": "rerank",
+        "target": "distance"
+      },
+      {
+        "source": "distance",
+        "target": "roundtrip_match"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Open questions: (1) hybrid lexical/vector weighting; (2) score calibration vs terminologist 'needs review' labels; (3) partial credit when the hit is an ancestor/sibling rather than the exact concept; (4) FSN vs synonym matching; (5) cost of back-translation + search per item.",
+      "attached_to": "",
+      "links": [],
+      "author": "",
+      "ts": "2026-06-25T01:15:30"
+    },
+    {
+      "id": "note-2",
+      "body": "SNOMED semantic index — design (new function node, lives in the PLUGIN repo snomed_translation.functions).\n\nREUSE (already in the plugin): BGE-M3 embedder + QdrantHybridStore (dense COSINE + sparse, RRF fusion) in agent/qdrant_store.py; deterministic content-hashed collection naming + resumable indexing + lookup cache (exemplars.py / index_exemplars.py). The Korean SNOMED extension RF2 is ALREADY a local data source (configs/sources/kr_snomed.json, kind 'snomed_national_extension').\n\nNEW: index SNOMED *concepts* (sctid -> FSN + synonyms) instead of EN->KO pairs (payload {sctid, fsn_en, synonyms_en, hierarchy}); a 'given EN term -> best concept' retrieval stage; a reranker (cross-encoder vs LLM vs calculated — none exists today); a closeness metric = rank + cosine + SNOMED hierarchy distance.\n\nDATA DECISION: English FSN+synonyms come from EITHER the International-edition RF2 (local file) OR the Snowstorm MCP (live, scoped by ECL). KR extension is local already; the English side is the open question.",
+      "attached_to": "snomed_index",
+      "links": [],
+      "author": "design",
+      "ts": "2026-06-25T11:45:20"
+    },
+    {
+      "id": "note-3",
+      "body": "Index = a produced ARTIFACT (data), not a pure function. Modelled with existing primitives: a function node (build) -> promote -> DataObject -> datasource (consume).\n\nDataObject meta (the 'config clearly recorded'): {rf2_release_id, embedding_model, strategy (dense|lexical|hybrid), vector_dim, n_concepts, scope_ecl?}. Provenance (flow, node, run_id) comes for free from promote().\n\nReproducibility: flows are content-hash versioned and runs link to a flow version, so re-running an investigation with a DIFFERENT embedding model = duplicate the flow, change the build node's embedding_model param -> a new, distinct index DataObject; the original (with its model) stays recorded. The build (expensive) runs once; lookups are cheap.",
+      "attached_to": "index_artifact",
+      "links": [],
+      "author": "design",
+      "ts": "2026-06-25T12:03:59"
+    },
+    {
+      "id": "note-4",
+      "body": "Agent build workflow + the two walls it hits:\n1) Check existing flows: all are translate->evaluate pipelines (datasource/translate/evaluate/score/promote) — NONE adaptable to build-index->backtranslate->lookup->rerank. So: new flow from scratch.\n2) Check building blocks (list_functions): only translation-domain nodes exist (translate, evaluate, optimize, score, style_guide). The blocks we need — build_snomed_index, retrieval, reranker, concept-distance — DON'T EXIST.\n=> Must CREATE the building blocks first (plugin code: FunctionSpec + runner via the semi_automated_research.functions entry point), THEN compose the flow. Creating a block is code, not config. Sequence: obtain RF2 -> write build_snomed_index (+ retrieval/rerank/distance) -> compose flow -> run investigations.",
+      "attached_to": "",
+      "links": [],
+      "author": "workflow",
+      "ts": "2026-06-25T12:14:33"
+    },
+    {
+      "id": "note-7",
+      "body": "FINDING: two miss types — (a) genuine mistranslations (trichinosis -> model said 'Piloerection' -> wrong concept, correctly low confidence); (b) near-misses to a synonymous-but-different concept ('Sexual status finding'). (b) motivates hierarchy-aware distance / a reranker (partial credit for close concepts).",
+      "attached_to": "rerank",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": ""
+        }
+      ],
+      "author": "investigation",
+      "ts": "2026-06-25T13:50:59"
+    },
+    {
+      "id": "note-5",
+      "body": "Quantitative results are now TRACKED RUNS under this investigation (see the run ledger) -- each is a flow + git shas + recall@K metric, reproducible -- NOT transcribed here. Qualitative read: back-translation substantially beats direct multilingual lookup, and its near-misses are usually recoverable in the top-K, so a reranker should lift recall@1 toward recall@5/@10; direct-KO gains little from top-K. (The earlier hand-typed numbers were retired -- one was even wrong, a different sample -- which is exactly why results must come from runs.)",
+      "attached_to": "roundtrip_match",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": ""
+        }
+      ],
+      "author": "investigation",
+      "ts": "2026-06-25T14:59:57"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

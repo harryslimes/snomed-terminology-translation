@@ -1,0 +1,68 @@
+{
+  "id": "snomed-backtrans-validation",
+  "name": "snomed-backtrans-validation",
+  "description": "",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_backtrans"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "bt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "back_translate",
+        "model_id": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "source_col": "korean",
+        "id_col": "sctid",
+        "out_col": "query"
+      },
+      "inputs": {
+        "queries": "gold"
+      }
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "query",
+        "limit": 1
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}
