@@ -1,0 +1,50 @@
+{
+  "id": "snomed-bt-coherence",
+  "name": "snomed-bt-coherence",
+  "description": "Dense retrieval over the cached 36k back-translations, emitting the top-K candidate concepts for hierarchy-coherence confidence analysis.",
+  "nodes": [
+    {
+      "id": "bt",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "kr_backtrans_en_full"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "dense",
+        "search_depth": 10
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

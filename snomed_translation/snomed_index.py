@@ -176,6 +176,15 @@ def retrieve_concepts(
         # a deployable confidence signal that needs no gold.
         second_score = next((float(h["score"]) for h in ranked[1:]
                              if str(h.get("sctid")) != str(top.get("sctid"))), 0.0)
+        # the top distinct candidate concepts (for hierarchy-coherence analysis):
+        # are the retrieved concepts ontologically clustered or scattered?
+        cand: list[str] = []
+        for h in ranked:
+            sid = str(h.get("sctid"))
+            if sid not in cand:
+                cand.append(sid)
+            if len(cand) >= 10:
+                break
         correct_rank, correct_score = 0, None
         if original_sctid:
             for i, h in enumerate(ranked, 1):
@@ -191,6 +200,7 @@ def retrieve_concepts(
             "second_score": round(second_score, 4),
             "margin": round(top_score - second_score, 4),
             "top_text": top.get("matched_text"),
+            "candidates": "|".join(cand),
             "correct_rank": correct_rank,
             "correct_score": (round(float(correct_score), 4)
                               if correct_score is not None else ""),

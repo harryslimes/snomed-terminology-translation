@@ -365,6 +365,25 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-hierarchy-coherence",
+      "body": "**Exploiting the is-a hierarchy as a confidence signal: it helps modestly, doesn't break the ceiling.** Tested whether the ontological coherence of the top-K retrieved concepts (do they cluster under a deep common ancestor, or scatter?) predicts a correct match better than the embedding cosine/margin. Computed over the full 36k dense run, using the INT_20260101 is-a graph (628k edges):\n\n- Coherence alone is WEAK: top-K ancestor-set Jaccard AUC 0.59, lineage-agreement 0.53, common-ancestor depth 0.57 — all below margin (0.74) and cosine (0.70).\n- It IS mildly orthogonal: margin+coherence lifts recall@1 prediction 0.737 -> **0.748**, and REGION confidence (gold in top-5) 0.654 -> **0.706**. So it helps flag 'answer is in the right neighbourhood' more than 'exact #1 is right'.\n\nWhy only modest: coherence is computed over candidates the EMBEDDING already chose, so it's partly downstream of the same signal rather than independent. The genuinely independent hierarchy lever still untested: **cross-hierarchy mismatch** — flag when a concept's expected semantic tag (procedure/disorder/…, which we already have) disagrees with the retrieved concept's, a structural error check that uses no embeddings. Reproduced by scripts/analysis/hierarchy_coherence.py; retrieval emits a `candidates` column now.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_coherence_v1",
+          "label": "hierarchy-coherence investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "682de1197401",
+          "label": "dense + top-K candidates (36k)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {

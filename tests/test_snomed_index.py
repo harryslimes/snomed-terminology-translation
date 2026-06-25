@@ -140,6 +140,8 @@ def test_retrieve_concepts_signal(monkeypatch):
         embedder=object(), store=object())}
     good = rows["heart attack"]
     assert good["recovered"] == 1 and good["correct_rank"] == 1 and good["top_score"] == 1.0
+    # top distinct candidate concepts emitted for hierarchy-coherence analysis
+    assert good["candidates"] == "22298006|84114007"
     bad = rows["chest pain"]
     assert bad["recovered"] == 0 and bad["correct_rank"] == 2   # MI only 2nd → low confidence
 

@@ -193,6 +193,30 @@
       "depends_on": [],
       "status": "done",
       "proposed_by": ""
+    },
+    {
+      "id": "task-16",
+      "title": "Hierarchy-coherence confidence signal",
+      "rationale": "do clustered top-K predict a correct match? (weak alone, +orthogonal to margin)",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-17",
+      "title": "Cross-hierarchy mismatch as a structural error flag",
+      "rationale": "flag when expected semantic tag != retrieved concept's tag; embedding-independent",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": ""
     }
   ],
   "gates": [
