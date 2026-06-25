@@ -384,6 +384,30 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-cross-hierarchy-mismatch",
+      "body": "**Cross-hierarchy mismatch: a free certain-reject for retrieval drift, but NOT a translation-error detector.** Flag = the back-translation's retrieved concept sits in a different semantic-tag hierarchy (procedure/disorder/…) than the source concept's expected tag — a pure structural check, no embeddings.\n\n- On the gold 36k run: 11.4% of queries mismatch, and recovered=0 for **100%** of them — but this is TAUTOLOGICAL (a recovered match returns the gold concept, which carries the expected tag, so mismatch can only happen on a miss). Useful only as a free, certain reject for the ~11% that drift hierarchies (combined with margin it lifts recall@1 AUC 0.737->0.815, partly definitionally).\n- The real, non-tautological test — forward-translation candidates with an INDEPENDENT correctness label (BGE cosine candidate-vs-gold): incorrect rate is 9.6% when tags match vs 11.3% when they mismatch (base 9.8%); **AUC 0.51 (chance)**. Mismatch does NOT predict a bad translation.\n\nThis closes the hierarchy thread: hierarchy embeddings (worse than BGE-M3), top-K coherence (weak, AUC 0.59), and cross-hierarchy mismatch (tautological / chance) all fail to rescue the confidence/error-detection problem. Root cause is the same throughout: the back-translation LLM normalises errors, so the round-trip lands in the right neighbourhood whether or not the translation was correct. Reproduced by scripts/analysis/cross_hierarchy_mismatch.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_coherence_v1",
+          "label": "hierarchy-coherence investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "682de1197401",
+          "label": "gold run (tautological)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "forward candidates (real test, AUC 0.51)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
