@@ -265,6 +265,30 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-translategemma",
+      "body": "**TranslateGemma-27b underperforms the instruction-prompted general model for terminology back-translation.** A/B under this investigation, same pipeline (KO->EN -> hybrid retrieve -> rerank top-10), only the back-translation model changed:\n\n- gemma4-26b-qat (medical-terminologist system prompt): recall@1 **55%**, @5 68%, @10 75%.\n- translategemma-27b (kaitchup AutoRound w4a16, structured translate prompt): recall@1 **47%**, @5 60%, @10 **62%**.\n\nCause: TranslateGemma is a fluency-optimised general translator and emits *descriptive* phrasings ('Acute leukemia, a disease'; 'Insomnia caused by alcohol') rather than terse controlled-vocabulary terms, so they match SNOMED surface forms less well. The drop is largest at @10 (75%->62%) — i.e. it's the candidate-generation ceiling that falls, which reranking cannot recover. For SNOMED lookup, a terse-term instruction prompt beats a specialised translation model. Numbers live in the linked run.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e9592523acf0",
+          "label": "translategemma-27b + rerank (@1=47%, @10=62%)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "86ef597cfc0a",
+          "label": "gemma4-26b-qat baseline (@1=55%, @10=75%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
