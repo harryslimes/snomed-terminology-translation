@@ -604,6 +604,7 @@ def back_translate(ctx: RunContext, inputs: dict[str, Any],
     src_code = str(params.get("source_lang_code") or "ko")
     tgt_lang = str(params.get("target_lang") or "English")
     tgt_code = str(params.get("target_lang_code") or "en")
+    concurrency = int(params.get("concurrency") or 1)
 
     rows: list[tuple[str, str]] = []
     with Path(qpath).open(encoding="utf-8") as f:
@@ -615,7 +616,7 @@ def back_translate(ctx: RunContext, inputs: dict[str, Any],
         english = back_translate_terms(
             [k for _, k in rows], base_url=base_url, model_id=str(model_id),
             system=system, fmt=fmt, source_lang=src_lang, source_code=src_code,
-            target_lang=tgt_lang, target_code=tgt_code)
+            target_lang=tgt_lang, target_code=tgt_code, concurrency=concurrency)
     except Exception as exc:
         return FunctionResult(ok=False, message=f"back-translation failed: {exc}")
 
@@ -811,6 +812,9 @@ back_translate_spec = FunctionSpec(
                   default="English"),
         ParamSpec(name="target_lang_code", label="Target code", kind="text",
                   default="en"),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number",
+                  default=1, help="Parallel LLM calls (vLLM batches them). "
+                                  "Use 16-32 for extension-scale runs."),
     ],
     runner=f"{_RUN}:back_translate",
 )

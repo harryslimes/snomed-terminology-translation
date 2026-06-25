@@ -80,17 +80,29 @@ def back_translate_terms(terms: Iterable[str], *, base_url: str, model_id: str,
                          max_tokens: int = 48, fmt: str = "chat",
                          source_lang: str = "Korean", source_code: str = "ko",
                          target_lang: str = "English",
-                         target_code: str = "en") -> list[str]:
+                         target_code: str = "en",
+                         concurrency: int = 1) -> list[str]:
     """Back-translate each Korean term to English (one call per term).
 
     ``fmt="chat"`` (default) uses an instruction system prompt against the chat
     endpoint; ``fmt="translategemma"`` uses TranslateGemma's structured
-    translation prompt against the completions endpoint."""
-    if fmt == "translategemma":
-        return [translate_completion(
-            base_url, model_id, t, source_lang=source_lang,
-            source_code=source_code, target_lang=target_lang,
-            target_code=target_code, temperature=temperature,
-            max_tokens=max_tokens) for t in terms]
-    return [chat(base_url, model_id, system, t, temperature=temperature,
-                 max_tokens=max_tokens) for t in terms]
+    translation prompt against the completions endpoint. ``concurrency`` > 1
+    issues that many calls in parallel (vLLM batches them) — results stay in
+    input order. Essential at extension scale (tens of thousands of terms)."""
+    terms = list(terms)
+
+    def one(t: str) -> str:
+        if fmt == "translategemma":
+            return translate_completion(
+                base_url, model_id, t, source_lang=source_lang,
+                source_code=source_code, target_lang=target_lang,
+                target_code=target_code, temperature=temperature,
+                max_tokens=max_tokens)
+        return chat(base_url, model_id, system, t, temperature=temperature,
+                    max_tokens=max_tokens)
+
+    if concurrency and concurrency > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=concurrency) as ex:
+            return list(ex.map(one, terms))     # map preserves input order
+    return [one(t) for t in terms]
