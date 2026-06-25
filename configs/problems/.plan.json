@@ -217,6 +217,18 @@
       "depends_on": [],
       "status": "done",
       "proposed_by": ""
+    },
+    {
+      "id": "task-18",
+      "title": "Non-generative direct cross-lingual verification",
+      "rationale": "skip the error-laundering LLM; score candidate KO directly vs concept EN / KO reference",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
     }
   ],
   "gates": [

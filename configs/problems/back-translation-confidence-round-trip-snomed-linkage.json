@@ -408,6 +408,25 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-direct-xlingual-verify",
+      "body": "**The non-generative check beats back-translation for error detection — confirming the LLM-laundering diagnosis — but is still weak reference-free.** Instead of round-tripping the candidate Korean through an LLM, score it DIRECTLY in multilingual BGE-M3 space. On the 3,615 forward candidates, AUC for predicting an incorrect translation:\n\n- direct cross-lingual (candidate-KO vs concept-EN, no LLM): **0.578** (string label) / **0.620** (semantic). \n- back-translation recovered (generative): 0.510 / 0.530; back-translation margin: ~0.48.\n- candidate-KO vs gold-KO (reference-based, semantic): **0.985 / ~1.0** — but circular / only available where a Korean reference exists.\n\nTwo conclusions. (1) Removing the generative step recovers real error signal (0.51 -> 0.58-0.62) — the LLM normalisation WAS the problem, as hypothesised. (2) But direct cross-lingual cosine is weak in absolute terms (correct mean 0.578 vs incorrect 0.548 — BGE-M3 compresses cross-lingual pairs), so it is not a strong reference-free gate. The strong detector needs a Korean REFERENCE: comparing the candidate to the concept's known Korean term(s) semantically is near-perfect. Practical recommendation: for concepts that have Korean references, validate machine translations by (multi-reference) semantic comparison to the reference — strong and cheap; for genuinely new concepts with no reference, no tested method gives a strong error gate (direct cross-lingual is the best option, ~0.6). Reproduced by scripts/analysis/direct_xlingual_verify.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": "non-generative verification investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "forward candidates (back-translation baseline)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
     }
   ],
   "plan": {
