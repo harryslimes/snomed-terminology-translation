@@ -69,6 +69,13 @@ def main() -> None:
     ap.add_argument("-n", type=int, default=60)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--prompt-file", help="Override the KO->EN system prompt.")
+    ap.add_argument("--mode", default="hybrid",
+                    choices=["hybrid", "dense", "sparse"],
+                    help="Retrieval strategy against the index.")
+    ap.add_argument("--direct", action="store_true",
+                    help="Skip the LLM: embed the Korean term directly and search "
+                         "the English index (tests the multilingual embedding's "
+                         "cross-lingual lookup, no back-translation).")
     args = ap.parse_args()
 
     kr = args.kr or next(iter(sorted(Path("data/korean").rglob(
@@ -91,26 +98,32 @@ def main() -> None:
     bt_scores: list[float] = []
     rows = []
     for sid in sample:
-        en = translate_one(args.base_url, args.model, system, ko[sid],
-                           {"temperature": 0, "max_tokens": 48})
-        en = en.strip().splitlines()[0].strip().strip('".') if en else ""
-        bt = si.retrieve_concepts(collection, [(sid, en)], limit=1,
-                                  embedder=emb, store=store)[0]
+        if args.direct:
+            query = ko[sid]                 # embed the Korean directly, no LLM
+        else:
+            en = translate_one(args.base_url, args.model, system, ko[sid],
+                               {"temperature": 0, "max_tokens": 48})
+            query = en.strip().splitlines()[0].strip().strip('".') if en else ""
+        bt = si.retrieve_concepts(collection, [(sid, query)], limit=1,
+                                  mode=args.mode, embedder=emb, store=store)[0]
         rl = si.retrieve_concepts(collection, [(sid, indexed[sid].fsn)], limit=1,
-                                  embedder=emb, store=store)[0]
+                                  mode=args.mode, embedder=emb, store=store)[0]
         bt_rec += bt["recovered"]
         real_rec += rl["recovered"]
         if bt["recovered"]:
             bt_scores.append(bt["top_score"])
-        rows.append((sid, ko[sid], en, indexed[sid].fsn, bt["recovered"],
+        rows.append((sid, ko[sid], query, indexed[sid].fsn, bt["recovered"],
                      bt["top_score"], bt["top_fsn"]))
 
     n = len(sample)
-    print(f"\n=== back-translation validation ({args.model}, n={n}) ===")
-    print(f"real-English recovery (ceiling): {real_rec}/{n} = {100*real_rec/n:.1f}%")
-    print(f"back-translation recovery:       {bt_rec}/{n} = {100*bt_rec/n:.1f}%")
+    method = (f"DIRECT Korean embedding [{args.mode}]" if args.direct
+              else f"back-translation [{args.mode}] ({args.model})")
+    print(f"\n=== validation: {method}, n={n} ===")
+    print(f"real-English recovery (ceiling, {args.mode}): {real_rec}/{n} = {100*real_rec/n:.1f}%")
+    print(f"{'direct-KO' if args.direct else 'back-translation'} recovery:       "
+          f"{bt_rec}/{n} = {100*bt_rec/n:.1f}%")
     if bt_scores:
-        print(f"recovered back-trans score: mean {statistics.mean(bt_scores):.3f}")
+        print(f"recovered score: mean {statistics.mean(bt_scores):.3f}")
     print("\nmisses (low-confidence — review these):")
     for sid, k, en, fsn, rec, sc, top in rows:
         if not rec:

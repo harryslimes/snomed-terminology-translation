@@ -83,6 +83,46 @@ def test_build_snomed_index_node(monkeypatch):
     assert "INT_20260101" in res.message
 
 
+def test_query_index_mode_dispatch():
+    import pytest
+
+    class _Res:
+        points = []
+
+    class _Client:
+        def __init__(self):
+            self.using = None
+
+        def query_points(self, collection_name, query, using, limit, with_payload):
+            self.using = using
+            return _Res()
+
+    class _Store:
+        url = "x"
+
+        def __init__(self):
+            self.client = _Client()
+            self.hybrid_calls = 0
+
+        def hybrid_query(self, *a, **k):
+            self.hybrid_calls += 1
+            return _Res()
+
+    class _Emb:
+        def encode_query(self, text):
+            return [0.1, 0.2], object()
+
+    st, em = _Store(), _Emb()
+    si.query_index("c", "q", mode="hybrid", embedder=em, store=st)
+    assert st.hybrid_calls == 1                       # hybrid -> RRF path
+    si.query_index("c", "q", mode="dense", embedder=em, store=st)
+    assert st.client.using == "dense"                 # dense -> embeddings only
+    si.query_index("c", "q", mode="sparse", embedder=em, store=st)
+    assert st.client.using == "sparse"
+    with pytest.raises(ValueError, match="unknown retrieval mode"):
+        si.query_index("c", "q", mode="bogus", embedder=em, store=st)
+
+
 def test_retrieve_concepts_signal(monkeypatch):
     # fake the index lookup: "heart attack" -> MI top; "chest pain" -> a different
     # concept (MI not recovered).

@@ -98,13 +98,21 @@ def query_index(
     text: str,
     *,
     limit: int = 5,
+    mode: str = "hybrid",
     qdrant_url: str | None = None,
     embedder=None,
     store=None,
 ) -> list[dict]:
     """Retrieve the nearest concepts to ``text`` from a built index, deduped to
     one row per concept (best-scoring surface form), best first:
-    ``[{sctid, fsn, matched_text, score}]``."""
+    ``[{sctid, fsn, matched_text, score}]``.
+
+    ``mode`` selects the retrieval strategy against the same hybrid index:
+    ``"hybrid"`` (dense + sparse, RRF), ``"dense"`` (embeddings only — the fair
+    test for cross-lingual lookup, where the sparse/lexical channel is dead
+    weight), or ``"sparse"`` (lexical only)."""
+    if mode not in ("hybrid", "dense", "sparse"):
+        raise ValueError(f"unknown retrieval mode {mode!r}")
     if embedder is None:
         from agent.qdrant_store import BGEM3Embedder
         embedder = BGEM3Embedder()
@@ -113,7 +121,15 @@ def query_index(
         store = QdrantHybridStore(qdrant_url)
 
     dense, sparse = embedder.encode_query(text)
-    res = store.hybrid_query(collection, dense, sparse, limit=limit * 4)
+    if mode == "hybrid":
+        res = store.hybrid_query(collection, dense, sparse, limit=limit * 4)
+    else:
+        from agent.qdrant_store import DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
+        using = DENSE_VECTOR_NAME if mode == "dense" else SPARSE_VECTOR_NAME
+        query = list(dense) if mode == "dense" else sparse
+        res = store.client.query_points(
+            collection_name=collection, query=query, using=using,
+            limit=limit * 4, with_payload=True)
     best: dict[str, dict] = {}
     for p in res.points:
         sctid = (p.payload or {}).get("sctid")
@@ -132,6 +148,7 @@ def retrieve_concepts(
     *,
     limit: int = 5,
     search_depth: int = 25,
+    mode: str = "hybrid",
     qdrant_url: str | None = None,
     embedder=None,
     store=None,
@@ -151,7 +168,7 @@ def retrieve_concepts(
     rows: list[dict] = []
     for original_sctid, query in queries:
         ranked = query_index(collection, query, limit=max(search_depth, limit),
-                             embedder=embedder, store=store)
+                             mode=mode, embedder=embedder, store=store)
         top = ranked[0] if ranked else {}
         correct_rank, correct_score = 0, None
         if original_sctid:
