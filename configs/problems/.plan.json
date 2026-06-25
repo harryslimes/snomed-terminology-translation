@@ -9,7 +9,7 @@
         "back_translate"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -21,7 +21,7 @@
         "snomed_search"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -34,7 +34,7 @@
         "source"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -57,7 +57,7 @@
         "out"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": "agent"
     },
     {
@@ -84,7 +84,7 @@
       "depends_on": [
         "task-6"
       ],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -96,7 +96,7 @@
         "kr_ext"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -108,7 +108,7 @@
         "distance"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -122,7 +122,7 @@
       "depends_on": [
         "task-6"
       ],
-      "status": "todo",
+      "status": "active",
       "proposed_by": ""
     },
     {
@@ -134,7 +134,7 @@
         "source"
       ],
       "depends_on": [],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -148,7 +148,7 @@
       "depends_on": [
         "task-11"
       ],
-      "status": "todo",
+      "status": "done",
       "proposed_by": ""
     },
     {
@@ -167,7 +167,31 @@
         "task-10",
         "task-9"
       ],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-14",
+      "title": "SME-labelled error-detection test",
+      "rationale": "Back-translation can't flag MT errors under string/embedding labels (note-error-detection); the real test needs genuinely-wrong candidates with human (SME) ACCEPTABLE/PARTIAL/WRONG labels.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
       "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-15",
+      "title": "Compare hierarchy-trained embeddings (HiT/OnT) vs BGE-M3 for retrieval",
+      "rationale": "Test SNOMED-hierarchy-trained hyperbolic encoders (example_ret_script) as the index embedder; do they improve back-translation concept recall? (in progress).",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_search"
+      ],
+      "depends_on": [],
+      "status": "active",
       "proposed_by": ""
     }
   ],

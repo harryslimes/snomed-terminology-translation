@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "name": "snomed_backtrans_validation_v1",
-  "description": "Core question: does KO->EN back-translation recover the source SNOMED concept, and does it beat direct multilingual lookup? Baselines: bt-hybrid, direct-dense, direct-hybrid (BGE-M3, INT_20260101 index).",
+  "name": "snomed_backtrans_confidence_signal_v1",
+  "description": "Is the retrieval match score a usable per-translation confidence signal? (cosine vs margin; precision/coverage; AUC).",
   "environment": {
     "version": 1,
     "name": "project",

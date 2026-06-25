@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "name": "snomed_backtrans_validation_v1",
-  "description": "Core question: does KO->EN back-translation recover the source SNOMED concept, and does it beat direct multilingual lookup? Baselines: bt-hybrid, direct-dense, direct-hybrid (BGE-M3, INT_20260101 index).",
+  "name": "snomed_backtrans_error_detection_v1",
+  "description": "Can back-translation flag INCORRECT machine translations? (forward-translate candidates, label vs gold, test detection).",
   "environment": {
     "version": 1,
     "name": "project",

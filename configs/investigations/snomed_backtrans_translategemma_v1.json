@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "name": "snomed_backtrans_validation_v1",
-  "description": "Core question: does KO->EN back-translation recover the source SNOMED concept, and does it beat direct multilingual lookup? Baselines: bt-hybrid, direct-dense, direct-hybrid (BGE-M3, INT_20260101 index).",
+  "name": "snomed_backtrans_translategemma_v1",
+  "description": "Does a translation-specialised model (TranslateGemma-27b) back-translate better than the instruction-prompted gemma4-26b for SNOMED lookup?",
   "environment": {
     "version": 1,
     "name": "project",

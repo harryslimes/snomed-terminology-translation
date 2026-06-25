@@ -249,7 +249,7 @@
       "links": [
         {
           "to_kind": "investigation",
-          "to_id": "snomed_backtrans_validation_v1",
+          "to_id": "snomed_backtrans_rerank_v1",
           "label": "validation investigation"
         },
         {
@@ -273,7 +273,7 @@
       "links": [
         {
           "to_kind": "investigation",
-          "to_id": "snomed_backtrans_validation_v1",
+          "to_id": "snomed_backtrans_translategemma_v1",
           "label": "validation investigation"
         },
         {
@@ -297,7 +297,7 @@
       "links": [
         {
           "to_kind": "investigation",
-          "to_id": "snomed_backtrans_validation_v1",
+          "to_id": "snomed_backtrans_scale_hierarchy_v1",
           "label": "validation investigation"
         },
         {
@@ -316,7 +316,7 @@
       "links": [
         {
           "to_kind": "investigation",
-          "to_id": "snomed_backtrans_validation_v1",
+          "to_id": "snomed_backtrans_confidence_signal_v1",
           "label": "validation investigation"
         },
         {
@@ -340,13 +340,27 @@
       "links": [
         {
           "to_kind": "investigation",
-          "to_id": "snomed_backtrans_validation_v1",
+          "to_id": "snomed_backtrans_error_detection_v1",
           "label": "validation investigation"
         },
         {
           "to_kind": "run",
           "to_id": "3145ce9f6527",
           "label": "candidate back-translation (error detection, AUC~0.5)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-hierarchy-embeddings",
+      "body": "**[IN PROGRESS] Testing SNOMED-hierarchy-trained embedding models for retrieval.** An externally-supplied model set (example_ret_script/: HiT + OnT hyperbolic encoders trained on SNOMED 20250901, MiniLM-L12 base, plus a plain SBERT-MiniLM baseline) is being benchmarked against BGE-M3 on back-translation concept recall. Method: embed the cached back-translated English queries, score by hyperbolic (Poincaré) distance for HiT/OnT and cosine for SBERT, recall@1/5/10 on a 2,160-concept stratified sample (BGE-M3 baseline on the same sample = 61.6%@1). NOTE: these models are trained for *subsumption* (ancestor retrieval), so the open question is whether nearest-by-distance gives competitive *exact-concept* recall. Run via a harness (not yet a tracked flow — no Qdrant collection for these embeddings yet). Results + verdict to follow.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_embeddings_v1",
+          "label": "hierarchy-embeddings investigation"
         }
       ],
       "author": "research-agent",
