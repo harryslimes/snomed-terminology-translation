@@ -1,0 +1,96 @@
+{
+  "conclusions": [
+    {
+      "id": "conclusion-1",
+      "statement": "Score translation accuracy with multi-reference semantic cosine as a SCREEN, not a verdict — reserve a blind LLM/SME judge for the ambiguous tail.",
+      "detail": "Single-reference string/cosine breaks on valid Korean synonyms; multi-ref (all KR synonyms) chrF + max BGE cosine fixes that. But even multi-ref understates valid-but-divergent translations: it rated organism context +2.8 chrF while a blind judge preferred it 69% vs 31%.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "judge vs metric"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": "single-ref broke"
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-2",
+      "statement": "Back-translation LINKS Korean terms to the right SNOMED concept ~63-68%@1 at full scale, but is a poor ERROR detector — the round-trip LLM normalises errors away.",
+      "detail": "Full 36k extension: recall@1 63% (hybrid) / 68% (dense). As an MT error detector AUC ~0.5: recovery is identical for correct and incorrect candidates.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "high",
+      "problems": [
+        "back-translation-confidence-round-trip-snomed-linkage"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "eab48498e285",
+          "label": "full extension"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-3",
+      "statement": "A non-generative direct cross-lingual check beats back-translation for error detection (AUC 0.58-0.62 vs 0.51), but only a Korean reference gives a strong (0.98) check.",
+      "detail": "Skipping the laundering LLM recovers error signal; absolute strength is still weak reference-free (BGE compresses cross-lingual cosine). Strong detection needs a Korean reference -> multi-reference semantic validation where references exist.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "medium",
+      "problems": [
+        "back-translation-confidence-round-trip-snomed-linkage"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-4",
+      "statement": "SNOMED parent context improves EN->KO translation on the AMBIGUOUS tail (judge ~2:1 on organisms / qualifier values) but hurts concrete types — add it conditionally, fenced.",
+      "detail": "Neutral on the mean (harsh metric), but a blind judge shows organism 69% / qualifier 66% wins and body-structure/disorder losses. Naive '(tag)' formatting leaks into output; fence the context.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    }
+  ]
+}
