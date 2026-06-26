@@ -107,6 +107,25 @@
       "links": [],
       "author": "harry",
       "ts": "2026-06-24T17:36:59"
+    },
+    {
+      "id": "conclusion-eval-metric",
+      "body": "[METHODOLOGICAL CONCLUSION] **Score translation accuracy with MULTI-REFERENCE semantic cosine as a cheap screen, but treat it as a screen — not a verdict.** Single-reference string/cosine (what we started with) breaks on valid Sino/native Korean synonyms (백혈구 계산 vs 백혈구 수 측정 = 'WBC count'), which made back-translation look like a failed error detector. Multi-reference (all KR synonyms) chrF + max BGE cosine fixes that and is the better crude metric. BUT even multi-ref understates valid-but-divergent translations: on the concept-context experiment it rated organism context +2.8 chrF while a blind LLM judge preferred it 69% vs 31%. So: use multi-ref semantic cosine as the everyday scorer; reserve a blind pairwise LLM judge (or SME) for the ambiguous tail and any decision that rides on the number. Evidence: investigations snomed_backtrans_error_detection_v1, concept_context_translation_v1. NOTE: this is a cross-cutting methodological conclusion, not a finding about one problem — see the conclusions-as-a-first-class-entity discussion.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "concept-context (judge vs metric)"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": "error detection (single-ref broke)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-26"
     }
   ],
   "plan": {
