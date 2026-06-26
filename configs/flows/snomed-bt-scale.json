@@ -1,0 +1,70 @@
+{
+  "id": "snomed-bt-scale",
+  "name": "snomed-bt-scale",
+  "description": "Back-translate the FULL Korean extension (36,389 concepts) KO->EN with gemma4-26b-qat, then hybrid retrieve. recall@K at scale, breakable down by hierarchy via the gold's hierarchy column.",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_full"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "bt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "back_translate",
+        "model_id": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "source_col": "korean",
+        "id_col": "sctid",
+        "out_col": "query",
+        "concurrency": 128
+      },
+      "inputs": {
+        "queries": "gold"
+      }
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "hybrid",
+        "search_depth": 10
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

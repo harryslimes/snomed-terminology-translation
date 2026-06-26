@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "name": "snomed_backtrans_scale_hierarchy_v1",
+  "description": "Does the back-translation recall hold across the FULL Korean extension (36,389 concepts) and how does it vary by hierarchy region?",
+  "environment": {
+    "version": 1,
+    "name": "project",
+    "description": "",
+    "language": {
+      "code": "ko",
+      "name": "Korean",
+      "direction": "EN->KO",
+      "tokenizer_lang": "en"
+    },
+    "paths": {
+      "root": ".",
+      "data_dir": "data",
+      "output_dir": "data/evals/korean",
+      "lookup_cache": "data/evals/korean/lookup_cache.json"
+    },
+    "qdrant": {
+      "url": "http://localhost:6333",
+      "bgem3": {
+        "model_name": "BAAI/bge-m3",
+        "use_fp16": false,
+        "batch_size": 256,
+        "max_length": 512
+      }
+    },
+    "overlap_defaults": {
+      "prompt_addendum": "additive",
+      "term_dictionary": "most_specific",
+      "retrieval_corpus": "additive",
+      "exemplar_set": "union_dedupe"
+    },
+    "default_model_key": "gemma4-26b"
+  },
+  "problem": "back-translation-confidence-round-trip-snomed-linkage"
+}

@@ -1,0 +1,316 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Prototype KO->EN back-translation",
+      "rationale": "round trip needs a back-translator; sample N for self-consistency",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "back_translate"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-2",
+      "title": "Build hybrid SNOMED search (lexical + embeddings)",
+      "rationale": "the linkage check needs ranked retrieval over FSN+synonyms",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_search"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-3",
+      "title": "Define round-trip confidence metric (rank/similarity)",
+      "rationale": "turn linkage into a calibrated per-item score",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match",
+        "source"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-4",
+      "title": "Add per-translation confidence score",
+      "rationale": "needed for triage",
+      "problem": "output-translations-confidence",
+      "addresses": [],
+      "depends_on": [],
+      "gate": "gate-3",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-5",
+      "title": "Investigate per-translation confidence signal",
+      "rationale": "the Output concept needs a confidence to triage review",
+      "problem": "snomed-translation",
+      "addresses": [
+        "out"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-6",
+      "title": "Build a SNOMED semantic index (new function node)",
+      "rationale": "Index FSN+synonyms for back-translation lookup; today only data-pair embeddings exist.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_index"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-7",
+      "title": "Compare SNOMED indexing strategies (dense / lexical / hybrid)",
+      "rationale": "Retrieval quality of the round trip depends on the index; try variants.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_index",
+        "snomed_search"
+      ],
+      "depends_on": [
+        "task-6"
+      ],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-8",
+      "title": "Ingest the Korean SNOMED extension as gold KO<->concept pairs",
+      "rationale": "snomedct-kr gives gold pairs to drive + evaluate the method.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "kr_ext"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-9",
+      "title": "Define a closeness/distance metric for retrieved concepts",
+      "rationale": "Need rank + similarity + hierarchy distance to score how close we got.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "distance"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-10",
+      "title": "Compare rerankers: cross-encoder vs LLM vs calculated metrics",
+      "rationale": "Lookup returns many candidates; the reranker choice drives precision.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "rerank"
+      ],
+      "depends_on": [
+        "task-6"
+      ],
+      "status": "active",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-11",
+      "title": "Obtain the International-edition RF2 release locally (EN FSN+synonyms source)",
+      "rationale": "Decision: local RF2 for fast access; only the KR extension is local today.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "source"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-12",
+      "title": "Define the index DataObject meta schema (rf2_release, embedding_model, strategy, dim, counts)",
+      "rationale": "Make the index's build config legible + reproducible across embedding models.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "index_artifact"
+      ],
+      "depends_on": [
+        "task-11"
+      ],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-13",
+      "title": "Compose the back-translation-confidence flow (after building blocks exist)",
+      "rationale": "No existing flow is adaptable (all are translate->evaluate); the needed function nodes don't exist yet, so build the blocks first, then wire the flow.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_index",
+        "snomed_search",
+        "rerank",
+        "roundtrip_match"
+      ],
+      "depends_on": [
+        "task-6",
+        "task-10",
+        "task-9"
+      ],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-14",
+      "title": "SME-labelled error-detection test",
+      "rationale": "Back-translation can't flag MT errors under string/embedding labels (note-error-detection); the real test needs genuinely-wrong candidates with human (SME) ACCEPTABLE/PARTIAL/WRONG labels.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-15",
+      "title": "Compare hierarchy-trained embeddings (HiT/OnT) vs BGE-M3 for retrieval",
+      "rationale": "Test SNOMED-hierarchy-trained hyperbolic encoders (example_ret_script) as the index embedder; do they improve back-translation concept recall? (in progress).",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_search"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-16",
+      "title": "Hierarchy-coherence confidence signal",
+      "rationale": "do clustered top-K predict a correct match? (weak alone, +orthogonal to margin)",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-17",
+      "title": "Cross-hierarchy mismatch as a structural error flag",
+      "rationale": "flag when expected semantic tag != retrieved concept's tag; embedding-independent",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-18",
+      "title": "Non-generative direct cross-lingual verification",
+      "rationale": "skip the error-laundering LLM; score candidate KO directly vs concept EN / KO reference",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "roundtrip_match"
+      ],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-19",
+      "title": "Extend Korean references via Athena 'Maps to' (EDI/KCD7/LOINC -> SNOMED)",
+      "rationale": "reference-based validation only covers the ~39k KR-edition concepts (~11% of SNOMED); Athena mappings could extend references to untranslated concepts. Needs the Athena bundle restored + relationship-path code; filter for map quality.",
+      "problem": "back-translation-confidence-round-trip-snomed-linkage",
+      "addresses": [
+        "snomed_search"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-20",
+      "title": "Concept-context in the translation prompt (tag/parents)",
+      "rationale": "does SNOMED context improve EN->KO? Neutral overall, helps ambiguous tail (organism/qualifier); context must be fenced",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-21",
+      "title": "Prompt optimisation (GEPA) with conditional context access",
+      "rationale": "blind judge shows parent context wins ~2:1 on ambiguous types (organism 69%, qualifier 66%, finding 57%) but HURTS concrete ones (body structure 26%, disorder 44%); GEPA should learn conditional context access by concept type. Productionise a context-aware translate node.",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-20"
+      ],
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-22",
+      "title": "SME spot-check of context value on the ambiguous tail",
+      "rationale": "chrF/sem-to-gold may understate context value (penalises valid divergence); confirm with human rating on organisms/qualifier values",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-20"
+      ],
+      "status": "todo",
+      "proposed_by": ""
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-1",
+      "kind": "manual",
+      "description": "terminologist confirms the confidence signal tracks real review need",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "source": "",
+      "artifact": ""
+    },
+    {
+      "id": "gate-2",
+      "kind": "metric-threshold",
+      "description": "chrF over 0.5",
+      "status": "open",
+      "rationale": "",
+      "metric": "mean_chrf",
+      "op": ">=",
+      "threshold": 0.5,
+      "source": "qdrant_ko_v1",
+      "artifact": ""
+    },
+    {
+      "id": "gate-3",
+      "kind": "manual",
+      "description": "terminologist sign-off",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "source": "",
+      "artifact": ""
+    }
+  ]
+}

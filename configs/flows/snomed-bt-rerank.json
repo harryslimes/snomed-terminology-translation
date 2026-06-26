@@ -1,0 +1,70 @@
+{
+  "id": "snomed-bt-rerank",
+  "name": "snomed-bt-rerank",
+  "description": "Back-translate KO->EN, then cross-encoder rerank top-10 (recall@K after rerank).",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_backtrans"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "bt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "back_translate",
+        "model_id": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "source_col": "korean",
+        "id_col": "sctid",
+        "out_col": "query"
+      },
+      "inputs": {
+        "queries": "gold"
+      }
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "rerank",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "hybrid",
+        "top_k": 10,
+        "reranker_model": "BAAI/bge-reranker-v2-m3"
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

@@ -1,0 +1,444 @@
+{
+  "id": "back-translation-confidence-round-trip-snomed-linkage",
+  "title": "Back-translation confidence (round-trip SNOMED linkage)",
+  "prose": "Estimate per-translation confidence by ROUND-TRIP linkage. Given an EN->KO translation, back-translate the Korean term to English, then run that back-translation through semantic/hybrid search over SNOMED. If it links back to the ORIGINAL SNOMED expression (correct concept ranks top / high similarity), the round trip preserved meaning -> high confidence; if it lands on the wrong concept or low rank -> low confidence. This turns 'does meaning survive the round trip?' into a usable per-item confidence signal to triage terminologist review.",
+  "parent": "output-translations-confidence",
+  "created": "2026-06-25T01:15:30",
+  "retired": false,
+  "graph": {
+    "nodes": [
+      {
+        "id": "source",
+        "title": "SNOMED terminology — International RF2 (local)",
+        "description": "English FSN + synonyms per concept, read from the local International-edition RF2 release (fast access). Both the corpus to index and the ground-truth target.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "kr_ext",
+        "title": "Korean SNOMED extension (snomedct-kr)",
+        "description": "Local RF2; Korean designations linked to concept ids. Gold (concept <-> Korean term) pairs to drive + evaluate the round trip.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "candidate_ko",
+        "title": "Candidate KO translation",
+        "description": "The EN->KO translation to be scored.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 370.0
+        }
+      },
+      {
+        "id": "snomed_index",
+        "title": "Build SNOMED index  (function)",
+        "description": "Function node: reads the International RF2 source, embeds FSN+synonyms (BGE-M3, reusing QdrantHybridStore), and PRODUCES the index artifact. Params: embedding model, indexing strategy (dense/lexical/hybrid). Run once; reused.",
+        "realized_by": [
+          {
+            "to_kind": "flow",
+            "to_id": "snomed-semantic-index",
+            "label": ""
+          }
+        ],
+        "links": [],
+        "pos": {
+          "x": 320.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "index_artifact",
+        "title": "SNOMED index artifact  (DATA / DataObject)",
+        "description": "The built, reusable index — DATA, not recomputed each run. A DataObject whose provenance/meta records the build config: RF2 release id, embedding model, strategy, vector dim, concept count. Consumed by lookup as a datasource. Rebuilding with a different embedding model yields a DISTINCT artifact, so an investigation stays reproducible.",
+        "realized_by": [
+          {
+            "to_kind": "dataobject",
+            "to_id": "snomed_index_en",
+            "label": ""
+          }
+        ],
+        "links": [],
+        "pos": {
+          "x": 600.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "back_translate",
+        "title": "Back-translate KO->EN",
+        "description": "An LLM back-translates the Korean term to English (ideally several samples for self-consistency).",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 320.0,
+          "y": 370.0
+        }
+      },
+      {
+        "id": "snomed_search",
+        "title": "Index lookup / retrieval  (function)",
+        "description": "Consumes the index artifact (as a datasource); queries it with the back-translated English; returns MULTIPLE ranked candidate concepts.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 880.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "rerank",
+        "title": "Rerank candidates  (function)",
+        "description": "Re-rank the retrieved candidates: cross-encoder vs LLM vs calculated metrics. None exists today.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1160.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "distance",
+        "title": "Closeness / distance measure",
+        "description": "How close the chosen concept is to the correct one: rank, embedding-similarity distance, SNOMED hierarchy distance for near-misses.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1440.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "roundtrip_match",
+        "title": "Round-trip linkage -> confidence",
+        "description": "Turn closeness into a per-item confidence: high when the round trip recovers the original concept, low when it lands elsewhere.",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 1720.0,
+          "y": 200.0
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "source",
+        "target": "snomed_index"
+      },
+      {
+        "source": "source",
+        "target": "candidate_ko"
+      },
+      {
+        "source": "source",
+        "target": "distance"
+      },
+      {
+        "source": "source",
+        "target": "roundtrip_match"
+      },
+      {
+        "source": "kr_ext",
+        "target": "candidate_ko"
+      },
+      {
+        "source": "candidate_ko",
+        "target": "back_translate"
+      },
+      {
+        "source": "snomed_index",
+        "target": "index_artifact"
+      },
+      {
+        "source": "index_artifact",
+        "target": "snomed_search"
+      },
+      {
+        "source": "back_translate",
+        "target": "snomed_search"
+      },
+      {
+        "source": "snomed_search",
+        "target": "rerank"
+      },
+      {
+        "source": "rerank",
+        "target": "distance"
+      },
+      {
+        "source": "distance",
+        "target": "roundtrip_match"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Open questions: (1) hybrid lexical/vector weighting; (2) score calibration vs terminologist 'needs review' labels; (3) partial credit when the hit is an ancestor/sibling rather than the exact concept; (4) FSN vs synonym matching; (5) cost of back-translation + search per item.",
+      "attached_to": "",
+      "links": [],
+      "author": "",
+      "ts": "2026-06-25T01:15:30"
+    },
+    {
+      "id": "note-2",
+      "body": "SNOMED semantic index — design (new function node, lives in the PLUGIN repo snomed_translation.functions).\n\nREUSE (already in the plugin): BGE-M3 embedder + QdrantHybridStore (dense COSINE + sparse, RRF fusion) in agent/qdrant_store.py; deterministic content-hashed collection naming + resumable indexing + lookup cache (exemplars.py / index_exemplars.py). The Korean SNOMED extension RF2 is ALREADY a local data source (configs/sources/kr_snomed.json, kind 'snomed_national_extension').\n\nNEW: index SNOMED *concepts* (sctid -> FSN + synonyms) instead of EN->KO pairs (payload {sctid, fsn_en, synonyms_en, hierarchy}); a 'given EN term -> best concept' retrieval stage; a reranker (cross-encoder vs LLM vs calculated — none exists today); a closeness metric = rank + cosine + SNOMED hierarchy distance.\n\nDATA DECISION: English FSN+synonyms come from EITHER the International-edition RF2 (local file) OR the Snowstorm MCP (live, scoped by ECL). KR extension is local already; the English side is the open question.",
+      "attached_to": "snomed_index",
+      "links": [],
+      "author": "design",
+      "ts": "2026-06-25T11:45:20"
+    },
+    {
+      "id": "note-3",
+      "body": "Index = a produced ARTIFACT (data), not a pure function. Modelled with existing primitives: a function node (build) -> promote -> DataObject -> datasource (consume).\n\nDataObject meta (the 'config clearly recorded'): {rf2_release_id, embedding_model, strategy (dense|lexical|hybrid), vector_dim, n_concepts, scope_ecl?}. Provenance (flow, node, run_id) comes for free from promote().\n\nReproducibility: flows are content-hash versioned and runs link to a flow version, so re-running an investigation with a DIFFERENT embedding model = duplicate the flow, change the build node's embedding_model param -> a new, distinct index DataObject; the original (with its model) stays recorded. The build (expensive) runs once; lookups are cheap.",
+      "attached_to": "index_artifact",
+      "links": [],
+      "author": "design",
+      "ts": "2026-06-25T12:03:59"
+    },
+    {
+      "id": "note-4",
+      "body": "Agent build workflow + the two walls it hits:\n1) Check existing flows: all are translate->evaluate pipelines (datasource/translate/evaluate/score/promote) — NONE adaptable to build-index->backtranslate->lookup->rerank. So: new flow from scratch.\n2) Check building blocks (list_functions): only translation-domain nodes exist (translate, evaluate, optimize, score, style_guide). The blocks we need — build_snomed_index, retrieval, reranker, concept-distance — DON'T EXIST.\n=> Must CREATE the building blocks first (plugin code: FunctionSpec + runner via the semi_automated_research.functions entry point), THEN compose the flow. Creating a block is code, not config. Sequence: obtain RF2 -> write build_snomed_index (+ retrieval/rerank/distance) -> compose flow -> run investigations.",
+      "attached_to": "",
+      "links": [],
+      "author": "workflow",
+      "ts": "2026-06-25T12:14:33"
+    },
+    {
+      "id": "note-7",
+      "body": "FINDING: two miss types — (a) genuine mistranslations (trichinosis -> model said 'Piloerection' -> wrong concept, correctly low confidence); (b) near-misses to a synonymous-but-different concept ('Sexual status finding'). (b) motivates hierarchy-aware distance / a reranker (partial credit for close concepts).",
+      "attached_to": "rerank",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": ""
+        }
+      ],
+      "author": "investigation",
+      "ts": "2026-06-25T13:50:59"
+    },
+    {
+      "id": "note-5",
+      "body": "Quantitative results are now TRACKED RUNS under this investigation (see the run ledger) -- each is a flow + git shas + recall@K metric, reproducible -- NOT transcribed here. Qualitative read: back-translation substantially beats direct multilingual lookup, and its near-misses are usually recoverable in the top-K, so a reranker should lift recall@1 toward recall@5/@10; direct-KO gains little from top-K. (The earlier hand-typed numbers were retired -- one was even wrong, a different sample -- which is exactly why results must come from runs.)",
+      "attached_to": "roundtrip_match",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_validation_v1",
+          "label": ""
+        }
+      ],
+      "author": "investigation",
+      "ts": "2026-06-25T14:59:57"
+    },
+    {
+      "id": "note-rerank",
+      "body": "**Cross-encoder reranking (BAAI/bge-reranker-v2-m3) lifts recall@1, but candidate generation is the ceiling.** Two tracked runs under this investigation rerank the bi-encoder's top-10:\n\n- Back-translation -> hybrid retrieve -> rerank: recall@1 **55%** (up from ~48-50% un-reranked), @5 68%, @10 75%.\n- Direct KO query -> dense retrieve -> rerank: recall@1 **35%** (up from ~23%), but @10 only **37%** — dense cross-lingual retrieval simply never surfaces the gold for ~63% of terms, so no reranker can recover it.\n\nTakeaway: back-translation stays essential — it's what gets the gold concept into the candidate set (top-10 75% vs 37%). Reranking is a cheap +5-12pt @1 win on top of whichever retrieval feeds it. Numbers live in the linked runs (git-sha provenance), not this note.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_rerank_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "86ef597cfc0a",
+          "label": "back-translation + rerank (@1=55%)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7e5c5ec7378c",
+          "label": "direct-KO dense + rerank (@1=35%, ceiling 37%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-translategemma",
+      "body": "**TranslateGemma-27b underperforms the instruction-prompted general model for terminology back-translation.** A/B under this investigation, same pipeline (KO->EN -> hybrid retrieve -> rerank top-10), only the back-translation model changed:\n\n- gemma4-26b-qat (medical-terminologist system prompt): recall@1 **55%**, @5 68%, @10 75%.\n- translategemma-27b (kaitchup AutoRound w4a16, structured translate prompt): recall@1 **47%**, @5 60%, @10 **62%**.\n\nCause: TranslateGemma is a fluency-optimised general translator and emits *descriptive* phrasings ('Acute leukemia, a disease'; 'Insomnia caused by alcohol') rather than terse controlled-vocabulary terms, so they match SNOMED surface forms less well. The drop is largest at @10 (75%->62%) — i.e. it's the candidate-generation ceiling that falls, which reranking cannot recover. For SNOMED lookup, a terse-term instruction prompt beats a specialised translation model. Numbers live in the linked run.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_translategemma_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e9592523acf0",
+          "label": "translategemma-27b + rerank (@1=47%, @10=62%)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "86ef597cfc0a",
+          "label": "gemma4-26b-qat baseline (@1=55%, @10=75%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-scale-hierarchy",
+      "body": "**The back-translation score holds up at full-extension scale, and varies ~40 points by hierarchy.** Tracked run over the *entire* Korean extension (36,389 concepts, gemma4-26b-qat back-translation -> hybrid retrieval, no rerank):\n\n- Overall recall@1 **62.9%**, @5 78.9%, @10 82.6%, MRR 0.70 — i.e. it does not degrade vs the 60-concept pilot (48%@1, hybrid); if anything the larger, disorder-heavy set scores higher. The method is robust at scale.\n- By hierarchy (recall@1): situation 85.6, event 77.9, substance 73.7, observable entity 66.7, **disorder 66.2** (n=19,218, the bulk), procedure 58.5, finding 56.4, body structure 56.0, qualifier value 50.7, organism 49.7, physical object 48.8, morphologic abnormality 46.2.\n\nPattern: hierarchies with distinctive multi-word clinical phrases (situations, disorders, substances) round-trip well; terse or language-neutral terms (organisms = Latin binomials, morphologic abnormalities, body structures) round-trip worst. Concurrency=24 left ~2.4x throughput unused (GPU KV cache <1%); a sweep plateaus ~128. Numbers live in the linked run; see scripts/analysis/recall_by_hierarchy.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_scale_hierarchy_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "eab48498e285",
+          "label": "full extension (36,389) @1=63%"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-confidence-signal",
+      "body": "**The match score is a real but moderate confidence signal — it tops out at ~82% precision.** On the full 36k extension (dense retrieval of the cached back-translations):\n\n- Raw cosine (top_score): AUC 0.696. cosine>=0.95 keeps 62% of translations at 80% precision (base 68%).\n- **Margin** (top1 minus the next *different* concept's score): better, AUC 0.737. margin>=0.09 keeps **55% at 82% precision**; >=0.18 keeps 18% at 85%.\n- Cosine+margin+second_score combined (5-fold logistic): AUC 0.738 — **no gain over margin alone**; precision plateaus ~82% across 30-70% coverage.\n- The cross-encoder rerank score is useless here: it saturates near 1.0 even when wrong (precision only 74% at score>=0.999).\n\nSo a single margin threshold cleanly carves out a high-confidence subset (~55% of items at ~82% precision) and flags the rest for review — useful for human-in-the-loop, but not a strong auto-accept gate. The ~82% ceiling is the retrieval embeddings failing to separate a concept from its near-synonym competitors. Breaking it needs an *external* check — the prime candidate is round-trip consistency: translate the matched concept's English FSN back to Korean and compare to the input Korean. Numbers live in the linked runs; see scripts/analysis/confidence_curve.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_confidence_signal_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "355ef88e11b7",
+          "label": "dense + margin (AUC 0.74)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "2fc3afa567f8",
+          "label": "dense baseline (recall@1 68%)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-error-detection",
+      "body": "**Back-translation does NOT work as a machine-translation error detector.** Took 3,693 real forward-translation candidates (gemma4-26b-qat + lookup, the procedure eval set), back-translated each KO->EN and retrieved: does the candidate map back to its *source* concept?\n\n- Back-translation recovers the source concept at **~67% whether the candidate is correct or incorrect** — no separation. Flagging 'did not recover' gives precision = the base error rate (no enrichment); recall ~33% (just the miss rate). AUC of both the recovered flag and the margin for predicting an incorrect translation is **~0.5 (chance)**, and this holds under a strict string label *and* a semantic (BGE cosine candidate-vs-gold) label.\n\nTwo reasons: (1) the round-trip's own ~32% retrieval miss-rate on *correct* translations is large noise that swamps any error signal; (2) the back-translation LLM is normalising — it launders a slightly-wrong Korean term back toward the intended English, recovering the source concept and masking the error. Note also the cheap 'string-match-to-one-gold' label is itself broken: most string-divergent candidates are valid Sino/native Korean synonyms (백혈구 계산 vs 백혈구 수 측정 = white blood cell count) that back-translation correctly recovers.\n\nWhere back-translation *does* help: recovered=1 is a high-precision *positive* confirmer (that bucket is ~semantically all-correct) — but it cannot flag the wrong ones, which was the goal. To measure true error detection we'd need genuinely mistranslated candidates with human (SME) labels. Numbers in the linked run; see scripts/analysis/error_detection.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": "validation investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "candidate back-translation (error detection, AUC~0.5)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-hierarchy-embeddings",
+      "body": "**SNOMED-hierarchy-trained embeddings (HiT/OnT) do NOT improve back-translation retrieval — BGE-M3 wins decisively.** Benchmarked the externally-supplied models (example_ret_script/: HiT + OnT hyperbolic encoders, SNOMED 20250901, MiniLM-L12 base) against our BGE-M3 hybrid index on a 2,159-concept stratified sample, recall of the source concept from the back-translated English (HiT/OnT scored by Poincare distance = nearest concept; plain SBERT-MiniLM as a base-model control):\n\n- recall@1: HiT 49.0, OnT 50.2, SBERT-MiniLM 49.9, **BGE-M3 61.6**.\n- recall@10: HiT 65.4, OnT 66.7, SBERT-MiniLM 69.3, **BGE-M3 80.9**.\n\nTwo conclusions: (1) BGE-M3 is clearly better for exact-concept lookup (+11pt@1, +15pt@10); (2) HiT/OnT don't even beat their own MiniLM base — the hierarchy training adds nothing for *flat* nearest-concept retrieval. Expected: these models are trained for SUBSUMPTION (ancestor retrieval, per the example) on a much weaker base (MiniLM-384d vs BGE-M3-1024d). Their plausible value is the closeness/partial-credit signal note-7 flagged (scoring a near-miss to a sibling/parent as 'close'), NOT recall — a separate experiment. Not filed as a tracked flow: these embeddings aren't in Qdrant; reproduced by scripts/analysis/hierarchy_embed_retrieval.py against the external model set.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_embeddings_v1",
+          "label": "hierarchy-embeddings investigation"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-hierarchy-coherence",
+      "body": "**Exploiting the is-a hierarchy as a confidence signal: it helps modestly, doesn't break the ceiling.** Tested whether the ontological coherence of the top-K retrieved concepts (do they cluster under a deep common ancestor, or scatter?) predicts a correct match better than the embedding cosine/margin. Computed over the full 36k dense run, using the INT_20260101 is-a graph (628k edges):\n\n- Coherence alone is WEAK: top-K ancestor-set Jaccard AUC 0.59, lineage-agreement 0.53, common-ancestor depth 0.57 — all below margin (0.74) and cosine (0.70).\n- It IS mildly orthogonal: margin+coherence lifts recall@1 prediction 0.737 -> **0.748**, and REGION confidence (gold in top-5) 0.654 -> **0.706**. So it helps flag 'answer is in the right neighbourhood' more than 'exact #1 is right'.\n\nWhy only modest: coherence is computed over candidates the EMBEDDING already chose, so it's partly downstream of the same signal rather than independent. The genuinely independent hierarchy lever still untested: **cross-hierarchy mismatch** — flag when a concept's expected semantic tag (procedure/disorder/…, which we already have) disagrees with the retrieved concept's, a structural error check that uses no embeddings. Reproduced by scripts/analysis/hierarchy_coherence.py; retrieval emits a `candidates` column now.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_coherence_v1",
+          "label": "hierarchy-coherence investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "682de1197401",
+          "label": "dense + top-K candidates (36k)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-cross-hierarchy-mismatch",
+      "body": "**Cross-hierarchy mismatch: a free certain-reject for retrieval drift, but NOT a translation-error detector.** Flag = the back-translation's retrieved concept sits in a different semantic-tag hierarchy (procedure/disorder/…) than the source concept's expected tag — a pure structural check, no embeddings.\n\n- On the gold 36k run: 11.4% of queries mismatch, and recovered=0 for **100%** of them — but this is TAUTOLOGICAL (a recovered match returns the gold concept, which carries the expected tag, so mismatch can only happen on a miss). Useful only as a free, certain reject for the ~11% that drift hierarchies (combined with margin it lifts recall@1 AUC 0.737->0.815, partly definitionally).\n- The real, non-tautological test — forward-translation candidates with an INDEPENDENT correctness label (BGE cosine candidate-vs-gold): incorrect rate is 9.6% when tags match vs 11.3% when they mismatch (base 9.8%); **AUC 0.51 (chance)**. Mismatch does NOT predict a bad translation.\n\nThis closes the hierarchy thread: hierarchy embeddings (worse than BGE-M3), top-K coherence (weak, AUC 0.59), and cross-hierarchy mismatch (tautological / chance) all fail to rescue the confidence/error-detection problem. Root cause is the same throughout: the back-translation LLM normalises errors, so the round-trip lands in the right neighbourhood whether or not the translation was correct. Reproduced by scripts/analysis/cross_hierarchy_mismatch.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_hierarchy_coherence_v1",
+          "label": "hierarchy-coherence investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "682de1197401",
+          "label": "gold run (tautological)"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "forward candidates (real test, AUC 0.51)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-direct-xlingual-verify",
+      "body": "**The non-generative check beats back-translation for error detection — confirming the LLM-laundering diagnosis — but is still weak reference-free.** Instead of round-tripping the candidate Korean through an LLM, score it DIRECTLY in multilingual BGE-M3 space. On the 3,615 forward candidates, AUC for predicting an incorrect translation:\n\n- direct cross-lingual (candidate-KO vs concept-EN, no LLM): **0.578** (string label) / **0.620** (semantic). \n- back-translation recovered (generative): 0.510 / 0.530; back-translation margin: ~0.48.\n- candidate-KO vs gold-KO (reference-based, semantic): **0.985 / ~1.0** — but circular / only available where a Korean reference exists.\n\nTwo conclusions. (1) Removing the generative step recovers real error signal (0.51 -> 0.58-0.62) — the LLM normalisation WAS the problem, as hypothesised. (2) But direct cross-lingual cosine is weak in absolute terms (correct mean 0.578 vs incorrect 0.548 — BGE-M3 compresses cross-lingual pairs), so it is not a strong reference-free gate. The strong detector needs a Korean REFERENCE: comparing the candidate to the concept's known Korean term(s) semantically is near-perfect. Practical recommendation: for concepts that have Korean references, validate machine translations by (multi-reference) semantic comparison to the reference — strong and cheap; for genuinely new concepts with no reference, no tested method gives a strong error gate (direct cross-lingual is the best option, ~0.6). Reproduced by scripts/analysis/direct_xlingual_verify.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": "non-generative verification investigation"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3145ce9f6527",
+          "label": "forward candidates (back-translation baseline)"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-reference-provenance",
+      "body": "**Where Korean references come from (the basis of reference-based validation) — and how to extend them.** The strong reference check (candidate vs Korean reference, AUC ~0.98) runs on the SNOMED Korean national edition (Managed Service KR1000267, data/korean/): 56,778 active Korean descriptions across **39,056 SNOMED concepts** (~1.45 terms each, 14k with >=2). Authoritative, but only ~11% of SNOMED International's ~360k concepts — and it covers the concepts that ALREADY have Korean, not the new ones you'd want to translate. So reference-based validation is structurally limited to the already-translated set.\n\nExtension lever (Athena): the bilingual pairs already pull Korean from Athena vocabularies (EDI ~385k, KCD7 ~22k, LOINC ~11k terms) but keyed to those coding systems, not SNOMED. Athena CONCEPT_RELATIONSHIP 'Maps to' links source codes -> SNOMED standard concepts, which would turn those Korean terms into references for SNOMED concepts (incl. ones outside the KR edition). Caveats: (1) 'Maps to' is not synonymy (broader/narrower/approximate) so mapped refs are noisier — filter to 1:1 / standard targets; (2) build_en_ko_pairs.py uses only CONCEPT_SYNONYM today (relationship path is net-new); (3) the Athena CSVs are not on this machine right now (data/athena/main symlink is dead) — needs the ~3.5GB bundle restored.",
+      "attached_to": "",
+      "links": [],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "snomed-direct-hybrid",
+  "name": "snomed-direct-hybrid",
+  "description": "",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_backtrans"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "korean",
+        "mode": "hybrid",
+        "search_depth": 25
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "gold"
+      }
+    }
+  ]
+}

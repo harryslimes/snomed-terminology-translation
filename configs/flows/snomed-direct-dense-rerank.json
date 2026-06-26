@@ -1,0 +1,51 @@
+{
+  "id": "snomed-direct-dense-rerank",
+  "name": "snomed-direct-dense-rerank",
+  "description": "Direct cross-lingual KO query, dense retrieval, cross-encoder rerank top-10.",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_backtrans"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "rerank",
+        "id_col": "sctid",
+        "query_col": "korean",
+        "mode": "dense",
+        "top_k": 10,
+        "reranker_model": "BAAI/bge-reranker-v2-m3"
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "gold"
+      }
+    }
+  ]
+}

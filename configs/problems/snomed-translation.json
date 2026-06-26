@@ -1,0 +1,116 @@
+{
+  "id": "snomed-translation",
+  "title": "SNOMED translation",
+  "prose": "Translate SNOMED CT concepts EN->KO with retrieval + a per-translation CONFIDENCE so terminologist review is focused where the model is unsure.",
+  "created": "2026-06-24T17:36:59",
+  "retired": false,
+  "graph": {
+    "nodes": [
+      {
+        "id": "terms",
+        "title": "SNOMED terminology",
+        "description": "The concepts to translate.\n~ datasource node",
+        "realized_by": [
+          {
+            "to_kind": "flow",
+            "to_id": "ko_baseline",
+            "label": ""
+          }
+        ],
+        "links": [],
+        "pos": {
+          "x": 40.0,
+          "y": 30.0
+        }
+      },
+      {
+        "id": "pairs",
+        "title": "EN->KO translation-pair store",
+        "description": "Retrieval context, queried by the term to translate.\n~ exemplar source + Qdrant",
+        "realized_by": [
+          {
+            "to_kind": "flow",
+            "to_id": "ko_baseline",
+            "label": ""
+          }
+        ],
+        "links": [
+          {
+            "to_kind": "dataobject",
+            "to_id": "ko_pairs",
+            "label": "retrieval store"
+          }
+        ],
+        "pos": {
+          "x": 40.0,
+          "y": 200.0
+        }
+      },
+      {
+        "id": "translate",
+        "title": "Translate agent",
+        "description": "Prompt + dynamic retrieval context.\n~ translate function node",
+        "realized_by": [],
+        "links": [],
+        "pos": {
+          "x": 360.0,
+          "y": 110.0
+        }
+      },
+      {
+        "id": "out",
+        "title": "Output: translations + CONFIDENCE",
+        "description": "Focuses terminologist review effort. Confidence is an OPEN research thread (no per-translation uncertainty today — see design §12).",
+        "realized_by": [],
+        "links": [],
+        "subproblem": "output-translations-confidence",
+        "pos": {
+          "x": 700.0,
+          "y": 110.0
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "terms",
+        "target": "translate"
+      },
+      {
+        "source": "pairs",
+        "target": "translate"
+      },
+      {
+        "source": "translate",
+        "target": "out"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Baseline chrF looks reasonable but we have no per-item confidence yet — the triage story depends on it.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "flow",
+          "to_id": "ko_baseline",
+          "label": "baseline run"
+        }
+      ],
+      "author": "harry",
+      "ts": "2026-06-24T17:36:59"
+    },
+    {
+      "id": "note-2",
+      "body": "Decision: confidence becomes its own research thread / investigation rather than just a diagram box.",
+      "attached_to": "out",
+      "links": [],
+      "author": "harry",
+      "ts": "2026-06-24T17:36:59"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

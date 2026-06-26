@@ -293,6 +293,50 @@ def style_guide(ctx: RunContext, inputs: dict[str, Any],
                           message=f"style guide {p.name}")
 
 
+def _read_sctids(path: str) -> set[str] | None:
+    """Read a column of concept ids (sctid / conceptId / id) from a CSV, to scope
+    an index build. None if the file is absent or empty."""
+    import csv as _csv
+    p = Path(str(path))
+    if not p.exists():
+        return None
+    ids: set[str] = set()
+    with p.open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            v = row.get("sctid") or row.get("conceptId") or row.get("id")
+            if v and v.strip():
+                ids.add(v.strip())
+    return ids or None
+
+
+def build_snomed_index(ctx: RunContext, inputs: dict[str, Any],
+                       params: dict[str, Any]) -> FunctionResult:
+    """Build a hybrid semantic index over the SNOMED terminology (FSN + synonyms)
+    from a local International RF2 release, for back-translation lookup. Emits an
+    index manifest (a DataObject to promote + reuse)."""
+    rf2 = params.get("rf2_root")
+    if not rf2:
+        return FunctionResult(ok=False, message="build_snomed_index needs `rf2_root`")
+    if not Path(str(rf2)).exists():
+        return FunctionResult(ok=False, message=f"rf2_root not found: {rf2}")
+    model = str(params.get("embedding_model") or "BAAI/bge-m3")
+    scope = _read_sctids(params["scope_csv"]) if params.get("scope_csv") else None
+    try:
+        from snomed_translation.snomed_index import build_index
+        manifest = build_index(str(rf2), embedding_model=model, scope=scope)
+    except Exception as exc:  # surfaced in the run journal, not raised
+        return FunctionResult(ok=False, message=f"index build failed: {exc}")
+    return FunctionResult(
+        ok=True,
+        outputs={"index": manifest},
+        metrics={"n_concepts": float(manifest["n_concepts"]),
+                 "n_points": float(manifest["n_points"])},
+        message=(f"indexed {manifest['n_concepts']} concepts "
+                 f"({manifest['n_points']} surface forms) from "
+                 f"{manifest['release_id']} -> {manifest['collection']}"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Source resolver: a datasource node naming a project ``source``.
 # ---------------------------------------------------------------------------
@@ -485,12 +529,328 @@ style_guide_spec = FunctionSpec(
     runner=f"{_RUN}:style_guide",
 )
 
+build_snomed_index_spec = FunctionSpec(
+    name="build_snomed_index", label="Build SNOMED index", category="index",
+    description="Embed concept surface forms (FSN + synonyms) from a local "
+                "International RF2 release into a hybrid Qdrant collection for "
+                "back-translation lookup. Outputs an index manifest to promote "
+                "as a reusable DataObject (it records the release + embedding "
+                "model so a rebuild is reproducible).",
+    inputs=[],
+    outputs=[PortSpec(name="index", kinds=["index"])],
+    params=[
+        ParamSpec(name="rf2_root", label="RF2 release root", kind="text",
+                  required=True,
+                  help="Path to a SNOMED International RF2 release directory."),
+        ParamSpec(name="embedding_model", label="Embedding model", kind="text",
+                  default="BAAI/bge-m3"),
+        ParamSpec(name="scope_csv", label="Scope CSV (optional)", kind="text",
+                  help="CSV with an sctid column to restrict the index; "
+                       "empty = the whole terminology."),
+    ],
+    runner=f"{_RUN}:build_snomed_index",
+)
+
+snomed_retrieve_spec = FunctionSpec(
+    name="snomed_retrieve", label="SNOMED retrieve", category="index",
+    description="Look up back-translated English terms against a SNOMED index "
+                "and report, per query, the top concept and whether/where the "
+                "original concept was recovered — the round-trip confidence "
+                "signal. Feeds a score/distance node.",
+    inputs=[
+        PortSpec(name="index", label="Index", kinds=["index"], required=True),
+        PortSpec(name="queries", label="Queries", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[PortSpec(name="matches", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid",
+                  help="Column in the queries dataset holding the ORIGINAL "
+                       "concept id (gold), for measuring recovery."),
+        ParamSpec(name="query_col", label="Query column", kind="text",
+                  default="query",
+                  help="Column holding the query term (back-translated English, "
+                       "or Korean for a direct multilingual lookup)."),
+        ParamSpec(name="mode", label="Retrieval mode", kind="select",
+                  default="hybrid", options=["hybrid", "dense", "sparse"]),
+        ParamSpec(name="search_depth", label="Search depth", kind="number",
+                  default=25,
+                  help="How deep to look for the gold concept (sets the max K for "
+                       "recall@K)."),
+    ],
+    runner=f"{_RUN}:snomed_retrieve",
+)
+
+
+def back_translate(ctx: RunContext, inputs: dict[str, Any],
+                   params: dict[str, Any]) -> FunctionResult:
+    """Translate each Korean term in the wired dataset to English (KO->EN) via an
+    LLM, for round-trip SNOMED lookup. Output dataset: {id_col, out_col=query}."""
+    import csv as _csv
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="back_translate: no `queries` dataset wired")
+    model_id = params.get("model_id")
+    if not model_id:
+        return FunctionResult(ok=False, message="back_translate needs `model_id`")
+    base_url = str(params.get("base_url") or "http://localhost:8086")
+    id_col = str(params.get("id_col") or "sctid")
+    src_col = str(params.get("source_col") or "korean")
+    out_col = str(params.get("out_col") or "query")
+    from snomed_translation.back_translate import DEFAULT_SYSTEM, back_translate_terms
+    system = str(params.get("system") or DEFAULT_SYSTEM)
+    fmt = str(params.get("format") or "chat")
+    src_lang = str(params.get("source_lang") or "Korean")
+    src_code = str(params.get("source_lang_code") or "ko")
+    tgt_lang = str(params.get("target_lang") or "English")
+    tgt_code = str(params.get("target_lang_code") or "en")
+    concurrency = int(params.get("concurrency") or 1)
+
+    rows: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for r in _csv.DictReader(f):
+            rows.append(((r.get(id_col) or "").strip(), (r.get(src_col) or "").strip()))
+    if not rows:
+        return FunctionResult(ok=False, message=f"back_translate: no rows in {qpath}")
+    try:
+        english = back_translate_terms(
+            [k for _, k in rows], base_url=base_url, model_id=str(model_id),
+            system=system, fmt=fmt, source_lang=src_lang, source_code=src_code,
+            target_lang=tgt_lang, target_code=tgt_code, concurrency=concurrency)
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"back-translation failed: {exc}")
+
+    out = Path(ctx.log_dir) / "back_translate.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=[id_col, out_col])
+        w.writeheader()
+        for (sid, _), en in zip(rows, english):
+            w.writerow({id_col: sid, out_col: en})
+    return FunctionResult(ok=True, outputs={"translations": str(out)},
+                          metrics={"n": float(len(rows))},
+                          message=f"back-translated {len(rows)} terms via {model_id}")
+
+
+def _index_collection(value: Any) -> str | None:
+    """The Qdrant collection name from a wired `index` input — a manifest dict,
+    a path to its JSON, or a bare collection name."""
+    if isinstance(value, dict):
+        return value.get("collection")
+    if isinstance(value, str) and value:
+        p = Path(value)
+        if value.endswith(".json") and p.exists():
+            import json as _json
+            try:
+                return _json.loads(p.read_text(encoding="utf-8")).get("collection")
+            except Exception:
+                return None
+        return value   # a bare collection name
+    return None
+
+
+def _dataset_path(value: Any) -> str | None:
+    """The CSV path from a wired dataset input (a path string or a resolved dict)."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for k in ("_primary", "dataset", "rows", "path"):
+            if isinstance(value.get(k), str):
+                return value[k]
+    return None
+
+
+def _recall_metrics(rows: list[dict]) -> dict:
+    """recall@K + MRR over result rows (each with ``sctid`` gold + ``correct_rank``)
+    — shared by the retrieve and rerank nodes so their metrics are comparable."""
+    gold = [r for r in rows if r["sctid"]]
+    n = len(gold)
+
+    def at(k: int) -> float:
+        return 100.0 * sum(1 for r in gold if 0 < r["correct_rank"] <= k) / n if n else 0.0
+
+    mrr = (sum(1.0 / r["correct_rank"] for r in gold if r["correct_rank"] > 0)
+           / n) if n else 0.0
+    return {"n_queries": float(len(rows)), "recovered_pct": at(1),
+            "recall_at_3_pct": at(3), "recall_at_5_pct": at(5),
+            "recall_at_10_pct": at(10), "mrr": round(mrr, 4)}
+
+
+def snomed_retrieve(ctx: RunContext, inputs: dict[str, Any],
+                    params: dict[str, Any]) -> FunctionResult:
+    """Look up back-translated English terms against a SNOMED index, emitting per
+    query the top concept + whether/where the *original* concept was recovered —
+    the round-trip confidence signal. Wire an `index` (from build_snomed_index or
+    a promoted index) + a `queries` dataset (an id column + a query-text column)."""
+    import csv as _csv
+
+    collection = _index_collection(inputs.get("index"))
+    if not collection:
+        return FunctionResult(ok=False, message="snomed_retrieve: no `index` wired "
+                              "(connect build_snomed_index or a promoted index)")
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="snomed_retrieve: no `queries` dataset wired")
+
+    id_col = str(params.get("id_col") or "sctid")
+    query_col = str(params.get("query_col") or "query")
+    mode = str(params.get("mode") or "hybrid")
+    search_depth = int(params.get("search_depth") or 25)
+    queries: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            q = (row.get(query_col) or "").strip()
+            if q:
+                queries.append(((row.get(id_col) or "").strip(), q))
+    if not queries:
+        return FunctionResult(ok=False,
+                              message=f"snomed_retrieve: no {query_col!r} values in {qpath}")
+
+    try:
+        from snomed_translation.snomed_index import retrieve_concepts
+        rows = retrieve_concepts(collection, queries, limit=search_depth,
+                                 search_depth=search_depth, mode=mode)
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"retrieval failed: {exc}")
+
+    out = Path(ctx.log_dir) / "snomed_retrieve.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+    # recall@K: did the *correct* concept land in the top K (meaning preserved,
+    # even if not #1)? correct_rank is 0 when the gold isn't in the top search_depth.
+    metrics = _recall_metrics(rows)
+    return FunctionResult(
+        ok=True, outputs={"matches": str(out)}, metrics=metrics,
+        message=(f"retrieved {len(rows)} queries against {collection} [{mode}]; "
+                 f"recall@1={metrics['recovered_pct']:.0f}% "
+                 f"@5={metrics['recall_at_5_pct']:.0f}% "
+                 f"@10={metrics['recall_at_10_pct']:.0f}%"),
+    )
+
+
+def rerank(ctx: RunContext, inputs: dict[str, Any],
+           params: dict[str, Any]) -> FunctionResult:
+    """Retrieve the top-K candidates per query, then re-rank them with a
+    cross-encoder (BAAI/bge-reranker-v2-m3), measuring recall@K *after* rerank.
+    The reranker is multilingual, so the query may be back-translated English or
+    Korean (set mode=dense for a direct cross-lingual rerank)."""
+    import csv as _csv
+    collection = _index_collection(inputs.get("index"))
+    if not collection:
+        return FunctionResult(ok=False, message="rerank: no `index` wired")
+    qpath = _dataset_path(inputs.get("queries"))
+    if not qpath or not Path(qpath).exists():
+        return FunctionResult(ok=False, message="rerank: no `queries` dataset wired")
+    id_col = str(params.get("id_col") or "sctid")
+    query_col = str(params.get("query_col") or "query")
+    mode = str(params.get("mode") or "hybrid")
+    top_k = int(params.get("top_k") or 10)
+    model = str(params.get("reranker_model") or "BAAI/bge-reranker-v2-m3")
+
+    queries: list[tuple[str, str]] = []
+    with Path(qpath).open(encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            q = (row.get(query_col) or "").strip()
+            if q:
+                queries.append(((row.get(id_col) or "").strip(), q))
+    if not queries:
+        return FunctionResult(ok=False, message=f"rerank: no {query_col!r} values in {qpath}")
+
+    try:
+        from snomed_translation.rerank import Reranker, retrieve_and_rerank
+        rows = retrieve_and_rerank(collection, queries, top_k=top_k, mode=mode,
+                                   reranker=Reranker(model))
+    except Exception as exc:
+        return FunctionResult(ok=False, message=f"rerank failed: {exc}")
+
+    out = Path(ctx.log_dir) / "rerank.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    metrics = _recall_metrics(rows)
+    return FunctionResult(
+        ok=True, outputs={"matches": str(out)}, metrics=metrics,
+        message=(f"reranked top-{top_k} [{mode}] via {model}; "
+                 f"recall@1={metrics['recovered_pct']:.0f}% "
+                 f"@5={metrics['recall_at_5_pct']:.0f}% "
+                 f"@10={metrics['recall_at_10_pct']:.0f}%"),
+    )
+
+
+back_translate_spec = FunctionSpec(
+    name="back_translate", label="Back-translate (KO->EN)", category="translate",
+    description="Translate each Korean term in the wired dataset to English via an "
+                "LLM (KO->EN), for round-trip SNOMED lookup. Output: {id, query}.",
+    inputs=[PortSpec(name="queries", label="Terms", kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="translations", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="model_id", label="Model id", kind="text", required=True,
+                  help="The served model id (e.g. an OpenAI-compatible vLLM id)."),
+        ParamSpec(name="base_url", label="Base URL", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="source_col", label="Korean column", kind="text",
+                  default="korean"),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="out_col", label="Output column", kind="text", default="query"),
+        ParamSpec(name="system", label="System prompt", kind="textarea"),
+        ParamSpec(name="format", label="Prompt format", kind="select",
+                  default="chat", options=["chat", "translategemma"],
+                  help="`chat` = system+user instruction (most models). "
+                       "`translategemma` = structured translation prompt via the "
+                       "completions endpoint (for google/translategemma-*)."),
+        ParamSpec(name="source_lang", label="Source language", kind="text",
+                  default="Korean"),
+        ParamSpec(name="source_lang_code", label="Source code", kind="text",
+                  default="ko"),
+        ParamSpec(name="target_lang", label="Target language", kind="text",
+                  default="English"),
+        ParamSpec(name="target_lang_code", label="Target code", kind="text",
+                  default="en"),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number",
+                  default=1, help="Parallel LLM calls (vLLM batches them). A "
+                                  "throughput sweep on gemma4-26b-qat plateaus "
+                                  "~128 (≈2.4x over 24); use 128 at extension scale."),
+    ],
+    runner=f"{_RUN}:back_translate",
+)
+
+
+rerank_spec = FunctionSpec(
+    name="rerank", label="Rerank (cross-encoder)", category="index",
+    description="Retrieve top-K candidates per query, then re-rank them with a "
+                "cross-encoder (BAAI/bge-reranker-v2-m3) and measure recall@K "
+                "after rerank. Multilingual — query may be back-translated English "
+                "or (with mode=dense) Korean directly.",
+    inputs=[
+        PortSpec(name="index", label="Index", kinds=["index"], required=True),
+        PortSpec(name="queries", label="Queries", kinds=["dataset"], required=True),
+    ],
+    outputs=[PortSpec(name="matches", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="query_col", label="Query column", kind="text", default="query"),
+        ParamSpec(name="mode", label="Retrieval mode", kind="select",
+                  default="hybrid", options=["hybrid", "dense", "sparse"]),
+        ParamSpec(name="top_k", label="Candidates to rerank", kind="number", default=10),
+        ParamSpec(name="reranker_model", label="Reranker", kind="text",
+                  default="BAAI/bge-reranker-v2-m3"),
+    ],
+    runner=f"{_RUN}:rerank",
+)
+
 
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
-        score_workflow_llm_spec, style_guide_spec,
+        score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
+        snomed_retrieve_spec, back_translate_spec, rerank_spec,
     ]
 
 

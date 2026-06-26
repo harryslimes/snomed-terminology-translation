@@ -1,0 +1,75 @@
+{
+  "id": "snomed-bt-rerank-tg27b",
+  "name": "snomed-bt-rerank-tg27b",
+  "description": "Back-translate KO->EN with TranslateGemma-27b (:8087), then cross-encoder rerank top-10. A/B vs gemma4-26b-qat.",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "gold_kr_backtrans"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "bt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "back_translate",
+        "model_id": "kaitchup/translategemma-27b-it-autoround-w4a16",
+        "base_url": "http://localhost:8087",
+        "source_col": "korean",
+        "id_col": "sctid",
+        "out_col": "query",
+        "format": "translategemma",
+        "source_lang": "Korean",
+        "source_lang_code": "ko",
+        "target_lang": "English",
+        "target_lang_code": "en"
+      },
+      "inputs": {
+        "queries": "gold"
+      }
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "rerank",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "hybrid",
+        "top_k": 10,
+        "reranker_model": "BAAI/bge-reranker-v2-m3"
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

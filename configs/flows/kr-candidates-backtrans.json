@@ -1,0 +1,70 @@
+{
+  "id": "kr-candidates-backtrans",
+  "name": "kr-candidates-backtrans",
+  "description": "Back-translate the forward-translation CANDIDATES KO->EN and retrieve (dense+margin): does each candidate map back to its SOURCE concept? Tests back-translation as an MT error detector.",
+  "nodes": [
+    {
+      "id": "cand",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "kr_candidates"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "bt",
+      "type": "function",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "function": "back_translate",
+        "model_id": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "source_col": "korean",
+        "id_col": "sctid",
+        "out_col": "query",
+        "concurrency": 128
+      },
+      "inputs": {
+        "queries": "cand"
+      }
+    },
+    {
+      "id": "idx",
+      "type": "datasource",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "data_object": "snomed_index_en"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rt",
+      "type": "function",
+      "pos": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "function": "snomed_retrieve",
+        "id_col": "sctid",
+        "query_col": "query",
+        "mode": "dense",
+        "search_depth": 10
+      },
+      "inputs": {
+        "index": "idx",
+        "queries": "bt"
+      }
+    }
+  ]
+}

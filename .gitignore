@@ -25,3 +25,6 @@ snomed_graph/
 .DS_Store
 .idea/
 .vscode/
+
+# In-app edit-history snapshots (the app rewrites these on every edit)
+configs/**/.history/

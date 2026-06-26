@@ -1,0 +1,46 @@
+{
+  "id": "translation-prompt-context",
+  "title": "Supporting context for translation performance",
+  "prose": "What supporting context — beyond the bare term — maximises EN->KO translation quality? Candidates from SNOMED itself: the semantic tag (always present, cheap disambiguation), the parent / is-a hierarchy (sense + domain), synonyms, and text definitions (rich but only ~2.4% of concepts). Plus the existing levers: retrieval exemplars and the style guide. This is the TRANSLATION-PERFORMANCE arm of the project — reduce errors at the source — distinct from the confidence thread (output-translations-confidence), which PRIORITISES review of what remains. Both serve the root goal of minimising terminologist effort, and they interact: better context lowers the error rate, and some context (e.g. detected ambiguity) may itself feed a confidence signal.",
+  "parent": "snomed-translation",
+  "created": "2026-06-25T18:30:00",
+  "retired": false,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-concept-context",
+      "body": "**Adding SNOMED concept context to the EN->KO prompt is neutral overall but helps the ambiguous tail — and ONLY if the context is fenced off.** Translated 960 concepts (120 each across 8 hierarchies, gemma4-26b-qat) under three prompts — bare / +semantic-tag / +parent hierarchy — scored vs the KR gold (multi-reference chrF + BGE semantic).\n\n- First, a trap: naively appending '(organism)'/parent lists LEAKED into the output (땅콩(균) and HURT quality (chrF 58.0 -> 54.0). Fencing the context with explicit 'context only, do NOT include' labels fixed the leak (5/960 artifacts).\n- Fenced, context is ~neutral overall: bare 58.0 / +tag 58.0 / +parents **58.5** chrF (sem ~0.82 flat).\n- But it helps SELECTIVELY on ambiguous hierarchies: organism +2.8 chrF (53.2->56.0), qualifier value +3.5 (59.4->62.9); flat/slightly negative on concrete types (disorder, procedure, substance) the model already nails.\n\nCaveats: deltas are modest and n=120/hierarchy (noisy); chrF/sem-to-gold penalises valid alternative translations, so it may UNDERSTATE context value for precision — an SME spot-check on the ambiguous tail is the real test. Text definitions (only ~2.4% of concepts) untested as a sub-condition.\n\nImplication for prompt optimisation: don't blanket-add context — add it CONDITIONALLY for ambiguous/rare concept types, and the format must clearly separate context from the term. This is the signal to feed GEPA: let the optimiser learn WHEN to pull which context. Reproduced by scripts/analysis/concept_context_translation.py (scripted, not yet a flow node).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "concept-context translation investigation"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    },
+    {
+      "id": "note-concept-context-judge",
+      "body": "**The reference metric WAS masking a jump — a blind judge shows context wins ~2:1 on the ambiguous tail.** chrF/semantic-to-gold penalise a valid-but-divergent translation, so I re-tested the 251 cases where +parents changed the output with a blind pairwise LLM judge (shown the English concept + context, NOT the gold; A/B order randomised).\n\n- Overall (changed cases): +parents 52% vs bare 45% — modest, ~ what the metric implied.\n- But on the genuinely AMBIGUOUS types the judge reveals a strong win the metric hid: **organism +parents 69% vs 31%** (metric showed only +2.8 chrF), **qualifier value 66% vs 34%** (+3.5 chrF), finding 57% vs 38%.\n- And context genuinely HURTS the concrete types (not a metric artifact): **body structure bare 71% vs 26%**, disorder bare 56%.\n\nSo the earlier 'neutral' read was a mean over a harsh metric: parent context gives a real ~2:1 quality lift where the bare term is ambiguous (organisms need taxonomic context; qualifier values like 'Left'/'Severe' are meaningless alone), and a real loss where it isn't. Caveats: judge is gemma4 (same model as translator) — blind pairwise between its own two outputs mitigates but doesn't remove self-bias; a stronger/SME judge would confirm; n per hierarchy on changed cases is ~30 (directional). \n\nActionable policy for prompt optimisation: add parent context CONDITIONALLY — yes for organism / qualifier value / finding, NO for body structure / disorder. Reproduced by scripts/analysis/concept_context_judge.py.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "concept-context translation investigation"
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-06-25"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}
