@@ -1,0 +1,18 @@
+{
+  "id": "ko_instruction_induction",
+  "name": "KO instruction induction",
+  "kind": "induction",
+  "variables": [
+    "context"
+  ],
+  "provenance": "hand",
+  "parent": null,
+  "current_version": "d157c22b",
+  "tags": [
+    "ko",
+    "snomed",
+    "induction"
+  ],
+  "created": null,
+  "updated": null
+}

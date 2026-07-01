@@ -44,7 +44,8 @@ def test_all_specs_are_valid_and_runners_load():
     assert names == {
         "translate", "translate_consistency", "evaluate",
         "evaluate_consistency", "optimize", "evaluate_formula",
-        "score_workflow_llm", "style_guide", "build_snomed_index",
+        "score_workflow_llm", "generate_text", "style_guide",
+        "build_snomed_index",
         "snomed_retrieve", "back_translate", "rerank",
     }
     for s in F.specs():

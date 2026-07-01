@@ -1,0 +1,31 @@
+{
+  "id": "translate_system",
+  "name": "Translate — system",
+  "kind": "translate_system",
+  "variables": [
+    {
+      "name": "language_name",
+      "required": true,
+      "description": ""
+    },
+    {
+      "name": "language_script_name",
+      "required": true,
+      "description": ""
+    },
+    {
+      "name": "style_guide",
+      "required": true,
+      "description": ""
+    }
+  ],
+  "provenance": "hand",
+  "parent": null,
+  "current_version": "0d2eefa8",
+  "tags": [
+    "ko",
+    "translate"
+  ],
+  "created": null,
+  "updated": null
+}

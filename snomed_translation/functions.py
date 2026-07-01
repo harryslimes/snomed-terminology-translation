@@ -518,6 +518,53 @@ score_workflow_llm_spec = FunctionSpec(
     runner=f"{_RUN}:score_workflow_llm",
 )
 
+generate_text_spec = FunctionSpec(
+    name="generate_text", label="Generate (LLM, Agent SDK)", category="generate",
+    description="Render a prompt template with wired/given context and ask a SOTA "
+                "Claude model (via the Claude Agent SDK, reusing the host's "
+                "subscription auth) for a single text result, written to a file. "
+                "The output is a `text` artifact that also presents as a "
+                "`style_guide` — wire it into a translate node or seed GEPA. First "
+                "use: induce an EN->KO instruction prompt from a pruned corpus.",
+    inputs=[
+        PortSpec(name="context", label="Context", kinds=["dataset", "text",
+                 "style_guide"], required=False, multiple=True),
+    ],
+    outputs=[PortSpec(name="text", kinds=["text"])],
+    params=[
+        ParamSpec(name="prompt_template", label="Prompt template", kind="text",
+                  help="Id of a stored prompt template to use as the prompt "
+                       "(overrides the inline Prompt below). The resolved body + "
+                       "its version hash are recorded on the run for reproducibility."),
+        ParamSpec(name="prompt", label="Prompt", kind="textarea", required=False,
+                  help="Inline instruction template (used when no prompt_template "
+                       "is set). {{context}} inserts the assembled context (wired "
+                       "inputs + context_paths files); {{portname}} inserts one "
+                       "wired input by its port name."),
+        ParamSpec(name="model", label="Model", kind="text", default="opus",
+                  help="Claude Agent SDK model alias (e.g. opus, sonnet) or id."),
+        ParamSpec(name="thinking", label="Extended thinking", kind="bool",
+                  default=True),
+        ParamSpec(name="effort", label="Thinking effort", kind="select",
+                  default="high", options=["low", "medium", "high", "max"]),
+        ParamSpec(name="max_thinking_tokens", label="Max thinking tokens",
+                  kind="number",
+                  help="Thinking budget in tokens (0 = 16000 default)."),
+        ParamSpec(name="system", label="System prompt", kind="textarea"),
+        ParamSpec(name="context_paths", label="Context file paths", kind="text",
+                  help="Comma-separated md/csv/txt files concatenated into "
+                       "{{context}} (no wiring needed). cwd = configs dir."),
+        ParamSpec(name="max_context_chars", label="Max context chars",
+                  kind="number", default=400000,
+                  help="Truncation guard for the assembled context."),
+        ParamSpec(name="output_tag", label="Output tag", kind="text",
+                  default="generated"),
+        ParamSpec(name="output_ext", label="Output extension", kind="text",
+                  default="md"),
+    ],
+    runner="snomed_translation.generate:generate_text",
+)
+
 style_guide_spec = FunctionSpec(
     name="style_guide", label="Style guide", category="translate",
     description="A static style-guide markdown file, put on the wire for a "
@@ -849,7 +896,8 @@ def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
-        score_workflow_llm_spec, style_guide_spec, build_snomed_index_spec,
+        score_workflow_llm_spec, generate_text_spec, style_guide_spec,
+        build_snomed_index_spec,
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
     ]
 

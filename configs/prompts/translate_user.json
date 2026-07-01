@@ -1,0 +1,31 @@
+{
+  "id": "translate_user",
+  "name": "Translate — user (data envelope)",
+  "kind": "translate_user",
+  "variables": [
+    {
+      "name": "language_name",
+      "required": true,
+      "description": ""
+    },
+    {
+      "name": "paired_translations",
+      "required": true,
+      "description": ""
+    },
+    {
+      "name": "english",
+      "required": true,
+      "description": ""
+    }
+  ],
+  "provenance": "hand",
+  "parent": null,
+  "current_version": "91f9d0ea",
+  "tags": [
+    "ko",
+    "translate"
+  ],
+  "created": null,
+  "updated": null
+}

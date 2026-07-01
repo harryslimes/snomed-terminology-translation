@@ -32,8 +32,36 @@ from scripts.translation.translate_korean_with_lookup import (
 log = logging.getLogger(__name__)
 
 
+def _template_body(template_id: str | None, default_body: str) -> str:
+    """The prompt body from the version-controlled store (WIZARD_PROMPTS_DIR/<id>)
+    when ``template_id`` is set and present; else the inline config default. This
+    is the render path shared with GEPA (design D7) — production optimises exactly
+    the template it runs. Missing store template ⇒ the default (output unchanged)."""
+    if not template_id:
+        return default_body
+    base = os.environ.get("WIZARD_PROMPTS_DIR", "configs/prompts")
+    try:
+        from pipelines.prompts import load_template
+        return load_template(base, template_id).body
+    except FileNotFoundError:
+        return default_body
+
+
+def render_user(user_body: str, *, paired_translations: str, english: str,
+                language_name: str) -> str:
+    """Render one concept's user turn (the data envelope) via the shared renderer."""
+    from pipelines.prompts import render
+    return render(user_body, {"paired_translations": paired_translations,
+                              "english": english, "language_name": language_name})
+
+
 def _build_prompts(cfg: PipelineConfig) -> tuple[str, str]:
-    """Render system + user prompt templates with language placeholders."""
+    """Render the system instruction + return the user (data-envelope) template.
+
+    Both bodies come from the store (by id) when configured, else the inline
+    config default, and render through the shared ``pipelines.prompts.render``
+    (double-brace ``{{token}}``) — one path for production and GEPA."""
+    from pipelines.prompts import render
     if cfg.translation.style_guide_path is None:
         raise RuntimeError(
             "translate stage requires a style guide; supply via the flow "
@@ -50,15 +78,15 @@ def _build_prompts(cfg: PipelineConfig) -> tuple[str, str]:
         "zh": "Chinese",
     }.get(cfg.language.code, f"the {cfg.language.name} script")
 
-    fmt_kwargs = dict(
-        language_name=cfg.language.name,
-        language_script_name=script_name,
-        style_guide=style_guide,
-    )
-    return (
-        cfg.translation.prompt_templates.system.format(**fmt_kwargs),
-        cfg.translation.prompt_templates.user,  # leaves {paired_translations} and {english} for later
-    )
+    pt = cfg.translation.prompt_templates
+    system_body = _template_body(pt.system_template_id, pt.system)
+    user_body = _template_body(pt.user_template_id, pt.user)
+    system_prompt = render(system_body, {
+        "language_name": cfg.language.name,
+        "language_script_name": script_name,
+        "style_guide": style_guide,
+    })
+    return system_prompt, user_body  # user rendered per row via render_user()
 
 
 def _load_eval_rows(cfg: PipelineConfig, limit: int | None) -> list[dict]:
@@ -180,11 +208,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         english = row["preferred_term"]
         pairs = lookup_cache.get(row["sctid"], [])[: cfg.translation.lookup_topn]
         pairs_table = format_pairs_table(pairs)
-        user_prompt = user_template.format(
-            paired_translations=pairs_table,
-            english=english,
-            language_name=cfg.language.name,
-        )
+        user_prompt = render_user(
+            user_template, paired_translations=pairs_table, english=english,
+            language_name=cfg.language.name)
         try:
             t = translate_one(base_url, model_id, system_prompt, user_prompt, llm_params)
         except Exception as exc:
