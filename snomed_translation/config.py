@@ -429,21 +429,28 @@ class PromptTemplates(BaseModel):
     system: str = Field(
         default=(
             "You are a medical terminology translator specialising in English "
-            "to {language_name} translation of SNOMED CT clinical terms in the "
+            "to {{language_name}} translation of SNOMED CT clinical terms in the "
             "**Procedure** hierarchy. You must follow the style guide below. "
-            "Return ONLY the {language_name} translation in {language_script_name} "
+            "Return ONLY the {{language_name}} translation in {{language_script_name}} "
             "— no explanation, no quotes, no romanisation, no English, no extra "
-            "text.\n\n# Style guide\n\n{style_guide}"
+            "text.\n\n# Style guide\n\n{{style_guide}}"
         ),
     )
     user: str = Field(
         default=(
-            "Here are similar {language_name} SNOMED translations for "
-            "reference:\n\n{paired_translations}\n\n"
+            "Here are similar {{language_name}} SNOMED translations for "
+            "reference:\n\n{{paired_translations}}\n\n"
             "Translate this SNOMED CT procedure term from English to "
-            "{language_name}.\nEnglish: {english}\n{language_name}:"
+            "{{language_name}}.\nEnglish: {{english}}\n{{language_name}}:"
         ),
     )
+    # Version-controlled store templates (prompt-templates feature): when set, the
+    # translate stage loads the body from WIZARD_PROMPTS_DIR/<id> instead of the
+    # inline default above — the ONE render path shared with GEPA (design D7).
+    # Falls back to the inline default when the id isn't found in the store, so
+    # output is unchanged whether or not the store is present.
+    system_template_id: str | None = "translate_system"
+    user_template_id: str | None = "translate_user"
 
 
 class TranslationCandidate(BaseModel):

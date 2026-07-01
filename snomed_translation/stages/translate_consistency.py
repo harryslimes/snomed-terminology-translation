@@ -40,7 +40,11 @@ from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
 from snomed_translation.exemplars import ExemplarError, ensure_exemplars
 from snomed_translation.scoring import norm_text
-from snomed_translation.stages.translate import _build_prompts, _load_eval_rows
+from snomed_translation.stages.translate import (
+    _build_prompts,
+    _load_eval_rows,
+    render_user,
+)
 from scripts.translation.translate_korean_with_lookup import (
     format_pairs_table,
     translate_one,
@@ -146,11 +150,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     user_prompts: dict[str, str] = {}
     for row in remaining:
         pairs = lookup_cache.get(row["sctid"], [])[: cfg.translation.lookup_topn]
-        user_prompts[row["sctid"]] = user_template.format(
-            paired_translations=format_pairs_table(pairs),
-            english=row["preferred_term"],
-            language_name=cfg.language.name,
-        )
+        user_prompts[row["sctid"]] = render_user(
+            user_template, paired_translations=format_pairs_table(pairs),
+            english=row["preferred_term"], language_name=cfg.language.name)
 
     # Flatten into (sctid, sample_index) tasks for even concurrency.
     tasks = [(row["sctid"], i) for row in remaining for i in range(samples)]
