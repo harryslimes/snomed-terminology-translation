@@ -47,6 +47,21 @@ def _template_body(template_id: str | None, default_body: str) -> str:
         return default_body
 
 
+_SCRIPT_NAMES = {
+    "ko": "Hangul (한글)",
+    "et": "Estonian (latin script)",
+    "es": "Spanish (latin script)",
+    "fr": "French (latin script)",
+    "ja": "Japanese",
+    "zh": "Chinese",
+}
+
+
+def script_name(code: str, name: str) -> str:
+    """The human-readable script label for a language code (e.g. ko -> Hangul)."""
+    return _SCRIPT_NAMES.get(code, f"the {name} script")
+
+
 def render_user(user_body: str, *, paired_translations: str, english: str,
                 language_name: str) -> str:
     """Render one concept's user turn (the data envelope) via the shared renderer."""
@@ -69,21 +84,12 @@ def _build_prompts(cfg: PipelineConfig) -> tuple[str, str]:
             "translation.style_guide_path field as a single-stage default."
         )
     style_guide = cfg.translation.style_guide_path.read_text(encoding="utf-8")
-    script_name = {
-        "ko": "Hangul (한글)",
-        "et": "Estonian (latin script)",
-        "es": "Spanish (latin script)",
-        "fr": "French (latin script)",
-        "ja": "Japanese",
-        "zh": "Chinese",
-    }.get(cfg.language.code, f"the {cfg.language.name} script")
-
     pt = cfg.translation.prompt_templates
     system_body = _template_body(pt.system_template_id, pt.system)
     user_body = _template_body(pt.user_template_id, pt.user)
     system_prompt = render(system_body, {
         "language_name": cfg.language.name,
-        "language_script_name": script_name,
+        "language_script_name": script_name(cfg.language.code, cfg.language.name),
         "style_guide": style_guide,
     })
     return system_prompt, user_body  # user rendered per row via render_user()

@@ -673,6 +673,11 @@ class OptimizationStageSpec(BaseModel):
     # and required slots are preserved (design §13 D8). Takes precedence over
     # seed_style_guide.
     seed_template: str | None = None
+    # Phase 3b: when true, GEPA renders through production's EXACT prompt scaffold
+    # (the translate system/user store templates via the shared renderer) instead
+    # of DSPy's default auto-scaffold — so GEPA optimises the prompt production
+    # actually sends. Off by default (experimental; validate with a real run).
+    production_scaffold: bool = False
     splits_dir: Path | None = None
     lookup_cache: Path | None = None
     gepa: GepaSpec = GepaSpec()

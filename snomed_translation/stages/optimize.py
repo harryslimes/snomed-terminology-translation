@@ -195,7 +195,21 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     try:
         task_lm, task_key = _task_lm(cfg)
-        dspy.settings.configure(lm=task_lm)
+        configure_kwargs: dict = {"lm": task_lm}
+        if opt.production_scaffold:
+            # Render GEPA's LM calls through production's exact scaffold (Phase 3b).
+            from snomed_translation.gepa_scaffold import make_production_adapter
+            from snomed_translation.stages.translate import (
+                _template_body, script_name)
+            pt = cfg.translation.prompt_templates
+            configure_kwargs["adapter"] = make_production_adapter(
+                _template_body(pt.system_template_id, pt.system),
+                _template_body(pt.user_template_id, pt.user),
+                language_name=cfg.language.name,
+                language_script_name=script_name(cfg.language.code, cfg.language.name))
+            log.info("GEPA: production-scaffold adapter active — LM calls render "
+                     "the exact translate system/user prompt")
+        dspy.settings.configure(**configure_kwargs)
         reflection_lm, reflection_key = _reflection_lm(
             cfg, opt, reflection_model_key, task_lm)
 
