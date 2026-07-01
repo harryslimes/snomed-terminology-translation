@@ -667,6 +667,12 @@ class OptimizationStageSpec(BaseModel):
     # Optional defaults for single-stage CLI invocations. Flow steps always
     # supply their own.
     seed_style_guide: Path | None = None
+    # Prompt-templates: seed GEPA from a version-controlled store template
+    # (WIZARD_PROMPTS_DIR/<id>) instead of a bare file. When set, the evolved
+    # result is written back as a new gepa-provenance CHILD template (lineage),
+    # and required slots are preserved (design §13 D8). Takes precedence over
+    # seed_style_guide.
+    seed_template: str | None = None
     splits_dir: Path | None = None
     lookup_cache: Path | None = None
     gepa: GepaSpec = GepaSpec()
