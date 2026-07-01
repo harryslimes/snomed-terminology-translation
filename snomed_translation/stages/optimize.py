@@ -30,10 +30,22 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+import re
+
 from snomed_translation.config import OptimizationStageSpec, PipelineConfig
 from pipelines.context import RunContext, StageResult
 
 log = logging.getLogger(__name__)
+
+
+def _prompts_dir() -> str:
+    """The prompt-template store dir (WIZARD_PROMPTS_DIR, else configs/prompts)."""
+    return os.environ.get("WIZARD_PROMPTS_DIR", "configs/prompts")
+
+
+def _slug(text: str) -> str:
+    s = re.sub(r"[^a-z0-9_]+", "-", text.strip().lower()).strip("-_")
+    return s or "gepa"
 
 
 def _load_examples(ds: dict, limit: int | None = None) -> list:
@@ -135,10 +147,26 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         return StageResult(stage="optimize", ok=False,
                            message="optimize stage requires a trainset — wire "
                                    "a datasource to the node's trainset port")
-    seed = opt.seed_style_guide
-    if seed is None or not Path(seed).exists():
-        return StageResult(stage="optimize", ok=False,
-                           message=f"seed style guide not found: {seed}")
+    out_dir = ctx.artifacts_dir() or cfg.paths.output_dir
+    # Seed GEPA from a store template (preferred) or a bare style-guide file.
+    seed_tmpl = None
+    if opt.seed_template:
+        try:
+            from pipelines.prompts import load_template
+            seed_tmpl = load_template(_prompts_dir(), opt.seed_template)
+        except Exception as exc:
+            return StageResult(
+                stage="optimize", ok=False,
+                message=f"seed_template {opt.seed_template!r} not found in "
+                        f"store ({_prompts_dir()}): {exc}")
+        seed = out_dir / f"_seed_{output_tag}.md"
+        seed.parent.mkdir(parents=True, exist_ok=True)
+        seed.write_text(seed_tmpl.body, encoding="utf-8")
+    else:
+        seed = opt.seed_style_guide
+        if seed is None or not Path(seed).exists():
+            return StageResult(stage="optimize", ok=False,
+                               message=f"seed style guide not found: {seed}")
     lookup = opt.lookup_cache or cfg.paths.lookup_cache
     if lookup is None or not Path(lookup).exists():
         return StageResult(
@@ -167,7 +195,21 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     try:
         task_lm, task_key = _task_lm(cfg)
-        dspy.settings.configure(lm=task_lm)
+        configure_kwargs: dict = {"lm": task_lm}
+        if opt.production_scaffold:
+            # Render GEPA's LM calls through production's exact scaffold (Phase 3b).
+            from snomed_translation.gepa_scaffold import make_production_adapter
+            from snomed_translation.stages.translate import (
+                _template_body, script_name)
+            pt = cfg.translation.prompt_templates
+            configure_kwargs["adapter"] = make_production_adapter(
+                _template_body(pt.system_template_id, pt.system),
+                _template_body(pt.user_template_id, pt.user),
+                language_name=cfg.language.name,
+                language_script_name=script_name(cfg.language.code, cfg.language.name))
+            log.info("GEPA: production-scaffold adapter active — LM calls render "
+                     "the exact translate system/user prompt")
+        dspy.settings.configure(**configure_kwargs)
         reflection_lm, reflection_key = _reflection_lm(
             cfg, opt, reflection_model_key, task_lm)
 
@@ -200,22 +242,51 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         elapsed = time.monotonic() - t0
 
         post = evaluate(optimized, valset)
-        out_dir = ctx.artifacts_dir() or cfg.paths.output_dir
+        evolved = optimized.predictor.signature.instructions
         out_md = out_dir / f"style_guide_{output_tag}.md"
         out_md.parent.mkdir(parents=True, exist_ok=True)
-        out_md.write_text(optimized.predictor.signature.instructions,
-                          encoding="utf-8")
+        out_md.write_text(evolved, encoding="utf-8")
+
+        # When seeded from a store template, write the evolved body back as a
+        # gepa-provenance CHILD version (lineage), guarding required slots (D8).
+        child_id = None
+        slot_warn = ""
+        if seed_tmpl is not None:
+            from pipelines.prompts import (
+                PromptTemplate as _PT,
+                missing_required,
+                save_template,
+            )
+            missing = missing_required(evolved, seed_tmpl.required_var_names())
+            if missing:
+                slot_warn = (f" [required slots dropped by GEPA {missing}; "
+                             "store version NOT written]")
+                log.warning("GEPA evolved body dropped required slots %s; "
+                            "keeping file output only", missing)
+            else:
+                child_id = _slug(f"{seed_tmpl.id}__gepa_{output_tag}")
+                save_template(_prompts_dir(), _PT(
+                    id=child_id,
+                    name=f"{seed_tmpl.name or seed_tmpl.id} (GEPA {output_tag})",
+                    kind=seed_tmpl.kind, body=evolved, provenance="gepa",
+                    parent=seed_tmpl.id, tags=list(seed_tmpl.tags)))
+                log.info("wrote GEPA child template %s (parent %s)",
+                         child_id, seed_tmpl.id)
     except Exception as exc:
         log.exception("GEPA run failed")
         return StageResult(stage="optimize", ok=False,
                            message=f"GEPA failed: {exc}")
 
+    outputs: dict = {"optimized_style_guide": out_md}
+    if child_id:
+        outputs["prompt_template"] = child_id      # the gepa-provenance version
     return StageResult(
         stage="optimize", ok=True,
         message=(f"GEPA ({opt.gepa.auto}) in {elapsed:.0f}s: mean_score "
                  f"{pre['mean_score']:.3f} -> {post['mean_score']:.3f} on the "
-                 f"{'dev' if dev is not None else 'train'} split"),
-        outputs={"optimized_style_guide": out_md},
+                 f"{'dev' if dev is not None else 'train'} split"
+                 + (f"; -> template {child_id}" if child_id else "") + slot_warn),
+        outputs=outputs,
         metrics={
             "pre_mean_score": pre["mean_score"],
             "post_mean_score": post["mean_score"],

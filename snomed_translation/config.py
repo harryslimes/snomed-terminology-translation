@@ -667,6 +667,17 @@ class OptimizationStageSpec(BaseModel):
     # Optional defaults for single-stage CLI invocations. Flow steps always
     # supply their own.
     seed_style_guide: Path | None = None
+    # Prompt-templates: seed GEPA from a version-controlled store template
+    # (WIZARD_PROMPTS_DIR/<id>) instead of a bare file. When set, the evolved
+    # result is written back as a new gepa-provenance CHILD template (lineage),
+    # and required slots are preserved (design §13 D8). Takes precedence over
+    # seed_style_guide.
+    seed_template: str | None = None
+    # Phase 3b: when true, GEPA renders through production's EXACT prompt scaffold
+    # (the translate system/user store templates via the shared renderer) instead
+    # of DSPy's default auto-scaffold — so GEPA optimises the prompt production
+    # actually sends. Off by default (experimental; validate with a real run).
+    production_scaffold: bool = False
     splits_dir: Path | None = None
     lookup_cache: Path | None = None
     gepa: GepaSpec = GepaSpec()
