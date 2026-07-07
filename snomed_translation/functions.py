@@ -52,15 +52,59 @@ from snomed_translation.stages import get_stage
 # ---------------------------------------------------------------------------
 # Flow-level config assembly (lazy, cached per run on ctx.extras).
 # ---------------------------------------------------------------------------
+def _configs_base(ctx: RunContext) -> Path:
+    """The configs root for a run. A run subprocess sets ``ctx.configs_dir`` to
+    the useless default ``configs`` (cwd-relative, empty here) but DOES carry the
+    ``WIZARD_*_DIR`` env overrides — all co-located under one configs dir in this
+    deployment — so derive the base from one of them first, then fall back to
+    ctx.configs_dir. Fixes datasource/translate/evaluate runs launched by the
+    wizard/MCP runner (which don't pass a configs dir)."""
+    import os
+    for env in ("WIZARD_INVESTIGATIONS_DIR", "WIZARD_PROJECTS_DIR",
+                "WIZARD_SOURCES_DIR", "WIZARD_FLOWS_DIR", "WIZARD_PROMPTS_DIR"):
+        v = os.environ.get(env)
+        if v:
+            return Path(v).parent
+    cd = getattr(ctx, "configs_dir", None)
+    return Path(cd) if cd else Path("configs")
+
+
+def _resolve_asset(ctx: RunContext, path: str) -> Path:
+    """Resolve a flow-config relative asset path (e.g. ``style_guide/x.md``,
+    ``data/…``) that is written relative to the PLUGIN ROOT. A run subprocess'
+    cwd is the app dir (which only symlinks ``data/``, not ``style_guide/``), so
+    an as-is relative path may miss. Try: as given (cwd) → plugin-root/path (root
+    = parent of the configs base derived from WIZARD_*) → WIZARD_STYLE_GUIDES_DIR/
+    basename. Returns the first existing candidate, else the original."""
+    import os
+    p = Path(path)
+    if p.is_absolute() or p.exists():
+        return p
+    root = _configs_base(ctx).parent           # the plugin repo root
+    for cand in (root / path,):
+        if cand.exists():
+            return cand
+    sg = os.environ.get("WIZARD_STYLE_GUIDES_DIR")
+    if sg and (Path(sg) / p.name).exists():
+        return Path(sg) / p.name
+    return p
+
+
 def _registries(ctx: RunContext) -> Registries:
     cached = ctx.extras.get("registries")
     if cached is not None:
         return cached
-    base = Path(ctx.configs_dir) if ctx.configs_dir else Path("configs")
+    # Honour the WIZARD_* env overrides first (a run subprocess launched by the
+    # wizard/MCP runner carries them but NOT ctx.configs_dir, which defaults to
+    # the cwd's empty ``configs/``); fall back to ctx.configs_dir/<default>. This
+    # mirrors how prompt_source resolves WIZARD_PROMPTS_DIR.
+    import os
+    base = _configs_base(ctx)
     reg = Registries.load(
-        models_json=base / "models.json",
-        sources_dir=base / "sources",
-        resources_path=base / "resources_ko.yaml",
+        models_json=os.environ.get("WIZARD_MODELS_JSON") or base / "models.json",
+        sources_dir=os.environ.get("WIZARD_SOURCES_DIR") or base / "sources",
+        resources_path=(os.environ.get("WIZARD_RESOURCES_PATH")
+                        or base / "resources_ko.yaml"),
     )
     ctx.extras["registries"] = reg
     return reg
@@ -84,7 +128,7 @@ def _assemble(ctx: RunContext) -> PipelineConfig:
         raise AssemblyError(
             "no flow on the run context — the engine must set ctx.flow before "
             "running translation functions")
-    base = Path(ctx.configs_dir) if ctx.configs_dir else Path("configs")
+    base = _configs_base(ctx)
     inv_name = getattr(ctx, "investigation", None) or getattr(flow, "project", None)
     if not inv_name:
         raise AssemblyError(
@@ -241,6 +285,20 @@ def _run_function(function: str, ctx: RunContext, inputs: dict[str, Any],
     except graph.GraphError as exc:
         return FunctionResult(ok=False, message=f"compile failed: {exc}")
 
+    if function == "optimize" and cfg is not None and cfg.optimization is not None:
+        # The optimization recipe carries plugin-relative asset paths
+        # (configs/hard_rules/…, configs/hints/…, the lookup cache, an optional
+        # seed guide). A run subprocess' cwd is the app dir, which only symlinks
+        # data/ — so resolve them against the plugin root, same as style_guide/
+        # data assets (§ _resolve_asset). Without this, GEPA runs launched by the
+        # wizard/MCP runner fail with "hard_rules_file not found".
+        opt = cfg.optimization
+        for attr in ("hard_rules_file", "hints_file", "lookup_cache",
+                     "seed_style_guide"):
+            val = getattr(opt, attr, None)
+            if val is not None:
+                setattr(opt, attr, _resolve_asset(ctx, str(val)))
+
     runner = get_stage(function)
     result: StageResult = runner(cfg, ctx, **kwargs)
     return FunctionResult(
@@ -286,11 +344,125 @@ def style_guide(ctx: RunContext, inputs: dict[str, Any],
     path = params.get("path")
     if not path:
         return FunctionResult(ok=False, message="style_guide node has no `path`")
-    p = Path(str(path))
+    p = _resolve_asset(ctx, str(path))
     if not p.exists():
-        return FunctionResult(ok=False, message=f"style guide not found: {p}")
+        return FunctionResult(ok=False, message=f"style guide not found: {path}")
     return FunctionResult(ok=True, outputs={"style_guide": str(p)},
                           message=f"style guide {p.name}")
+
+
+def text_source(ctx: RunContext, inputs: dict[str, Any],
+                params: dict[str, Any]) -> FunctionResult:
+    """Source node: put a text/corpus file (md/txt/csv) on the wire as a `text`
+    artifact. The downstream generate_text node reads its contents into
+    ``{{context}}`` — the wired-node twin of its ``context_paths`` param."""
+    path = params.get("path")
+    if not path:
+        return FunctionResult(ok=False, message="text_source node has no `path`")
+    p = Path(str(path))
+    if not p.exists():
+        return FunctionResult(ok=False, message=f"text file not found: {p}")
+    return FunctionResult(ok=True, outputs={"text": str(p)},
+                          message=f"text {p.name}")
+
+
+def prompt_source(ctx: RunContext, inputs: dict[str, Any],
+                  params: dict[str, Any]) -> FunctionResult:
+    """Source node: put a stored prompt template on the wire as a `prompt`
+    artifact. Emits the resolved body plus the template id + content-hash version
+    so a generate_text node downstream pins the exact revision it ran (design
+    D4). Prompts dir: ``WIZARD_PROMPTS_DIR`` env, else ``<configs_dir>/prompts``."""
+    import os
+    tid = params.get("prompt_template")
+    if not tid:
+        return FunctionResult(
+            ok=False, message="prompt_source node has no `prompt_template`")
+    base = os.environ.get("WIZARD_PROMPTS_DIR")
+    if not base:
+        cfg = getattr(ctx, "configs_dir", None)
+        base = str(Path(cfg) / "prompts") if cfg else "configs/prompts"
+    try:
+        from pipelines.prompts import load_template
+        t = load_template(base, str(tid))
+    except FileNotFoundError as exc:
+        return FunctionResult(ok=False, message=str(exc))
+    if not t.body:
+        return FunctionResult(ok=False, message=f"prompt template {tid!r} has no body")
+    return FunctionResult(
+        ok=True,
+        outputs={"prompt": {"body": t.body, "prompt_template": str(tid),
+                            "prompt_version": t.current_version or ""}},
+        message=f"prompt {tid} @ {t.current_version or '?'}")
+
+
+def _prompt_body_of(value: Any) -> str:
+    """Extract the prompt body from a wired input: a prompt_source dict, a path
+    (read the file), or a raw string."""
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        for k in ("body", "prompt", "text", "style_guide", "_primary", "path"):
+            v = value.get(k)
+            if isinstance(v, str):
+                value = v
+                break
+        else:
+            return ""
+    s = str(value)
+    p = Path(s)
+    if len(s) < 4096 and p.exists() and p.is_file():
+        return p.read_text(encoding="utf-8", errors="replace")
+    return s
+
+
+def _slugify(s: str) -> str:
+    import re as _re
+    return _re.sub(r"[^a-zA-Z0-9_-]+", "-", s.strip()).strip("-_") or "prompt"
+
+
+def promote_prompt(ctx: RunContext, inputs: dict[str, Any],
+                   params: dict[str, Any]) -> FunctionResult:
+    """Sink node: persist a wired prompt/text into the PromptTemplate store as a
+    new versioned template. Because it runs INSIDE a flow run, the stored template
+    always gets **provenance='flow'** with this run's id as its ``provenance_run``
+    (the run pins the flow + shas) — that IS its provenance. Generalises GEPA's
+    bespoke publish so ANY flow emitting an improved/derived prompt (induction,
+    optimize, a future rewriter) makes it a first-class stored prompt via wiring.
+    ``parent`` = the template this improves (lineage); ``origin`` = the prompt that
+    produced it. Prompts dir: ``WIZARD_PROMPTS_DIR`` env, else
+    ``<configs_dir>/prompts``; a ``style_guide`` kind is also written to
+    ``WIZARD_STYLE_GUIDES_DIR`` as a bare ``<id>.md`` so translate nodes resolve
+    it by path."""
+    import os
+    from pipelines.prompts import promote_to_store
+    body = _prompt_body_of(inputs.get("prompt"))
+    if not body.strip():
+        return FunctionResult(ok=False, message="promote_prompt: no `prompt` body wired")
+    kind = str(params.get("kind") or "style_guide")
+    parent = params.get("parent") or None
+    run_id = getattr(ctx, "run_id", None)
+    tid = params.get("id") or (
+        _slugify(f"{parent}__improved") if parent else _slugify("flow-prompt"))
+    tags = [t.strip() for t in str(params.get("tags") or "").split(",") if t.strip()]
+
+    base = os.environ.get("WIZARD_PROMPTS_DIR")
+    if not base:
+        cfg = getattr(ctx, "configs_dir", None)
+        base = str(Path(cfg) / "prompts") if cfg else "configs/prompts"
+    try:
+        t = promote_to_store(
+            prompts_dir=base, id=tid, body=body, kind=kind, provenance="flow",
+            provenance_run=run_id, parent=parent, origin=params.get("origin"),
+            name=params.get("name") or tid, tags=tags, notes=params.get("notes"),
+            style_guides_dir=os.environ.get("WIZARD_STYLE_GUIDES_DIR"))
+    except Exception as exc:  # surfaced as a stage failure, not raised
+        return FunctionResult(ok=False, message=f"promote_prompt failed: {exc}")
+    return FunctionResult(
+        ok=True,
+        outputs={"prompt_template": tid, "prompt_version": t.current_version or ""},
+        message=(f"promoted prompt {tid} @ {t.current_version or '?'} "
+                 f"(provenance=flow, run={run_id}"
+                 + (f", parent={parent}" if parent else "") + ")"))
 
 
 def _read_sctids(path: str) -> set[str] | None:
@@ -527,22 +699,27 @@ generate_text_spec = FunctionSpec(
                 "`style_guide` — wire it into a translate node or seed GEPA. First "
                 "use: induce an EN->KO instruction prompt from a pruned corpus.",
     inputs=[
+        PortSpec(name="prompt", label="Prompt", kinds=["prompt", "text"],
+                 required=False),
         PortSpec(name="context", label="Context", kinds=["dataset", "text",
                  "style_guide"], required=False, multiple=True),
     ],
     outputs=[PortSpec(name="text", kinds=["text"])],
     params=[
-        ParamSpec(name="prompt_template", label="Prompt template", kind="text",
+        ParamSpec(name="prompt_template", label="Prompt template", kind="prompt",
                   help="Id of a stored prompt template to use as the prompt "
-                       "(overrides the inline Prompt below). The resolved body + "
-                       "its version hash are recorded on the run for reproducibility."),
+                       "(used when no Prompt node is wired; a wired prompt wins). "
+                       "The resolved body + its version hash are recorded on the "
+                       "run for reproducibility."),
         ParamSpec(name="prompt", label="Prompt", kind="textarea", required=False,
                   help="Inline instruction template (used when no prompt_template "
                        "is set). {{context}} inserts the assembled context (wired "
                        "inputs + context_paths files); {{portname}} inserts one "
                        "wired input by its port name."),
-        ParamSpec(name="model", label="Model", kind="text", default="opus",
-                  help="Claude Agent SDK model alias (e.g. opus, sonnet) or id."),
+        ParamSpec(name="model", label="Model", kind="model", default="claude-opus",
+                  help="A models.json entry — an Agent-SDK Claude model "
+                       "(claude-opus/claude-sonnet) or any served model. A bare "
+                       "SDK alias (e.g. 'opus') not in the catalogue still works."),
         ParamSpec(name="thinking", label="Extended thinking", kind="bool",
                   default=True),
         ParamSpec(name="effort", label="Thinking effort", kind="select",
@@ -574,6 +751,63 @@ style_guide_spec = FunctionSpec(
     params=[ParamSpec(name="path", label="File", kind="style_guide",
                       required=True)],
     runner=f"{_RUN}:style_guide",
+)
+
+text_source_spec = FunctionSpec(
+    name="text_source", label="Text / corpus file", category="generate",
+    description="A static text/corpus file (md/txt/csv) put on the wire as a "
+                "`text` artifact for a generate_text node to read into its "
+                "{{context}}. The wired-node twin of generate_text's "
+                "`context_paths` param.",
+    inputs=[],
+    outputs=[PortSpec(name="text", kinds=["text"])],
+    params=[ParamSpec(name="path", label="File", kind="text", required=True,
+                      help="Path to an md/txt/csv file. cwd = the app dir "
+                           "(the `data/` symlink resolves into the plugin).")],
+    runner=f"{_RUN}:text_source",
+)
+
+prompt_source_spec = FunctionSpec(
+    name="prompt_source", label="Prompt", category="generate",
+    description="A stored prompt template put on the wire as a `prompt` artifact "
+                "for a generate_text node. Emits the resolved body + the template "
+                "id/version, so the run pins the exact revision it used.",
+    inputs=[],
+    outputs=[PortSpec(name="prompt", kinds=["prompt"])],
+    params=[ParamSpec(name="prompt_template", label="Prompt template",
+                      kind="prompt", required=True,
+                      help="Id of a stored prompt template.")],
+    runner=f"{_RUN}:prompt_source",
+)
+
+promote_prompt_spec = FunctionSpec(
+    name="promote_prompt", label="Promote prompt (to store)", category="generate",
+    description="Persist a wired prompt/text into the PromptTemplate store as a "
+                "new versioned template. Runs inside a flow run, so the stored "
+                "prompt always gets provenance='flow' with this run's id (that IS "
+                "its provenance). Generalises GEPA's publish: wire any node that "
+                "emits an improved/derived prompt (generate_text, optimize) into "
+                "this to make it a first-class stored prompt. Outputs the id.",
+    inputs=[PortSpec(name="prompt", label="Prompt",
+                     kinds=["text", "prompt", "style_guide"], required=True)],
+    outputs=[PortSpec(name="prompt_template", kinds=["prompt"])],
+    params=[
+        ParamSpec(name="id", label="New template id", kind="text",
+                  help="Slug for the stored prompt. Blank = derived from parent."),
+        ParamSpec(name="kind", label="Kind", kind="select", default="style_guide",
+                  options=["style_guide", "induction", "scoring",
+                           "translate_system", "judge", "freeform"]),
+        ParamSpec(name="parent", label="Parent (lineage)", kind="prompt",
+                  help="Template id this IMPROVES (v1→v2 lineage). Blank = a new "
+                       "root. NOT the prompt that produced it — see Origin."),
+        ParamSpec(name="origin", label="Origin (produced-by)", kind="prompt",
+                  help="The prompt that PRODUCED this output (e.g. the induction "
+                       "prompt). Recorded in notes/tags for traceability."),
+        ParamSpec(name="name", label="Name", kind="text"),
+        ParamSpec(name="tags", label="Tags", kind="text", help="Comma-separated."),
+        ParamSpec(name="notes", label="Notes", kind="textarea"),
+    ],
+    runner=f"{_RUN}:promote_prompt",
 )
 
 build_snomed_index_spec = FunctionSpec(
@@ -897,6 +1131,7 @@ def specs() -> list[FunctionSpec]:
         translate_spec, translate_consistency_spec, evaluate_spec,
         evaluate_consistency_spec, optimize_spec, evaluate_formula_spec,
         score_workflow_llm_spec, generate_text_spec, style_guide_spec,
+        text_source_spec, prompt_source_spec, promote_prompt_spec,
         build_snomed_index_spec,
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
     ]

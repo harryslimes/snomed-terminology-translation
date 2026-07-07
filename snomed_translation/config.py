@@ -380,10 +380,17 @@ class ModelSpec(BaseModel):
     """
 
     model_config = ConfigDict(extra="allow")
-    # Either hf_id (vLLM/Dashscope) or model_path (llama.cpp GGUF) is required;
-    # callers should check which one is set.
+    # Provider backend. None/"" + served kinds (vllm/openai/llamacpp/dashscope)
+    # are OpenAI-compatible HTTP endpoints; "claude_agent_sdk" is endpoint-less
+    # (Claude Code Agent SDK on the host subscription). snomed_translation.llm
+    # .complete() dispatches on this.
+    backend: str | None = None
+    # Either hf_id (vLLM/Dashscope) or model_path (llama.cpp GGUF) is required for
+    # HTTP backends; callers should check which one is set.
     hf_id: str | None = None
     model_path: str | None = None
+    # Agent-SDK model alias/id (e.g. "opus", "sonnet"). Only for claude_agent_sdk.
+    model: str | None = None
     port: int = 8000
     host: str | None = None
     image: str | None = None
@@ -697,6 +704,18 @@ class OptimizationStageSpec(BaseModel):
     # Legacy free-form reflection config. Ignored when reflection_candidates
     # is populated; left in place so older configs still validate.
     reflection_lm: ReflectionLmSpec | None = None
+
+    # Reward metric for GEPA. "chrf" = the legacy 0.5*exact+0.5*chrF. "semantic"
+    # = exact + BGE-M3 cosine to the gold reference (max over refs) for non-exact,
+    # the measure that actually tracked quality (chrF penalises valid divergence).
+    metric: Literal["chrf", "semantic"] = "chrf"
+    # Optional LLM judge (a models.json key, e.g. "claude-fable") that writes
+    # GEPA's reflective FEEDBACK. Called only on genuine reflection, only when the
+    # score is below judge_threshold, capped at max_judge_calls, and cached — so a
+    # run makes tens of judge calls, not hundreds. Only used when metric=semantic.
+    judge_model_key: str | None = None
+    max_judge_calls: int = 40
+    judge_threshold: float = 0.9
 
     hints_file: Path | None = Field(
         default=None,

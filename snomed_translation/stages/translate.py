@@ -23,8 +23,8 @@ if str(ROOT_DIR) not in sys.path:
 from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
 from snomed_translation.exemplars import ExemplarError, ensure_exemplars
+from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
 from scripts.translation.translate_korean_with_lookup import (
-    translate_one,
     format_pairs_table,
     wait_for_server,
 )
@@ -133,12 +133,14 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                                     f"candidates but not in cfg.models — check "
                                     f"the models catalogue")
     model = cfg.models[model_key]
+    use_sdk = is_agent_sdk(model)
     base_url = os.getenv("VLLM_BASE_URL", cfg.model_base_url(model_key).rsplit("/v1", 1)[0])
     # translate_one appends /v1/chat/completions — strip /v1 from our helper
     if base_url.endswith("/v1"):
         base_url = base_url[:-3]
-    model_id = model.hf_id
-    concurrency = candidate.concurrency
+    # Endpoint-less Agent-SDK models: no server to poll, and subprocess-per-call
+    # + subscription rate limits mean the HTTP fan-out must be throttled.
+    concurrency = recommended_concurrency(model, candidate.concurrency)
     llm_params = dict(candidate.llm_params)
     if temperature is not None:
         llm_params["temperature"] = temperature
@@ -156,8 +158,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     log.info("system_prompt=%d chars (style guide loaded from %s)",
              len(system_prompt), cfg.translation.style_guide_path)
 
-    # Wait for endpoint
-    wait_for_server(base_url)
+    # Wait for endpoint (HTTP backends only; the Agent SDK has no endpoint)
+    if not use_sdk:
+        wait_for_server(base_url)
 
     # Load rows
     rows = _load_eval_rows(cfg, limit)
@@ -192,10 +195,57 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     # live Qdrant lookup (indexing the collection first if needed); failure
     # fails the stage rather than silently translating without exemplars.
     try:
-        lookup_cache = ensure_exemplars(cfg, remaining)
+        lookup_cache, exclusions = ensure_exemplars(cfg, remaining)
     except ExemplarError as exc:
         return StageResult(stage="translate", ok=False,
                            message=f"exemplars unavailable: {exc}")
+
+    # Self-exclusion audit: record exactly which exemplars were dropped (the
+    # query concept's own canonical SNOMED entries) and quantify residual leak.
+    # `excluded_exemplars_<tag>.csv` lists every dropped exemplar; the metrics
+    # summarise how much the leak was (gold_removed) and any residual gold that
+    # survives via an independent, non-canonical source (kept but tagged).
+    from snomed_translation.scoring import norm_text as _norm
+    excl_rows: list[dict] = []
+    n_gold_removed = 0
+    n_gold_via_other = 0
+    ref_by_sctid = {r["sctid"]: (r.get("reference") or "").strip()
+                    for r in remaining}
+    for row in remaining:
+        sid = row["sctid"]
+        gold = ref_by_sctid.get(sid, "")
+        gnorm = _norm(gold) if gold else None
+        dropped = exclusions.get(sid, [])
+        for ex in dropped:
+            excl_rows.append({
+                "query_sctid": sid, "query_en": row["preferred_term"],
+                "excluded_en": ex[0], "excluded_ko": ex[1],
+                "excluded_source": ex[2] if len(ex) > 2 else "",
+                "excluded_sctid": ex[3] if len(ex) > 3 else "",
+                "rank": ex[4] if len(ex) > 4 else "",
+            })
+        if gnorm is not None:
+            if any(_norm(ex[1]) == gnorm for ex in dropped):
+                n_gold_removed += 1          # leak we removed
+            kept = lookup_cache.get(sid, [])
+            if any(len(p) > 1 and _norm(p[1]) == gnorm for p in kept):
+                n_gold_via_other += 1        # residual leak via another source
+    excl_path = out_path.with_name(
+        f"excluded_exemplars_{cfg.translation.output_tag or 'run'}.csv")
+    try:
+        with excl_path.open("w", encoding="utf-8", newline="") as ef:
+            ew = csv.DictWriter(ef, fieldnames=[
+                "query_sctid", "query_en", "excluded_en", "excluded_ko",
+                "excluded_source", "excluded_sctid", "rank"])
+            ew.writeheader()
+            ew.writerows(excl_rows)
+    except Exception as exc:  # reporting must never fail the run
+        log.warning("could not write exclusion audit: %s", exc)
+    n_self_hit = sum(1 for r in remaining if exclusions.get(r["sctid"]))
+    log.info("Self-exclusion: %d exemplars dropped across %d/%d concepts; "
+             "gold removed for %d; residual gold via other source for %d",
+             len(excl_rows), n_self_hit, len(remaining), n_gold_removed,
+             n_gold_via_other)
 
     # Translation
     write_lock = Lock()
@@ -218,7 +268,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             user_template, paired_translations=pairs_table, english=english,
             language_name=cfg.language.name)
         try:
-            t = translate_one(base_url, model_id, system_prompt, user_prompt, llm_params)
+            t = complete(model, model_key, system_prompt, user_prompt, llm_params)
         except Exception as exc:
             log.error("%s -> ERROR %s", english[:40], exc)
             t = f"ERROR: {exc}"
@@ -257,12 +307,20 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         stage="translate",
         ok=errors[0] == 0,
         outputs={"output_csv": out_path},
-        output_paths=[out_path],
+        output_paths=[out_path] + ([excl_path] if excl_rows else []),
         metrics={
             "n_translated": float(completed[0]),
             "n_errors": float(errors[0]),
             "elapsed_seconds": elapsed,
             "throughput_rps": completed[0] / elapsed if elapsed > 0 else 0,
+            # Self-exclusion audit
+            "self_excluded_total": float(len(excl_rows)),
+            "queries_with_self_hit": float(n_self_hit),
+            "gold_removed_by_exclusion": float(n_gold_removed),
+            "residual_gold_via_other_source": float(n_gold_via_other),
         },
-        message=f"{completed[0]} translations, {errors[0]} errors, {elapsed:.0f}s",
+        message=(f"{completed[0]} translations, {errors[0]} errors, {elapsed:.0f}s"
+                 f"; self-excluded {len(excl_rows)} exemplars "
+                 f"(gold removed for {n_gold_removed}, residual via other "
+                 f"source {n_gold_via_other})"),
     )

@@ -197,6 +197,33 @@
       "port": 443,
       "host": "dashscope-intl.aliyuncs.com",
       "notes": "Qwen 3.6 Plus via Dashscope. Thinking model — use enable_thinking=false."
+    },
+    "claude-opus": {
+      "backend": "claude_agent_sdk",
+      "model": "opus",
+      "llm_params": {
+        "thinking": true,
+        "effort": "high",
+        "max_thinking_tokens": 32000
+      },
+      "notes": "Claude Opus via the Claude Code Agent SDK. Endpoint-less — uses the host's Claude Code subscription auth (no host/port/api key). Thinking on by default. Reserve for the real deliverable run; use claude-sonnet for smoke/test calls."
+    },
+    "claude-sonnet": {
+      "backend": "claude_agent_sdk",
+      "model": "sonnet",
+      "llm_params": {
+        "thinking": false,
+        "effort": "medium"
+      },
+      "notes": "Claude Sonnet via the Claude Code Agent SDK. Endpoint-less (subscription auth). Preferred for smoke/test LLM calls; thinking off by default."
+    },
+    "claude-fable": {
+      "backend": "claude_agent_sdk",
+      "model": "claude-fable-5",
+      "llm_params": {
+        "thinking": false
+      },
+      "notes": "Claude Fable 5 via the Claude Code Agent SDK. Endpoint-less (subscription auth). Used as the GEPA reflective-feedback judge (sparse, capped call budget)."
     }
   },
   "jobs": {

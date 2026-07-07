@@ -90,6 +90,28 @@ def iter_source_pairs(spec: DataSourceSpec) -> Iterator[tuple[str, str]]:
                 yield en, tgt
 
 
+def iter_source_rows(spec: DataSourceSpec) -> Iterator[dict]:
+    """Like :func:`iter_source_pairs` but also carries the optional per-row
+    ``sctid`` (the canonical SNOMED concept id, for self-exclusion at retrieval)
+    and ``row_source`` (per-row provenance, e.g. SNOMED/EDI/KCD7, shown to the
+    translating model). Both fall back gracefully: ``sctid`` is "" when the
+    source has no such column, ``row_source`` defaults to the source id."""
+    roles = _source_roles(spec)
+    sctid_col = roles.get("sctid")
+    with Path(spec.output_csv).open(encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            en = (row.get(roles["en"]) or "").strip()
+            tgt = (row.get(roles["target"]) or "").strip()
+            if not (en and tgt):
+                continue
+            yield {
+                "en": en,
+                "target": tgt,
+                "sctid": (row.get(sctid_col) or "").strip() if sctid_col else "",
+                "row_source": (row.get("source") or "").strip() or spec.id,
+            }
+
+
 def collection_prefix(spec: DataSourceSpec, language_code: str) -> str:
     return f"exemplars_{spec.id}_{language_code}_"
 
@@ -151,7 +173,7 @@ def index_source(spec: DataSourceSpec, language_code: str, qdrant_url: str,
     """
     from agent.qdrant_store import BGEM3Config, BGEM3Embedder, QdrantHybridStore
 
-    pairs = list(iter_source_pairs(spec))
+    pairs = list(iter_source_rows(spec))
     if not pairs:
         raise ExemplarError(
             f"source {spec.id!r} has no usable (en, target) rows")
@@ -185,13 +207,17 @@ def index_source(spec: DataSourceSpec, language_code: str, qdrant_url: str,
     batch_size = embedder.config.batch_size
     for start in range(skip, len(pairs), batch_size):
         batch = pairs[start:start + batch_size]
-        dense, sparse = embedder.encode_documents([en for en, _ in batch])
+        dense, sparse = embedder.encode_documents([r["en"] for r in batch])
         store.upsert_hybrid_points(
             collection,
             list(range(start + 1, start + 1 + len(batch))),
             dense, sparse,
+            # sctid = canonical concept id (blank for non-SNOMED) → self-exclusion
+            # key; row_source = per-row provenance shown to the model.
             [{"source": spec.id, "direction": direction, "lang": "en",
-              "text": en, "translation": tgt} for en, tgt in batch])
+              "text": r["en"], "translation": r["target"],
+              "sctid": r["sctid"], "row_source": r["row_source"]}
+             for r in batch])
         done = start + len(batch)
         log.info("  indexed %d/%d", done, len(pairs))
 
@@ -236,8 +262,16 @@ def _cache_paths(cfg: PipelineConfig, collection: str) -> tuple[Path, Path]:
     return cache, cache.with_suffix(".meta.json")
 
 
-def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
-    """sctid -> top-N ``[en, target]`` pairs for every row in ``rows``.
+def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]
+                     ) -> tuple[dict, dict]:
+    """``(cache, exclusions)`` for every row in ``rows``.
+
+    ``cache`` maps sctid -> top-N ``[en, target, source, sctid]`` exemplars.
+    ``exclusions`` maps sctid -> the exemplars DROPPED by per-concept
+    self-exclusion (``[en, target, source, sctid, rank]``): the query concept's
+    own canonical SNOMED entries, which are the gold we score against and must
+    not be fed back to the model. Both are persisted per collection so a cached
+    re-run still reports what was excluded.
 
     Serves from the per-collection cache when fresh; otherwise looks up live
     against the wired source's collection — indexing it first (loudly) if the
@@ -249,8 +283,10 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
                   or source_collection(spec, cfg.language.code, bgem3_model))
     topn = cfg.translation.lookup_topn
     cache_path, meta_path = _cache_paths(cfg, collection)
+    excl_path = cache_path.with_suffix(".excluded.json")
 
     cache: dict[str, list] = {}
+    exclusions: dict[str, list] = {}
     if cache_path.exists() and meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -259,6 +295,11 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
         if meta.get("collection") == collection and \
                 int(meta.get("topn") or 0) >= topn:
             cache = json.loads(cache_path.read_text(encoding="utf-8"))
+            if excl_path.exists():
+                try:
+                    exclusions = json.loads(excl_path.read_text(encoding="utf-8"))
+                except Exception:
+                    exclusions = {}
             log.info("Exemplar cache %s: %d entries", cache_path.name, len(cache))
         else:
             log.info("Exemplar cache %s is stale (%s) — ignoring",
@@ -267,7 +308,7 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
 
     missing = [r for r in rows if r["sctid"] not in cache]
     if not missing:
-        return cache
+        return cache, exclusions
 
     log.info("Live exemplar lookup for %d term(s) (collection %r, qdrant %s)",
              len(missing), collection, cfg.qdrant.url)
@@ -311,8 +352,12 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
                          embedder=embedder)
     filt = direction_filter(f"EN->{cfg.language.code.upper()}")
     for i, row in enumerate(missing, 1):
-        cache[row["sctid"]] = lookup_pairs(
-            embedder, store, collection, row["preferred_term"], topn, filt)
+        kept, dropped = lookup_pairs(
+            embedder, store, collection, row["preferred_term"], topn, filt,
+            exclude_sctid=row.get("sctid"))
+        cache[row["sctid"]] = kept
+        if dropped:
+            exclusions[row["sctid"]] = dropped
         if i % 100 == 0:
             log.info("  lookups: %d/%d", i, len(missing))
 
@@ -322,6 +367,9 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]) -> dict:
     meta_path.write_text(
         json.dumps({"collection": collection, "topn": topn}),
         encoding="utf-8")
-    log.info("Exemplar cache updated: %s (%d entries)", cache_path.name,
-             len(cache))
-    return cache
+    excl_path.write_text(json.dumps(exclusions, ensure_ascii=False),
+                         encoding="utf-8")
+    n_excl = sum(len(v) for v in exclusions.values())
+    log.info("Exemplar cache updated: %s (%d entries, %d self-exclusions across "
+             "%d concepts)", cache_path.name, len(cache), n_excl, len(exclusions))
+    return cache, exclusions
