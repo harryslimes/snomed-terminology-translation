@@ -1,0 +1,18 @@
+{
+  "id": "confidence-based-review-triage-policy",
+  "title": "Confidence-based review triage policy",
+  "prose": "The production shape is not 'LLM replaces SMEs' but confidence-routed triage: auto-propose high-confidence translations, route low-confidence ones to terminologists. The confidence sub-threads (back-translation linkage, direct cross-lingual similarity, retrieval margin, hierarchy coherence) each produce candidate SIGNALS; this problem is about combining them into a routing POLICY and evaluating it in operational units: at a target miss rate (bad translations wrongly auto-accepted), what fraction of terms can skip review — i.e. how many SME hours are saved? Deliverables: a calibrated combined confidence score (trained/validated against SME accept-reject labels once available), a threshold policy with a precision/coverage curve, and the SME acceptance rate as the headline product metric. Depends on: sme-feedback-exploitation for labels, and the trustworthy-evaluation harness so the policy is tuned on clean numbers.",
+  "parent": "output-translations-confidence",
+  "created": "2026-07-06T14:18:56",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

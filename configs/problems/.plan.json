@@ -275,6 +275,144 @@
       ],
       "status": "todo",
       "proposed_by": ""
+    },
+    {
+      "id": "task-23",
+      "title": "Fix exemplar retrieval: self-concept exclusion + leak audit",
+      "rationale": "note-2 in translation-prompt-context showed 87.9% of test terms had their gold Korean among retrieved exemplars; drop exemplars whose SCTID/tag-stripped EN matches the query and verify 0% gold-in-exemplar before any further eval is trusted",
+      "problem": "trustworthy-leakage-free-evaluation-of-translation-quality",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "clean_eval_leakage_fix_v1",
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-24",
+      "title": "Structure the batch-1 SME feedback into machine-readable labels",
+      "rationale": "the ~100 SME reviews (verdicts + qualitative comments + corrected translations) must be in a versioned, per-term dataobject before judge calibration and taxonomy mining can run on them",
+      "problem": "exploiting-sme-terminologist-feedback",
+      "addresses": [],
+      "depends_on": [],
+      "status": "done",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-25",
+      "title": "Mine recurring EN components and score KO rendering consistency",
+      "rationale": "reference-free metric: same English component should map to one Korean rendering; validate flags against KR-extension gold + SME labels, surface top divergent components as glossary/SME candidates",
+      "problem": "term-level-consistency-across-the-terminology",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "term_consistency_metric_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-26",
+      "title": "Re-run headline guide comparison on the clean harness",
+      "rationale": "hand v5_1 vs GEPA+Fable vs induced guide on leakage-fixed kr_test_split AND the ~100 extension-external SME terms; establishes the trustworthy ranking that replaces the inflated 55.6%/58.1%",
+      "problem": "trustworthy-leakage-free-evaluation-of-translation-quality",
+      "addresses": [],
+      "depends_on": [
+        "task-23"
+      ],
+      "investigation": "clean_eval_leakage_fix_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-27",
+      "title": "Measure judge-vs-SME agreement",
+      "rationale": "the whole automated loop (GEPA feedback, test scores) rests on the judge; ~100 SME verdicts let us measure kappa/correlation and find the judge-high/SME-reject blind spots GEPA may be exploiting",
+      "problem": "exploiting-sme-terminologist-feedback",
+      "addresses": [],
+      "depends_on": [
+        "task-24"
+      ],
+      "investigation": "sme_judge_agreement_v1",
+      "status": "active",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-28",
+      "title": "Build the SME error taxonomy",
+      "rationale": "bucket qualitative feedback into recurring failure classes (register, loanword convention, word order, anatomy, orthography); feeds GEPA feedback text, judge prompt patches, and batch stratification",
+      "problem": "exploiting-sme-terminologist-feedback",
+      "addresses": [],
+      "depends_on": [
+        "task-24"
+      ],
+      "investigation": "sme_error_taxonomy_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-29",
+      "title": "Hierarchy-derived exemplars vs semantic retrieval",
+      "rationale": "translated parents/siblings from the KR extension as style/template anchors vs BGE top-k; must run on the leakage-fixed harness since siblings-with-gold is exactly the regime the leak inflated",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-23"
+      ],
+      "investigation": "hierarchy_retrieval_exemplars_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-30",
+      "title": "Build SME batch 2 (40/40/20 design) + structured feedback form",
+      "rationale": "40% stratified-random from the untranslated frontier, 40% actively sampled where signals disagree (judge divergence, retrieval margin, consistency flags), 20% reliability repeats/overlap; dedupe near-variants; form captures accept/edit/reject + error category + correction",
+      "problem": "selecting-the-next-sme-review-batch",
+      "addresses": [],
+      "depends_on": [
+        "task-28",
+        "task-25"
+      ],
+      "investigation": "sme_batch_selection_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-31",
+      "title": "Combine confidence signals into a calibrated triage scorer",
+      "rationale": "combine direct cross-lingual similarity, retrieval cosine/margin, hierarchy coherence, consistency flags and judge score against SME accept/reject labels; report precision/coverage — % of terms skipping review at <=5% auto-accept error; feeds gate-1",
+      "problem": "confidence-based-review-triage-policy",
+      "addresses": [],
+      "depends_on": [
+        "task-27"
+      ],
+      "gate": "gate-1",
+      "investigation": "triage_policy_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-32",
+      "title": "Clean GEPA re-optimisation in the pooled-excluded regime",
+      "rationale": "the existing GEPA(Fable) guide was optimised near-exemplar-free but the clean eval retrieves (leak-free) exemplars — a train/eval mismatch; re-run GEPA with the self-excluded pooled retrieval so the comparison vs hand v5_1 (36.3% clean) is fair; also lift budget (auto=medium, higher Fable judge cap)",
+      "problem": "translation-prompt-context",
+      "addresses": [],
+      "depends_on": [
+        "task-23"
+      ],
+      "investigation": "fable_gepa_judge_v1",
+      "status": "todo",
+      "proposed_by": ""
+    },
+    {
+      "id": "task-33",
+      "title": "Add a KO↔KO semantic partial-credit scorer to the eval recipe",
+      "rationale": "task-E showed exact-match zeroes ~18% of all items that are valid synonyms (chrF only partially credits, avg 0.548); a KO↔KO BGE-M3 semantic scorer recovers them. Promote scripts/analysis/graded_xlingual_closeness.py logic to a flow scorer node so every clean comparison (task-26) reports partial credit; validate τ against task-24 SME ratings first.",
+      "problem": "trustworthy-leakage-free-evaluation-of-translation-quality",
+      "addresses": [],
+      "depends_on": [
+        "task-24"
+      ],
+      "investigation": "clean_eval_leakage_fix_v1",
+      "status": "todo",
+      "proposed_by": "agent"
     }
   ],
   "gates": [
@@ -287,7 +425,9 @@
       "metric": "",
       "op": ">=",
       "source": "",
-      "artifact": ""
+      "artifact": "",
+      "problems": [],
+      "requires_signoff": false
     },
     {
       "id": "gate-2",
@@ -299,7 +439,9 @@
       "op": ">=",
       "threshold": 0.5,
       "source": "qdrant_ko_v1",
-      "artifact": ""
+      "artifact": "",
+      "problems": [],
+      "requires_signoff": false
     },
     {
       "id": "gate-3",
@@ -310,7 +452,9 @@
       "metric": "",
       "op": ">=",
       "source": "",
-      "artifact": ""
+      "artifact": "",
+      "problems": [],
+      "requires_signoff": false
     }
   ]
 }

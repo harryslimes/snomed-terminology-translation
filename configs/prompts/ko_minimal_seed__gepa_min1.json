@@ -1,0 +1,15 @@
+{
+  "id": "ko_minimal_seed__gepa_min1",
+  "name": "KO minimal seed (GEPA min1)",
+  "kind": "style_guide",
+  "variables": [],
+  "provenance": "gepa",
+  "parent": "ko_minimal_seed",
+  "current_version": "b4f0220f",
+  "tags": [
+    "ko",
+    "minimal"
+  ],
+  "created": null,
+  "updated": null
+}

@@ -1,0 +1,62 @@
+{
+  "id": "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence",
+  "title": "Inducing an EN→KO translation instruction guide from curated evidence",
+  "prose": "Can we automatically INDUCE a high-quality EN→KO SNOMED translation instruction guide from a small, curated evidence corpus — and does a smaller translation model that follows the induced guide translate better than the bare/hand-written baseline?\n\nApproach: a pruned induction corpus (scripts/data_prep/build_induction_corpus.py, now parameterised) concatenates four strata chosen for maximum phenomenon-coverage-per-token — A: rule-bearing model critiques (naive output → suggested fix → reasoned convention, dictionary-grounded; currently Sonnet, SME review pending), B: gold minimal pairs isolating one feature (laterality/contrast/with-without), C: diversity-sampled gold reference pairs, D: clean SNOMED bilingual breadth pairs. A SOTA model (Claude Opus via the Agent SDK) reads the corpus and writes an actionable instruction guide (rules with cited example IDs, a canonical lexicon table, flagged gold inconsistencies, a self-check checklist). Realised by the ko_instruction_induction flow: text_source(corpus) + prompt_source(ko_instruction_induction template) → generate_text(claude-opus).\n\nThis is a distinct METHOD within the translation-performance arm, complementary to its siblings: the concept-context thread (what SNOMED context to inject) and GEPA prompt-optimisation (task-21, which evolves the guide against a metric). Induction produces a guide from curated evidence in one shot; it can seed GEPA or feed a translate node directly. Open questions: (1) is the induced guide better than the current hand style guide when a small model follows it (measured by a tracked translate+evaluate run, not by reading the guide)? (2) how much does corpus size/composition matter (the builder now scales per-stratum)? (3) does human SME verification of the stratum-A critiques change the induced rules?",
+  "parent": "translation-prompt-context",
+  "created": "2026-07-02T17:25:50",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [
+      {
+        "id": "induced_instruction_guide",
+        "title": "Induced instruction guide",
+        "description": "The instruction guide induced from the pruned evidence corpus by a SOTA model. A `text`/`style_guide` artifact that can feed a translate node or seed GEPA.\n~ ko_instruction_induction flow: text_source(corpus) + prompt_source(template) → generate_text(claude-opus)",
+        "realized_by": [
+          {
+            "to_kind": "flow",
+            "to_id": "ko_instruction_induction",
+            "label": ""
+          }
+        ],
+        "links": [
+          {
+            "to_kind": "investigation",
+            "to_id": "ko_instruction_induction_v1",
+            "label": ""
+          }
+        ],
+        "pos": {
+          "x": 0.0,
+          "y": 0.0
+        }
+      }
+    ],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "**Framing & next steps (no results yet — needs tracked runs).**\n\nTooling in place:\n- `scripts/data_prep/build_induction_corpus.py` is now PARAMETERISED (`--critiques-per-stratum / --reference-n / --minimal-cap / --bilingual-n / --scale`, `--data-dir`, positional/`--out`); defaults reproduce the original 248-example corpus byte-for-byte. Stratum A (SME critiques) saturates ~70 rows; B/C draw from the ~3.7k eval set; D from ~475k bilingual pairs, so the corpus can be scaled up substantially.\n- `scripts/data_prep/token_count.py` reconstructs the exact rendered payload the generate_text node sends (system + template with {{context}} filled), for context-budgeting; exact Anthropic counts need a (free) API key, else a tiktoken estimate.\n- The induction flow `ko_instruction_induction` uses the new Agent-SDK model backend (`generate_text` model = `claude-opus`), so induction runs on the Claude Code subscription with no endpoint.\n\nTo ANSWER this problem's question, the results must come from tracked flow Runs (not from reading the guide):\n1. Induction run: execute `ko_instruction_induction` → the induced guide artifact (`ko_induced_guide.md`).\n2. Comparative translate+evaluate runs on a held-out eval set with a small model (gemma4-26b) under three guide conditions — none / current hand style_guide / induced guide — scored vs KR gold (chrF + semantic), per hierarchy, weighted to the hard tail. That comparison is the real test of whether induction helps.\n3. Secondary: corpus-size sensitivity (rerun the builder at higher `--scale`), and re-induction after human SME verification of the stratum-A critiques.\n\nRelationship to siblings under translation-prompt-context: induction produces a guide in one shot from curated evidence; GEPA (task-21) evolves a guide against a metric; the induced guide can SEED GEPA or feed a translate node directly.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "flow",
+          "to_id": "ko_instruction_induction",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "ko_instruction_induction_v1",
+          "label": ""
+        }
+      ],
+      "author": "claude",
+      "ts": "2026-07-02T17:26:34"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

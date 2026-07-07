@@ -1,0 +1,17 @@
+{
+  "id": "ko_minimal_seed__gepa_fable_gepa_v1",
+  "name": "KO minimal seed (GEPA fable_gepa_v1)",
+  "kind": "style_guide",
+  "variables": [],
+  "provenance": "gepa",
+  "provenance_run": null,
+  "parent": "ko_minimal_seed",
+  "current_version": "7996278a",
+  "tags": [
+    "ko",
+    "minimal"
+  ],
+  "notes": "",
+  "created": null,
+  "updated": null
+}

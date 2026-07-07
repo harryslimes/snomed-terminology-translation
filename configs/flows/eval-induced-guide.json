@@ -1,0 +1,107 @@
+{
+  "id": "eval-induced-guide",
+  "name": "eval_induced_guide",
+  "description": "",
+  "project": "project",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "kr_test_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate_full",
+      "type": "function",
+      "pos": {
+        "x": 264.0,
+        "y": 61.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "eval_induced_guide",
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style_guide_v5_1"
+      }
+    },
+    {
+      "id": "evaluate_full",
+      "type": "function",
+      "pos": {
+        "x": 470.0,
+        "y": 51.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "translate_full",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "style_guide_v5_1",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 380.0
+      },
+      "params": {
+        "path": "style_guide/ko_induced_guide.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "evaluate_formula_1781540727451",
+      "type": "function",
+      "pos": {
+        "x": 691.0,
+        "y": 54.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate_full:metrics"
+      }
+    },
+    {
+      "id": "translate_full__promote",
+      "type": "promote",
+      "pos": {
+        "x": 484.0,
+        "y": 201.0
+      },
+      "params": {
+        "name": "translate_eval_induced_guide"
+      },
+      "inputs": {
+        "value": "translate_full"
+      }
+    }
+  ]
+}

@@ -1,14 +1,5 @@
 # Korean SNOMED CT translation style guide (v5)
 
-> Derived from v3-abbreviated + corrections distilled from KHIS Korean
-> clinician feedback on a 100-term radiology sample (May 2026). Changes
-> from v3 are concentrated in: spacing inside fixed imaging compounds,
-> derivational suffix preservation (`-graphy → -조영술`, `-gram → -조영상`),
-> placement of the contrast modifier, choice between Sino-Korean and
-> native limb-region terms, and handling of unfamiliar -graphy / -gram
-> roots. All rules below are general; **none cite the specific 100-term
-> review set**.
-
 ---
 
 # general

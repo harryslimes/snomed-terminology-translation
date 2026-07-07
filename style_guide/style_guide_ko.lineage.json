@@ -2,5 +2,5 @@
   "parent": null,
   "optimizer": null,
   "created_at": "2026-06-15T09:00:00",
-  "note": "Initial hand-authored Korean seed guide — root of the GEPA optimisation chain."
+  "note": "Initial hand-authored Korean seed guide — root of the GEPA optimisation chain.\n\nProvenance (moved from guide body):\n**Status:** First-pass empirical draft, derived from analysis of the\nSNOMEDCT-KR national release **KR1000267_20251215** (3,693 procedure\nconcepts with preferred Korean synonyms). Patterns described here reflect\nwhat the existing KR extension *does*, not what KHIS has formally\ndocumented. **Must be validated with KHIS before being treated as\nauthoritative.** Where rules are clearly inconsistent in the source data,\nthat is noted in **Open questions** sections.\n\nModelled on the Estonian style guide ([style_guide.md](style_guide.md))\nfor parity with the existing translation pipeline. Sections covering\nhierarchies other than `procedure` are stubs until more reference data\nis available."
 }

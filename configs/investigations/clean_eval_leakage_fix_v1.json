@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "name": "clean_eval_leakage_fix_v1",
+  "description": "Complete the leakage-free evaluation programme. ALREADY DONE (2026-07-03): sctid self-exclusion built (docs/design/leakage-free-exemplars.md; collection exemplars_pooled_legacy_ko_8d5bcc2e), clean kr_test_split re-run: hand v5_1 36.3% exact / 70.1 chrF (run 6646ab05591c) vs GEPA+Fable 21.8% / 63.9 (run df42e169939c) — leakage inflated both ~+20pts and hid a 14.5pt gap. REMAINING: (1) re-run the induced guides (ko_induced_guide / ko_induced_v1) on the clean harness to complete the ranking; (2) evaluate all guides on the ~100 extension-external SME terms (naturally leak-free human golds); (3) clean GEPA re-optimisation in the pooled-excluded regime — the prior GEPA guide was optimised near-exemplar-free (train/eval mismatch), so the 14.5pt deficit is not a fair verdict on Fable-judged GEPA yet.",
+  "environment": {
+    "version": 1,
+    "name": "project",
+    "description": "",
+    "language": {
+      "code": "ko",
+      "name": "Korean",
+      "direction": "EN->KO",
+      "tokenizer_lang": "en"
+    },
+    "paths": {
+      "root": ".",
+      "data_dir": "data",
+      "output_dir": "data/evals/korean",
+      "lookup_cache": "data/evals/korean/lookup_cache.json"
+    },
+    "qdrant": {
+      "url": "http://localhost:6333",
+      "bgem3": {
+        "model_name": "BAAI/bge-m3",
+        "use_fp16": false,
+        "batch_size": 256,
+        "max_length": 512
+      }
+    },
+    "overlap_defaults": {
+      "prompt_addendum": "additive",
+      "term_dictionary": "most_specific",
+      "retrieval_corpus": "additive",
+      "exemplar_set": "union_dedupe"
+    },
+    "default_model_key": "gemma4-26b"
+  },
+  "problem": "trustworthy-leakage-free-evaluation-of-translation-quality",
+  "pool_output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+  "pool_dedup_key": [
+    "en_lower",
+    "target"
+  ],
+  "evaluation": {
+    "scorers": [
+      {
+        "kind": "exact_match",
+        "weight": 0.2,
+        "params": {}
+      },
+      {
+        "kind": "chrf",
+        "weight": 0.5,
+        "params": {}
+      },
+      {
+        "kind": "cosine_similarity",
+        "weight": 0.3,
+        "params": {}
+      }
+    ],
+    "multi_ref": true,
+    "judge": {
+      "kind": "none",
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "concurrency": 8
+    }
+  },
+  "optimization": {
+    "seed_style_guide": "style_guide/style_guide_ko_v5_1.md",
+    "splits_dir": "data/evals/korean/dspy_splits",
+    "lookup_cache": "data/sme_review/2026-04-24/lookup_cache.json",
+    "gepa": {
+      "auto": "medium",
+      "track_stats": true
+    },
+    "reflection_candidates": [],
+    "reflection_lm": {
+      "model_id": "openai/qwen3.7-max",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "disable_thinking": true,
+      "temperature": 1.0,
+      "max_tokens": 4000
+    },
+    "hints_file": "configs/hints/ko.yaml"
+  },
+  "sme": {
+    "sample_size": 100,
+    "stratify_by": [
+      "modality",
+      "hierarchy"
+    ],
+    "output_dir": "data/sme_review",
+    "reviewer": {
+      "kind": "sonnet"
+    },
+    "prepare_lookups": true
+  }
+}

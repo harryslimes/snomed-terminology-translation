@@ -1,0 +1,3 @@
+{
+  "note": "Provenance (moved from guide body):\n**Provenance.** Induced by Opus 4.8 from a pruned corpus of ~314 examples:\n33 dictionary-grounded model critiques of naive translations (each: naive\noutput → fix → reasoned rule), 126 feature-isolating minimal pairs, 95 diverse\ngold reference pairs, and 60 breadth pairs. The critiques are *model*-generated\n(Sonnet), not yet human-SME-verified, so treat the rules as strong priors to be\nconfirmed against the held-out eval, not as gospel. Citations like (A11, A22)\npoint at the source example in the induction corpus."
+}

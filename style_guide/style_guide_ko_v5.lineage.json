@@ -2,5 +2,5 @@
   "parent": "style_guide_ko_v4",
   "optimizer": "GEPA",
   "created_at": "2026-06-15T16:45:00",
-  "note": "GEPA optimisation of style_guide_ko_v4."
+  "note": "GEPA optimisation of style_guide_ko_v4.\n\nProvenance (moved from guide body):\nDerived from v3-abbreviated + corrections distilled from KHIS Korean\nclinician feedback on a 100-term radiology sample (May 2026). Changes\nfrom v3 are concentrated in: spacing inside fixed imaging compounds,\nderivational suffix preservation (`-graphy → -조영술`, `-gram → -조영상`),\nplacement of the contrast modifier, choice between Sino-Korean and\nnative limb-region terms, and handling of unfamiliar -graphy / -gram\nroots. All rules below are general; **none cite the specific 100-term\nreview set**."
 }

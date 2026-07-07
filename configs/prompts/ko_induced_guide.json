@@ -1,0 +1,19 @@
+{
+  "id": "ko_induced_guide",
+  "name": "KO induced translation guide",
+  "kind": "style_guide",
+  "variables": [],
+  "provenance": "flow",
+  "provenance_run": "7ff85f9c8114",
+  "parent": null,
+  "current_version": "232016be",
+  "tags": [
+    "ko",
+    "snomed",
+    "induced",
+    "origin:ko_instruction_induction"
+  ],
+  "notes": "Produced by flow run 7ff85f9c8114; produced by 'ko_instruction_induction'.",
+  "created": null,
+  "updated": null
+}

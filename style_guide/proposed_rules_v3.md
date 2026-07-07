@@ -1,11 +1,3 @@
-<!--
-Auto-generated style-guide additions, revised after regression analysis.
-Inputs: 30 target errors, 40 regressions
-  (sampled from 40 regressions vs v1)
-Proposed by: gemma4-26b (cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit)
-Generated: 2026-04-14 12:57:32
--->
-
 ## Proposed additions (from error analysis, revised)
 
 ### Avoid phonetic transliteration for established medical concepts

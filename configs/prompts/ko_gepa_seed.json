@@ -1,0 +1,15 @@
+{
+  "id": "ko_gepa_seed",
+  "name": "KO GEPA seed (short)",
+  "kind": "style_guide",
+  "variables": [],
+  "provenance": "hand",
+  "parent": null,
+  "current_version": "39aac2ee",
+  "tags": [
+    "ko",
+    "smoke"
+  ],
+  "created": null,
+  "updated": null
+}
