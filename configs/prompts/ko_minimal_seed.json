@@ -1,0 +1,15 @@
+{
+  "id": "ko_minimal_seed",
+  "name": "KO minimal seed",
+  "kind": "style_guide",
+  "variables": [],
+  "provenance": "hand",
+  "parent": null,
+  "current_version": "aaffd4bb",
+  "tags": [
+    "ko",
+    "minimal"
+  ],
+  "created": null,
+  "updated": null
+}

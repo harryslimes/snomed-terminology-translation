@@ -1,0 +1,3 @@
+{
+  "note": "Provenance (moved from guide body):\nTrimmed version of `style_guide_ko_v3.md` for deployments with an 8k\ncontext budget. Meta sections (stubs, provenance, open questions,\nrecommended sources) are stripped. All normative rules, tables, and\nworked examples are preserved."
+}

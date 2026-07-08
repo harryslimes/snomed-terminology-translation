@@ -1,13 +1,5 @@
 # EN→KO SNOMED translation — instruction guide (induced v1)
 
-> **Provenance.** Induced by Opus 4.8 from a pruned corpus of ~314 examples:
-> 33 dictionary-grounded model critiques of naive translations (each: naive
-> output → fix → reasoned rule), 126 feature-isolating minimal pairs, 95 diverse
-> gold reference pairs, and 60 breadth pairs. The critiques are *model*-generated
-> (Sonnet), not yet human-SME-verified, so treat the rules as strong priors to be
-> confirmed against the held-out eval, not as gospel. Citations like (A11, A22)
-> point at the source example in the induction corpus.
-
 You translate SNOMED CT clinical terms from English to Korean for the Korean
 extension. Produce the single Korean term a Korean clinician would file in a
 medical record — not a literal gloss. Output ONLY the Korean term.

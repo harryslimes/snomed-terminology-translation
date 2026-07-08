@@ -1,18 +1,5 @@
 # Korean SNOMED CT translation style guide (DRAFT)
 
-> **Status:** First-pass empirical draft, derived from analysis of the
-> SNOMEDCT-KR national release **KR1000267_20251215** (3,693 procedure
-> concepts with preferred Korean synonyms). Patterns described here reflect
-> what the existing KR extension *does*, not what KHIS has formally
-> documented. **Must be validated with KHIS before being treated as
-> authoritative.** Where rules are clearly inconsistent in the source data,
-> that is noted in **Open questions** sections.
->
-> Modelled on the Estonian style guide ([style_guide.md](style_guide.md))
-> for parity with the existing translation pipeline. Sections covering
-> hierarchies other than `procedure` are stubs until more reference data
-> is available.
-
 ---
 
 # general

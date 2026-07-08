@@ -1,0 +1,52 @@
+{
+  "id": "fable-gepa-v1",
+  "name": "fable_gepa_v1",
+  "description": "",
+  "project": "fable_gepa_judge_v1",
+  "nodes": [
+    {
+      "id": "train",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "kr_train_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dev",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "kr_dev_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "gepa",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "reflection_model_key": "gemma4-26b-qat",
+        "train_limit": 50,
+        "dev_limit": 50,
+        "output_tag": "fable_gepa_v1",
+        "function": "optimize"
+      },
+      "inputs": {
+        "trainset": "train",
+        "devset": "dev"
+      }
+    }
+  ]
+}

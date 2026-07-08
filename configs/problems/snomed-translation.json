@@ -4,6 +4,7 @@
   "prose": "Translate SNOMED CT concepts EN->KO with retrieval + a per-translation CONFIDENCE so terminologist review is focused where the model is unsure.",
   "created": "2026-06-24T17:36:59",
   "retired": false,
+  "resolved_by": [],
   "graph": {
     "nodes": [
       {
@@ -107,6 +108,40 @@
       "links": [],
       "author": "harry",
       "ts": "2026-06-24T17:36:59"
+    },
+    {
+      "id": "note-3",
+      "body": "Research programme extended (2026-07-06) with four new sub-problems + investigations, sequenced around two prerequisites. (1) TRUSTWORTHY EVAL [trustworthy-leakage-free-evaluation-of-translation-quality → clean_eval_leakage_fix_v1]: the gold-in-exemplar leak (translation-prompt-context note-2) means the eval harness must be fixed (self-concept exclusion) before any guide/context comparison is trusted; the ~100 extension-external SME terms are the only currently-clean human references. (2) SME FEEDBACK [exploiting-sme-terminologist-feedback → sme_judge_agreement_v1, sme_error_taxonomy_v1]: calibrate the LLM judge against SME verdicts and mine an error taxonomy; child problem [selecting-the-next-sme-review-batch → sme_batch_selection_v1] designs batch 2 (40/40/20: stratified frontier / active disagreement / reliability repeats). (3) CONSISTENCY [term-level-consistency-across-the-terminology → term_consistency_metric_v1]: reference-free same-component-same-rendering metric; also a confidence feature + glossary source. (4) TRIAGE [confidence-based-review-triage-policy → triage_policy_v1, under output-translations-confidence]: combine the validated confidence signals into a routing policy scored in SME-hours saved. Plus hierarchy_retrieval_exemplars_v1 under translation-prompt-context (parents/siblings as exemplars — gated on the clean harness). Back-translation ideas were NOT duplicated: already covered by the snomed_backtrans_* investigations.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "clean_eval_leakage_fix_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "sme_judge_agreement_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "sme_batch_selection_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "term_consistency_metric_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "triage_policy_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-06T14:21:15"
     }
   ],
   "plan": {

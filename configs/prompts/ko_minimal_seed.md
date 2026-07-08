@@ -1,0 +1,1 @@
+Translate the given English SNOMED CT procedure term into Korean. Output only the Korean translation, with no explanation or quotes.

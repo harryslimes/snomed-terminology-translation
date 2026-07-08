@@ -2,5 +2,5 @@
   "parent": "style_guide_ko_v2",
   "optimizer": "GEPA",
   "created_at": "2026-06-15T12:15:00",
-  "note": "GEPA optimisation of style_guide_ko_v2."
+  "note": "GEPA optimisation of style_guide_ko_v2.\n\nProvenance (moved from guide body):\n**Status:** First-pass empirical draft, derived from analysis of the\nSNOMEDCT-KR national release **KR1000267_20251215** (3,693 procedure\nconcepts with preferred Korean synonyms). Patterns described here reflect\nwhat the existing KR extension *does*, not what KHIS has formally\ndocumented. **Must be validated with KHIS before being treated as\nauthoritative.** Where rules are clearly inconsistent in the source data,\nthat is noted in **Open questions** sections.\n\nModelled on the Estonian style guide ([style_guide.md](style_guide.md))\nfor parity with the existing translation pipeline. Sections covering\nhierarchies other than `procedure` are stubs until more reference data\nis available.\n\nEmbedded metadata comment (moved from guide body):\nAuto-generated style-guide additions, revised after regression analysis.\nInputs: 30 target errors, 40 regressions\n  (sampled from 40 regressions vs v1)\nProposed by: gemma4-26b (cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit)\nGenerated: 2026-04-14 12:57:32"
 }

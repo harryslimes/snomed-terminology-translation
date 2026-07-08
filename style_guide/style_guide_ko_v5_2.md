@@ -1,4 +1,28 @@
-# Korean SNOMED CT translation style guide (v3, abbreviated)
+# Korean SNOMED CT translation style guide (v5.2)
+
+> v5.1 + a set of corrections re-aligned to the **KHIS SME terminologists'**
+> preferences (batch-1 review, Apr 2026). Where the KR-extension convention
+> and the practising terminologists disagree, v5.2 follows the terminologists,
+> because clinical acceptance — not exact-match against the reference — is the
+> target this guide optimises for.
+>
+> Changes from v5.1:
+> 1. **Fixed imaging compounds are written solid again** (`자기공명영상`,
+>    `컴퓨터단층촬영`, `초음파검사`, `관절조영`). v5 forced this, v5.1 rolled
+>    it back to spaced, but the SMEs consistently re-solidify them. This also
+>    re-aligns the guide with `configs/hints/ko.yaml`, which already penalises
+>    the spaced form in the GEPA metric. **Trade-off:** this *lowers*
+>    exact-match against the (spaced) KR extension; it is a deliberate choice
+>    to match SME acceptance over reference overlap.
+> 2. **`X-ray` as a standalone modality is `X선`**, not the descriptive
+>    `방사선 영상 촬영` (which is retained only for "radiographic imaging").
+> 3. **Whole-limb vs limb-segment precision.** `upper/lower limb` and
+>    `upper/lower extremity` are the *whole* limb (`팔` / `다리`), never the
+>    arm-segment words `위팔` / `아래팔`. A general register note now guides
+>    the Sino / native / loanword choice.
+> 4. Contrast-fronting, `symptomatic = 진단`, and the no-phonetic-`-gram`
+>    rules (already in v5.1) are **promoted to hard directives** because the
+>    pipeline kept violating them despite the prose.
 
 ---
 
@@ -10,22 +34,31 @@
 characters inside a Korean term (gene symbols, drug names, chemical
 formulae, eponyms) preserve the case used in the source.
 
-**Spacing (띄어쓰기).** Korean terms in the KR extension are predominantly
-**space-separated by word unit**:
+**Spacing (띄어쓰기).** Default to **space-separated word units**, e.g.
+`부분 위 절제` (Partial gastrectomy). Two categories are exceptions and are
+written **solid** (no internal spaces):
 
-- `컴퓨터 단층 촬영` (Computed tomography), not `컴퓨터단층촬영`
-- `자기 공명 영상` (Magnetic resonance imaging)
-- `부분 위 절제` (Partial gastrectomy)
+1. **Fixed nominalisations** — short procedural nouns and suffix compounds:
+   - `절제술`, `내시경술`, `생검`, `측정` — never internally spaced.
+   - `복강경`, `흡인`, `봉합`, `연결`.
+   - Nominalisations ending in `-술`, `-법`, `-검`, `-증`, `-염`.
 
-Well-established medical compounds and short procedural nouns are written
-without spaces:
+2. **Fixed imaging-modality compounds** — the standardised names of the
+   imaging modalities and their `-graphy` products are conventionally written
+   solid by Korean radiologists, even though the KR extension often spaces
+   them:
+   - `자기공명영상` (MRI), not `자기 공명 영상`
+   - `컴퓨터단층촬영` (CT), not `컴퓨터 단층 촬영`
+   - `초음파검사` (ultrasonography), not `초음파 검사`
+   - `혈관조영`, `정맥조영`, `동맥조영`, `관절조영`, `척수조영상` — the
+     modality + `조영`/`조영상` product is one solid unit.
 
-- `절제술`, `내시경술`, `생검`, `측정` — never internally spaced.
-- `복강경`, `흡인`, `봉합`, `연결`.
+   The site, laterality, contrast, and approach modifiers around the modality
+   are still separated by spaces: `조영제 사용 오른쪽 팔 자기공명영상`.
 
-**Rule of thumb:** Default to space-separated word units. Do not insert
-spaces inside fixed nominalisations ending in `-술`, `-법`, `-검`,
-`-증`, `-염`.
+**Rule of thumb:** everything is space-separated *except* fixed
+nominalisations and the fixed imaging-modality compounds above, which are
+solid.
 
 **Punctuation.** UTF-8 encoding. Korean terms generally do **not** end in
 punctuation. Commas are rare and used only in list-like constructions.
@@ -68,9 +101,30 @@ them would lose information.
 
 # body structure
 
+**Choosing a register (Sino-Korean vs native-Korean vs loanword).** Korean
+medical terms come in three registers and the right one is
+concept-specific, not a matter of taste. Decide in this order:
+
+1. **Follow the established term.** If the concept has a settled Korean
+   clinical name (in the KR extension, the Korean Association of Anatomies
+   list, or standard radiology usage), use that form regardless of register.
+   Do not "improve" a settled term into a different register.
+2. **Otherwise apply the register heuristic:**
+   - **Internal organs / viscera → Sino-Korean (한자어)** (`간`, `충수`,
+     `장간막`).
+   - **Bones, surface anatomy, and whole limbs → native-Korean (고유어)**
+     (`팔`, `다리`, `손목`, `빗장뼈`). Terminologists prefer the native form
+     for body regions a patient could point to.
+   - **Loanword / Latin form** only where that *is* the established term:
+     imaging-modality abbreviations kept in the source (`CT`, `MRI`,
+     `X선`), gene/marker symbols, eponyms, and analytes with a settled
+     phonetic transliteration (`페리틴`, `인슐린`). Do **not** invent a
+     transliteration for a concept that has a Sino/native/descriptive term
+     (see the "avoid phonetic transliteration" rule under *procedure*).
+
 **Practical rule:** Use the **Sino-Korean (한자어) form by default** for
-anatomical sites, because it has higher exact-match rates against the KR
-reference data.
+internal anatomical sites, because it has higher exact-match rates against
+the KR reference data.
 
 - `appendix` → **충수** (not 막창자꼬리)
 - `cecum` → **맹장** (not 막창자)
@@ -89,8 +143,25 @@ reference data.
     - `palm` → **손바닥**, `sole` → **발바닥**
     - `axilla` → **겨드랑이**
 
-**Heuristic:** Internal organs and viscera → Sino-Korean. Bones and
-surface anatomy → pure Korean.
+**Whole limb vs limb segment — do not confuse the two.** The *whole* limb
+is not the same concept as the arm/leg segments, and they take different
+words:
+
+| English | Korean | Register |
+|---|---|---|
+| upper limb / upper extremity (whole arm) | **팔** (or `상지`) | native preferred |
+| lower limb / lower extremity (whole leg) | **다리** (or `하지`) | native preferred |
+| upper arm (segment, brachium) | `위팔` | — |
+| forearm (segment) | `아래팔` | — |
+| thigh (segment) | `넓적다리` | — |
+| lower leg (segment) | `종아리` | — |
+
+Translating "upper limb" as `위팔` (upper arm) is a **semantic error**, not
+a register variant — `위팔` names only the shoulder-to-elbow segment. Use
+`팔` / `다리` for the whole limb.
+
+**Heuristic:** Internal organs and viscera → Sino-Korean. Bones, surface
+anatomy, and whole limbs → pure Korean.
 
 ---
 
@@ -103,7 +174,7 @@ the end** of the term, opposite to most English FSNs. The KR extension is
 highly consistent on this.
 
 - **Anatomical site → action**: `Excision of appendix` → `충수 절제`
-- **Modifier → site → action**: `Magnetic resonance imaging of pelvis` → `골반 자기 공명 영상`
+- **Modifier → site → action**: `Magnetic resonance imaging of pelvis` → `골반 자기공명영상`
 - **Approach → modifier → site → action**: `Percutaneous core needle biopsy of liver` → `피부 경유 간의 중심부 바늘 생검`
 
 Other principles observed in the KR extension:
@@ -138,6 +209,116 @@ Other principles observed in the KR extension:
   include `도플러`. `fine needle biopsy` must include `가는 바늘` or
   `세침`.
 - **Past-tense verbs are not used.**
+
+### Radiology additions (from KHIS clinician feedback, May 2026)
+
+These rules are **additive** to the surgical-action and modality patterns
+below. They fill gaps that the v3 guide left open. The modality + `조영` /
+`조영상` product is a fixed compound and is written **solid** (see
+*Spacing*): `정맥조영`, `관절조영`, `척수조영상`.
+
+#### Derivational suffix preservation
+
+The English suffixes `-graphy`, `-gram`, `-scopy`, `-metry`, `-otomy`,
+`-ectomy` are load-bearing. Each maps to a specific Korean suffix; do
+**not** drop the suffix.
+
+| English suffix | Korean suffix | Reading |
+|---|---|---|
+| `-graphy` | **`조영(술)`** when a contrast study, **`촬영(술)`** otherwise | study / procedure |
+| `-gram` | **`조영상`** with contrast, **`영상`** without | the produced image |
+| `-otomy` | **`절개(술)`** | incision |
+| `-ectomy` | **`절제(술)`** | excision |
+| `-scopy` | **`내시경(술)`** / **`경 검사`** | endoscopic study |
+| `-metry` | **`측정(법)`** | measurement |
+| `-plasty` | **`성형(술)`** | reconstruction |
+| `-stomy` | **`창냄술`** | stoma creation |
+| `-pexy` | **`고정(술)`** | fixation |
+
+Special-case modality + suffix combinations (use the established Korean
+form, not a calque):
+
+| English | Korean |
+|---|---|
+| venography | `정맥조영(술)` |
+| arteriography | `동맥조영(술)` |
+| angiography (vessel-generic) | `혈관조영(술)` |
+| lymphangiography | `림프관조영(술)` |
+| arthrography | `관절조영(술)` |
+| myelogram | `척수조영상` |
+| mammogram (image) | `유방영상` |
+| mammography (procedure) | `유방촬영술` |
+| cholangiography | `담관조영(술)` |
+| hysterosalpingography | `자궁난관조영(술)` |
+
+The KR extension is **inconsistent** about whether to write `-술` at the
+end of these compounds (e.g. both `정맥조영상` and `정맥조영술` appear).
+Either is acceptable; the model should follow the closest precedent in
+its retrieved exemplars rather than insist on one form.
+
+**For unfamiliar `-graphy / -gram` roots not on the table above,
+decompose**:
+
+1. Identify the body part / referent from the root.
+2. Translate the body-part stem to Korean.
+3. Append `조영(술)` (procedure) or `조영상` (image) depending on whether
+   the English ends in `-graphy` or `-gram` respectively.
+
+**Never produce a phonetic Hangul rendering of an English `-graphy` /
+`-gram` word** (e.g. do not invent `*-그램`, `*-그래피`, `*-니아` strings).
+If decomposition fails, prefer the literal English word in Latin script
+over a malformed transliteration; a downstream reviewer can then
+correct it.
+
+#### Contrast modifier — placement and form
+
+The contrast modifier translates with a fixed two-form pair:
+
+| English | Korean |
+|---|---|
+| with contrast | **`조영제 사용`** |
+| without contrast | **`조영제 미사용`** |
+
+**HARD RULE — contrast goes at the FRONT.** Place the contrast modifier at
+the very front of the term (before laterality, site, and modality), never
+at the end. This is the single most frequently missed rule in review: a
+translation that ends in `... 조영제 사용` / `... 조영제 미사용` is wrong
+and must be reordered to lead with it.
+
+```
+조영제 사용 / 미사용  +  [laterality]  +  [site]  +  [modality]  +  [study/product suffix]
+```
+
+The "without contrast" form must not be dropped silently. If the source
+FSN contains "without contrast", the Korean output must include
+`조영제 미사용` at the front. The absence of any contrast phrase is not
+a valid rendering of "without contrast".
+
+#### Radiology-specific idioms
+
+- **HARD RULE — `symptomatic [study]`** in a radiology context is **not**
+  the symptom-treatment form. It means *diagnostic* (a study performed
+  because the patient has symptoms, as opposed to screening).
+  Translate `symptomatic` as **`진단`** in this position, **never** as
+  `증상치료` (symptom treatment) or `증상성` — those are outright errors
+  here.
+- **`screening [study]`** stays as **`선별`** + study
+  (e.g. screening mammogram → `선별 유방영상`). Do not conflate with
+  `진단`.
+- **`limited [study]`** → **`제한적`** before the study compound, not
+  appended after.
+- **`diagnostic`** as a *redundant* qualifier (e.g. "diagnostic
+  ultrasound" where no contrast is intended) is dropped if its meaning
+  is already implied; include it only when the source explicitly
+  contrasts diagnostic vs therapeutic / screening / interventional.
+
+#### Source-fidelity rule
+
+Output **one referent per source referent**. If the SNOMED FSN names a
+single anatomical referent, the Korean must do likewise — do not
+prepend an extra body-part word as a "helpful descriptor". For example,
+"external auditory meatus" is the single established term; do not
+expand it with a parent structure.
 
 ### Rules and patterns
 
@@ -176,32 +357,36 @@ Other principles observed in the KR extension:
 
 Highly standardised — do not invent variants:
 
+Highly standardised — do not invent variants. These fixed compounds are
+written **solid** (see *Spacing*):
+
 | English | Korean | Notes |
 |---|---|---|
-| Computed tomography (CT) | **컴퓨터 단층 촬영** | Always 3 spaced words. |
-| Magnetic resonance imaging (MRI) | **자기 공명 영상** | Spaced is more common than `자기공명영상`. |
-| Ultrasound / Ultrasonography / Echography | **초음파 검사** | `Echography` → `초음파 검사` (not `에코그래피`). |
-| Radiography / X-ray | **방사선 영상 촬영** | |
-| Angiography | **혈관 조영** | |
-| Scintigraphy / radionuclide imaging | **방사성 핵종 영상** | |
+| Computed tomography (CT) | **컴퓨터단층촬영** | One solid compound. |
+| Magnetic resonance imaging (MRI) | **자기공명영상** | One solid compound. |
+| Ultrasound / Ultrasonography / Echography | **초음파검사** | `Echography` → `초음파검사` (not `에코그래피`). |
+| Radiography / radiographic imaging | **방사선 영상 촬영** | The descriptive modality name. |
+| X-ray (standalone, e.g. `Tarsus X-ray`, `Plain X-ray of ...`) | **X선** | Keep the loanword abbreviation; do **not** expand to `방사선 영상 촬영`. `Plain X-ray` → `일반 X선`. |
+| Angiography | **혈관조영** | |
+| Scintigraphy / radionuclide imaging | **방사성핵종영상** | |
 | Fluoroscopy | **투시** | |
-| Endoscopy / -scopy | **내시경술** (or **내시경 검사**) | |
+| Endoscopy / -scopy | **내시경술** (or **내시경검사**) | |
 
 **Site-name precedes modality:**
-- `Computed tomography of brain` → `뇌 컴퓨터 단층 촬영`
-- `Magnetic resonance imaging of prostate` → `전립샘 자기 공명 영상`
-- `Ultrasonography of breast` → `유방 초음파 검사`
+- `Computed tomography of brain` → `뇌 컴퓨터단층촬영`
+- `Magnetic resonance imaging of prostate` → `전립샘 자기공명영상`
+- `Ultrasonography of breast` → `유방 초음파검사`
 
 **Combined / compound modalities follow English order.** Base modality
 first, then sub-modality.
 
 | English | Korean |
 |---|---|
-| Computed tomography angiography with contrast | 조영제 사용 컴퓨터 단층 촬영 혈관 조영 |
-| Magnetic resonance angiography | 자기 공명 혈관 조영 |
-| Doppler ultrasonography of vein of lower limb | 하지 정맥 도플러 초음파 촬영 |
+| Computed tomography angiography with contrast | 조영제 사용 컴퓨터단층촬영 혈관조영 |
+| Magnetic resonance angiography | 자기공명 혈관조영 |
+| Doppler ultrasonography of vein of lower limb | 다리 정맥 도플러 초음파촬영 |
 
-Do **not** put `혈관 조영` before `컴퓨터 단층 촬영`. CT/MRI base comes
+Do **not** put `혈관조영` before `컴퓨터단층촬영`. CT/MRI base comes
 first.
 
 #### Approach / method modifiers
@@ -263,7 +448,7 @@ particles between `이용` and the procedure noun.
 
 | English | Korean |
 |---|---|
-| Biopsy of peritoneum using computed tomography guidance | 컴퓨터 단층 촬영 유도하 복막 생검 |
+| Biopsy of peritoneum using computed tomography guidance | 컴퓨터단층촬영 유도하 복막 생검 |
 | External beam radiation therapy using electrons | 전자 이용 외부 빔 방사선 치료 |
 | Anastomosis of colon to rectum using staples | 봉합기 이용 결장 직장 연결 |
 | Repair of gastroschisis with prosthesis | 인공삽입물 이용 복벽갈림증 복구 |
@@ -298,7 +483,7 @@ Quantifiers precede the site:
 | Bilateral | **양측** |
 
 Laterality precedes the site:
-`Magnetic resonance imaging of sciatic nerve` → `왼쪽 궁둥 신경 자기 공명 영상`
+`Magnetic resonance imaging of sciatic nerve` → `왼쪽 궁둥 신경 자기공명영상`
 
 #### Education / counselling / therapy
 
@@ -315,12 +500,12 @@ Examples: `Diet education` → `식이 교육`, `Genetic counseling` → `유전
 | SCTID | English PT | Korean reference |
 |---|---|---|
 | 80146002 | Excision of appendix | 충수 절제술 |
-| 73761001 | Colonoscopy | 결장 내시경술 / 대장 내시경 검사 |
+| 73761001 | Colonoscopy | 결장 내시경술 / 대장 내시경검사 |
 | 18027006 | Transplantation of liver | 간 이식 |
 | 232717009 | Coronary artery bypass graft | 관상 동맥 우회술 |
 | 401004 | Distal subtotal pancreatectomy | 먼쪽 부분 췌장 절제 |
 | 165001 | Behavioral therapy | 행동 요법 |
-| 306005 | Echography of kidney | 신장 초음파 검사 |
+| 306005 | Echography of kidney | 신장 초음파검사 |
 | 388008 | Blepharorrhaphy | 눈꺼풀 봉합 |
 | 116142003 | Radical hysterectomy | 근치 자궁절제 |
 

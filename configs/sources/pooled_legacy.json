@@ -6,7 +6,8 @@
   "csv_path": "data/EN-KO/all_bilingual_pairs.csv",
   "csv_columns": {
     "sctid": "sctid",
-    "en": "en_term",
-    "target": "target_term"
+    "en": "EN",
+    "target": "KO",
+    "source": "source"
   }
 }

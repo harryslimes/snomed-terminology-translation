@@ -5,6 +5,7 @@
   "parent": "snomed-translation",
   "created": "2026-06-25T18:30:00",
   "retired": false,
+  "resolved_by": [],
   "graph": {
     "nodes": [],
     "edges": []
@@ -37,6 +38,59 @@
       ],
       "author": "research-agent",
       "ts": "2026-06-25"
+    },
+    {
+      "id": "note-1",
+      "body": "Leakage audit for fable_gepa_judge_v1 (and the shared eval setup): checked whether the pooled_legacy exemplar corpus (data/EN-KO/all_bilingual_pairs.csv — 363,812 unique English terms / 475,700 EN→KO pairs) hands the canonical gold to the model during translation. Result: NO gold leakage. Exact-English overlap with the held-out sets is 0/124 test, 0/125 dev, 7/625 train (1.1%); exact (English, gold-Korean) pairs present in the pool = 0 across ALL splits. Retrieval (lookup_pairs) has no self-exclusion filter but doesn't need one — the query terms aren't in the pool. Verified on the GEPA lookup_cache that dev/test exemplars are related-but-different SNOMED concepts (e.g. \"MR arthrography of upper limb without contrast\" retrieves \"CT of upper limb without contrast\" — same frame, different modality), never the answer; 0/24 keyed dev+test terms had their own EN or gold-KO among exemplars. Corroborated by the seed baseline scoring only 28% (would be ~100% if the gold were retrieved). Conclusion: GEPA training and the 55.6%-test eval are fair, apples-to-apples with the hand-guide 58.1% baseline (identical exemplar setup for all guides).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "fable_gepa_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "22c4b89b2ef3",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7647eeaca10",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-03T17:45:23"
+    },
+    {
+      "id": "note-2",
+      "body": "CORRECTION to note-1 (which is WRONG). note-1 claimed \"no gold leakage\" based on exact-English matching, but that was defeated by FSN semantic tags: the pool English is \"... (procedure)\" while the splits use bare preferred_term, so exact-EN match spuriously returned 0%. The truth: the pooled_legacy corpus (all_bilingual_pairs.csv) INCLUDES the Korean SNOMED extension (39,056 'SNOMED' + 17,722 'SNOMED_synonyms' pairs), and the dspy_splits ARE extension procedure concepts — so their gold Korean is in the pool. Rigorous check (tag-stripped EN + Korean-side): 85.5% of test terms have their exact concept->gold-KO in the pool. DECISIVE: in the exemplar cache the eval actually fed the model (lookup_cache.exemplars_pooled_legacy_ko_1aca69d6.json), 109/124 = 87.9% of test terms had their gold Korean among the retrieved exemplars (e.g. query 'Ultrasonography of oral cavity' -> exemplar 'Ultrasonography of oral cavity (procedure)' -> 구강 초음파 검사 = the gold). So the held-out TEST numbers (GEPA+Fable 55.6%, hand v5_1 58.1%, induced ~50%) are INFLATED by ~88% gold-in-exemplar leakage and measure exemplar-selection, not from-scratch translation. Nuance that rescues the core finding: the GEPA run + its internal dev-50 metric used a DIFFERENT cache (data/sme_review/2026-04-24/lookup_cache.json), which has 0% gold leak and where a cache-miss yields NO exemplars (_format_exemplars: lookup_cache.get(sctid) or []). So the GEPA dev improvement 28%->42% exact is CLEAN (gold-free) and IS trustworthy evidence that Fable's feedback improves translation. But note the train/eval regime mismatch (GEPA trained gold-free, tested gold-leaked). Recommend a clean re-eval: self-concept-exclusion at retrieval, or evaluate on the ~100 extension-EXTERNAL SME terms whose golds are not in the pool.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "fable_gepa_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "22c4b89b2ef3",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7647eeaca10",
+          "label": ""
+        },
+        {
+          "to_kind": "note",
+          "to_id": "note-1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-03T17:52:58"
     }
   ],
   "plan": {

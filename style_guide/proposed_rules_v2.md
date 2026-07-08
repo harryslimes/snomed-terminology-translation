@@ -1,11 +1,3 @@
-<!--
-Auto-generated style-guide additions.
-Source: 30 consensus-WRONG errors from
-  judge_gemma4-26b.csv and judge_qwen35b.csv
-Proposed by: gemma4-26b (cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit)
-Generated: 2026-04-14 11:35:53
--->
-
 ## Proposed additions (from error analysis)
 
 ### Avoid phonetic transliteration for established medical concepts

@@ -1,20 +1,5 @@
 # Korean SNOMED CT translation style guide (v4)
 
-> **Status:** v4 revision of v3, incorporating empirical findings from
-> (a) the imaging-resources ablation
-> (`docs/imaging_resources_ablation_findings_2026-04-20.md`) and
-> (b) the procedure-hierarchy inconsistency audit
-> (`docs/procedure_inconsistencies_2026-04-20.md`). Where v3 listed an
-> open question, v4 resolves it if the KR release gave us a frequency
-> answer, and keeps it open otherwise. Patterns described here still
-> reflect what the KR extension *does*, not what KHIS has formally
-> documented.
->
-> Modelled on the Estonian style guide ([style_guide.md](style_guide.md))
-> for parity with the existing translation pipeline. Sections covering
-> hierarchies other than `procedure` are stubs until more reference data
-> is available.
-
 **Changes from v3:**
 
 - Added **contrast word-order rule** (procedure section): contrast phrase
@@ -592,13 +577,6 @@ SNOMED procedure concepts, so this draft cannot speak to procedure
 terminology that has not yet been touched by KHIS authors. As more of
 the procedure hierarchy is translated, the rules above should be
 revisited for consistency.
-<!--
-Auto-generated style-guide additions, revised after regression analysis.
-Inputs: 30 target errors, 40 regressions
-  (sampled from 40 regressions vs v1)
-Proposed by: gemma4-26b (cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit)
-Generated: 2026-04-14 12:57:32
--->
 
 ## Proposed additions (from error analysis, revised)
 

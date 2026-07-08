@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "name": "ko_instruction_induction_v1",
+  "description": "Does an Opus-induced EN→KO translation instruction guide (from the pruned evidence corpus: model critiques + gold minimal/diverse/breadth pairs) improve translation quality when a smaller model follows it, vs the bare prompt and the current hand style guide? Runs: (1) induce the guide via the ko_instruction_induction flow (text_source corpus + prompt_source template → generate_text/claude-opus); (2) translate+evaluate a held-out eval set with a small model (gemma4-26b) under three guide conditions — none / hand style_guide / induced guide — scored vs KR gold (chrF + semantic), reported per hierarchy with weight on the hard tail. Secondary: sensitivity to corpus size (the builder scales per-stratum) and to SME verification of the stratum-A critiques.",
+  "environment": {
+    "version": 1,
+    "name": "project",
+    "description": "",
+    "language": {
+      "code": "ko",
+      "name": "Korean",
+      "direction": "EN->KO",
+      "tokenizer_lang": "en"
+    },
+    "paths": {
+      "root": ".",
+      "data_dir": "data",
+      "output_dir": "data/evals/korean",
+      "lookup_cache": "data/evals/korean/lookup_cache.json"
+    },
+    "qdrant": {
+      "url": "http://localhost:6333",
+      "bgem3": {
+        "model_name": "BAAI/bge-m3",
+        "use_fp16": false,
+        "batch_size": 256,
+        "max_length": 512
+      }
+    },
+    "overlap_defaults": {
+      "prompt_addendum": "additive",
+      "term_dictionary": "most_specific",
+      "retrieval_corpus": "additive",
+      "exemplar_set": "union_dedupe"
+    },
+    "default_model_key": "gemma4-26b"
+  },
+  "problem": "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence",
+  "pool_output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+  "pool_dedup_key": [
+    "en_lower",
+    "target"
+  ],
+  "evaluation": {
+    "scorers": [
+      {
+        "kind": "exact_match",
+        "weight": 0.2,
+        "params": {}
+      },
+      {
+        "kind": "chrf",
+        "weight": 0.5,
+        "params": {}
+      },
+      {
+        "kind": "cosine_similarity",
+        "weight": 0.3,
+        "params": {}
+      }
+    ],
+    "multi_ref": true,
+    "judge": {
+      "kind": "none",
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "concurrency": 8
+    }
+  },
+  "optimization": {
+    "seed_style_guide": "style_guide/style_guide_ko_v5_1.md",
+    "splits_dir": "data/evals/korean/dspy_splits",
+    "lookup_cache": "data/sme_review/2026-04-24/lookup_cache.json",
+    "gepa": {
+      "auto": "medium",
+      "track_stats": true
+    },
+    "reflection_candidates": [],
+    "reflection_lm": {
+      "model_id": "openai/qwen3.7-max",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "disable_thinking": true,
+      "temperature": 1.0,
+      "max_tokens": 4000
+    },
+    "hints_file": "configs/hints/ko.yaml"
+  },
+  "sme": {
+    "sample_size": 100,
+    "stratify_by": [
+      "modality",
+      "hierarchy"
+    ],
+    "output_dir": "data/sme_review",
+    "reviewer": {
+      "kind": "sonnet"
+    },
+    "prepare_lookups": true
+  }
+}

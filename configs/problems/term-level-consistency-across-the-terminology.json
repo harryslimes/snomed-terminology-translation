@@ -1,0 +1,18 @@
+{
+  "id": "term-level-consistency-across-the-terminology",
+  "title": "Term-level consistency across the terminology",
+  "prose": "SNOMED procedure/radiology terms are highly templated ('X of Y using Z', laterality, modality prefixes). A translated terminology must render the same English component the same way everywhere: 'computed tomography', 'biopsy of', 'ultrasonography of' should map to one consistent Korean rendering across all concepts that contain them. This gives us a REFERENCE-FREE quality axis: mine recurring English n-grams/components across the translated output, group the Korean renderings, and measure divergence. Uses: (a) a consistency metric over any full translation run (no gold needed, so it scales to the untranslated frontier); (b) inconsistency flags as a per-term confidence feature (links to output-translations-confidence); (c) flagged clusters are high-value SME review candidates — one SME decision fixes many terms at once. Also frames the enforcement question: should frequent components be locked into a glossary the prompt must obey, rather than re-derived per term?",
+  "parent": "snomed-translation",
+  "created": "2026-07-06T14:18:53",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

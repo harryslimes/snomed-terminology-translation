@@ -1,0 +1,3 @@
+{
+  "note": "Provenance (moved from guide body):\nThis guide was induced **purely from a set of expert (SME) review feedback** on machine\ntranslations of SNOMED CT terms (imaging, interventional and nuclear-medicine procedures).\nEvery rule below is a generalisation of a recurring correction or approval the reviewer\napplied; none is a memorised term-by-term answer. Apply the rules to unseen terms — do not\ntreat any single Korean string here as a canonical output for a specific source term."
+}
