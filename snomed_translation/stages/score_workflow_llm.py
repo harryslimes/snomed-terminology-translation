@@ -74,11 +74,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         return StageResult(
             stage="score_workflow_llm", ok=False,
             message="no upstream metrics to score over")
-    # Imported lazily: pulls in the vLLM HTTP client only when this stage runs.
-    from scripts.translation.translate_korean_with_lookup import (
-        translate_one,
-        wait_for_server,
-    )
+    # Imported lazily: pulls in the HTTP client only when this stage runs.
+    from snomed_translation.llm import complete, is_agent_sdk
+    from scripts.translation.translate_korean_with_lookup import wait_for_server
     try:
         user = render_prompt(prompt, variables)
     except KeyError as exc:
@@ -88,20 +86,22 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             message=f"prompt references unknown variable {exc}. "
                     f"Available: {avail}, plus {{metrics}}")
 
+    model = cfg.models[model_key]
+    use_sdk = is_agent_sdk(model)
     base_url = os.getenv("VLLM_BASE_URL",
                          cfg.model_base_url(model_key).rsplit("/v1", 1)[0])
     if base_url.endswith("/v1"):
         base_url = base_url[:-3]
-    model_id = cfg.models[model_key].hf_id
     params = {
         "temperature": 0.0,
         "max_tokens": 2048 if thinking else 512,
         "chat_template_kwargs": {"enable_thinking": bool(thinking)},
         "enable_thinking": bool(thinking),
     }
-    wait_for_server(base_url)
+    if not use_sdk:
+        wait_for_server(base_url)
     try:
-        resp = translate_one(base_url, model_id, _SYSTEM, user, params)
+        resp = complete(model, model_key, _SYSTEM, user, params)
     except Exception as exc:  # noqa: BLE001 — surface as a stage failure
         return StageResult(stage="score_workflow_llm", ok=False,
                            message=f"LLM call failed: {exc}")

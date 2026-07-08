@@ -72,6 +72,31 @@ def write_pairs(name: str, rows: list[tuple[str, str]]) -> int:
     return len(deduped)
 
 
+def write_pairs_sctid(name: str, rows: list[tuple[str, str, str]]) -> int:
+    """Like write_pairs but carries the SNOMED conceptId (the canonical
+    exclusion key). Dedups by (en_lower, ko, sctid) so the SAME surface form
+    from two different concepts stays as two rows — exclusion must be per
+    concept, not per string."""
+    seen = set()
+    deduped = []
+    for en, ko, sctid in rows:
+        en, ko, sctid = en.strip(), ko.strip(), (sctid or "").strip()
+        if not en or not ko:
+            continue
+        key = (en.lower(), ko, sctid)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((en, ko, sctid))
+    path = OUT_DIR / f"{name}.csv"
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["EN", "KO", "sctid"])
+        w.writerows(deduped)
+    print(f"  wrote {path.name}: {len(deduped):,} pairs (with sctid)")
+    return len(deduped)
+
+
 # ---- Athena --------------------------------------------------------------
 def build_athena() -> dict[str, int]:
     print("[athena] loading CONCEPT.csv ...")
@@ -162,9 +187,13 @@ def build_snomed() -> dict[str, int]:
                 elif row["typeId"] != FSN_TYPE:
                     en_syn[cid].add(row["term"])
 
-    # FSN canonical pair
-    fsn_pairs: list[tuple[str, str]] = []
-    syn_pairs: list[tuple[str, str]] = []
+    # FSN canonical pair. Carry the conceptId (sctid) so retrieval can exclude
+    # the query concept's own canonical entries at eval time — these ARE the
+    # gold we score against, so leaving them in the exemplar pool leaks the
+    # answer. (Every EN description of a concept shares its sctid, so excluding
+    # by sctid removes the FSN + all synonyms of that concept.)
+    fsn_pairs: list[tuple[str, str, str]] = []
+    syn_pairs: list[tuple[str, str, str]] = []
     for cid, data in kr.items():
         en = en_fsn.get(cid)
         if not en:
@@ -173,13 +202,13 @@ def build_snomed() -> dict[str, int]:
         # Canonical pair = EN FSN <-> first KO synonym (or KO FSN if it exists).
         ko_canonical = data["fsn"] or (next(iter(data["syn"])) if data["syn"] else None)
         if ko_canonical:
-            fsn_pairs.append((en, ko_canonical))
+            fsn_pairs.append((en, ko_canonical, cid))
         for ko_s in data["syn"]:
-            syn_pairs.append((en, ko_s))
+            syn_pairs.append((en, ko_s, cid))
 
     counts = {}
-    counts["SNOMED"] = write_pairs("SNOMED", fsn_pairs)
-    counts["SNOMED_synonyms"] = write_pairs("SNOMED_synonyms", syn_pairs)
+    counts["SNOMED"] = write_pairs_sctid("SNOMED", fsn_pairs)
+    counts["SNOMED_synonyms"] = write_pairs_sctid("SNOMED_synonyms", syn_pairs)
     return counts
 
 
@@ -314,29 +343,44 @@ def main():
         print(f"\n=== {name} ===")
         all_counts.update(fn())
 
-    # Combined file
+    # Combined file — schema EN,KO,source,sctid. We KEEP ALL PROVENANCE ROWS
+    # (dedup only exact (en_lower,ko,source,sctid) repeats), so the same pair
+    # from EDI and SNOMED stays as two rows: the SNOMED row carries the sctid
+    # (canonical, excluded at eval time), the EDI row does not (an independent
+    # vocabulary's translation, shown to the model WITH its provenance). Reads
+    # each per-source CSV via DictReader so a mix of 2-col (EN,KO) and 3-col
+    # (EN,KO,sctid) files combine cleanly.
     print("\n[combined] building all_bilingual_pairs.csv ...")
-    combined: list[tuple[str, str, str]] = []
+    combined: list[tuple[str, str, str, str]] = []
     seen = set()
     for src in ["EDI", "KCD7", "SNOMED", "SNOMED_synonyms", "LOINC", "ICD11"]:
         p = OUT_DIR / f"{src}.csv"
         if not p.exists():
             continue
         with p.open(encoding="utf-8") as f:
-            r = csv.reader(f)
-            next(r)
-            for en, ko in r:
-                key = (en.lower(), ko)
+            r = csv.DictReader(f)
+            n_src = 0
+            for row in r:
+                en = (row.get("EN") or "").strip()
+                ko = (row.get("KO") or "").strip()
+                sctid = (row.get("sctid") or "").strip()
+                if not en or not ko:
+                    continue
+                key = (en.lower(), ko, src, sctid)
                 if key in seen:
                     continue
                 seen.add(key)
-                combined.append((en, ko, src))
+                combined.append((en, ko, src, sctid))
+                n_src += 1
+        print(f"  {src}: +{n_src:,} rows")
     out = OUT_DIR / "all_bilingual_pairs.csv"
     with out.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["EN", "KO", "source"])
+        w.writerow(["EN", "KO", "source", "sctid"])
         w.writerows(combined)
-    print(f"  wrote {out.name}: {len(combined):,} unique pairs")
+    n_sctid = sum(1 for _, _, _, s in combined if s)
+    print(f"  wrote {out.name}: {len(combined):,} rows "
+          f"({n_sctid:,} with sctid)")
 
     print("\n=== summary ===")
     for k, v in all_counts.items():

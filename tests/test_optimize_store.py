@@ -5,13 +5,57 @@ cache (infra), so here we test the store-write + slot-guard logic that
 `optimize.run` performs at the end, in isolation."""
 from __future__ import annotations
 
+import pytest
+
+from pipelines.flow import FlowNode
 from pipelines.prompts import (
     PromptTemplate,
     load_template,
     missing_required,
     save_template,
 )
+from snomed_translation.config import (
+    LanguageSpec,
+    OptimizationStageSpec,
+    PipelineConfig,
+    TranslationStageSpec,
+)
+from snomed_translation.graph import GraphError, build_optimize
 from snomed_translation.stages.optimize import _prompts_dir, _slug
+
+
+def _base_cfg(**opt_kwargs) -> PipelineConfig:
+    return PipelineConfig(
+        language=LanguageSpec(code="ko", name="Korean", direction="EN->KO"),
+        translation=TranslationStageSpec(),
+        optimization=OptimizationStageSpec(**opt_kwargs),
+    )
+
+
+_TRAINSET = {
+    "source_id": "kr_train_split",
+    "dataset": "train.csv",
+    "present": ["sctid", "en", "target"],
+    "columns": ["sctid", "en", "target"],
+    "roles": {"sctid": "sctid", "en": "en", "target": "target"},
+}
+
+
+def test_build_optimize_accepts_seed_template_without_seed_style_guide():
+    # A store-template seed (the Fable-GEPA recipe) must satisfy the graph
+    # compiler even though optimization.seed_style_guide is None — the stage
+    # loads the seed from the prompt store.
+    node = FlowNode(id="opt", type="optimize", inputs={"trainset": "ds"})
+    cfg, kwargs = build_optimize(node, _base_cfg(seed_template="ko_minimal_seed"),
+                                 {"ds": _TRAINSET})
+    assert kwargs["trainset"]["source_id"] == "kr_train_split"
+    assert cfg.optimization.seed_template == "ko_minimal_seed"
+
+
+def test_build_optimize_requires_some_seed():
+    node = FlowNode(id="opt", type="optimize", inputs={"trainset": "ds"})
+    with pytest.raises(GraphError, match="needs a seed"):
+        build_optimize(node, _base_cfg(), {"ds": _TRAINSET})
 
 
 def test_gepa_child_written_with_provenance_and_parent(tmp_path):

@@ -45,9 +45,9 @@ from snomed_translation.stages.translate import (
     _load_eval_rows,
     render_user,
 )
+from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
 from scripts.translation.translate_korean_with_lookup import (
     format_pairs_table,
-    translate_one,
     wait_for_server,
 )
 
@@ -94,12 +94,12 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                            message=f"model_key {model_key!r} resolved from "
                                     "candidates but not in cfg.models")
     model = cfg.models[model_key]
+    use_sdk = is_agent_sdk(model)
     base_url = os.getenv("VLLM_BASE_URL",
                          cfg.model_base_url(model_key).rsplit("/v1", 1)[0])
     if base_url.endswith("/v1"):
         base_url = base_url[:-3]
-    model_id = model.hf_id
-    concurrency = candidate.concurrency
+    concurrency = recommended_concurrency(model, candidate.concurrency)
     llm_params = dict(candidate.llm_params)
     if temperature is not None:
         llm_params["temperature"] = temperature
@@ -113,7 +113,8 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     system_prompt, user_template = _build_prompts(cfg)
     log.info("[%s] model=%s samples=%d temperature=%s concurrency=%d", stage,
              model_key, samples, llm_params.get("temperature"), concurrency)
-    wait_for_server(base_url)
+    if not use_sdk:
+        wait_for_server(base_url)
 
     rows = _load_eval_rows(cfg, limit)
     log.info("[%s] eval set: %d rows × %d samples = %d calls",
@@ -164,8 +165,8 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     def call(sctid: str) -> str:
         try:
-            return translate_one(base_url, model_id, system_prompt,
-                                 user_prompts[sctid], llm_params)
+            return complete(model, model_key, system_prompt,
+                            user_prompts[sctid], llm_params)
         except Exception as exc:  # noqa: BLE001 — one bad sample mustn't kill the run
             log.error("%s sample -> ERROR %s", sctid[:12], exc)
             return f"ERROR: {exc}"

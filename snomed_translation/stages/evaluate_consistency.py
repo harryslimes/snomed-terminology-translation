@@ -45,8 +45,8 @@ from pipelines.context import RunContext, StageResult
 from snomed_translation.scoring import best_ref_by_chrf as _best_ref_by_chrf
 from snomed_translation.scoring import norm_text as _norm
 from snomed_translation.stages.evaluate import _load_eval_refs
+from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
 from scripts.translation.translate_korean_with_lookup import (
-    translate_one,
     wait_for_server,
 )
 
@@ -192,11 +192,12 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             return StageResult(stage=stage, ok=False,
                                message=f"judge model {judge_model!r} not in "
                                         "the models catalogue")
+        model = cfg.models[judge_model]
+        use_sdk = is_agent_sdk(model)
         base_url = os.getenv("VLLM_BASE_URL",
                              cfg.model_base_url(judge_model).rsplit("/v1", 1)[0])
         if base_url.endswith("/v1"):
             base_url = base_url[:-3]
-        model_id = cfg.models[judge_model].hf_id
         # Thinking is requested up front (so the reason is real reasoning, not a
         # post-hoc rationalisation) and is the on/off comparison knob. Both
         # forms are sent — vLLM reads chat_template_kwargs; the top-level flag
@@ -207,11 +208,13 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "chat_template_kwargs": {"enable_thinking": bool(thinking)},
             "enable_thinking": bool(thinking),
         }
-        concurrency = max(1, cfg.evaluation.judge.concurrency)
+        concurrency = recommended_concurrency(
+            model, max(1, cfg.evaluation.judge.concurrency))
         log.info("[%s] judging %d/%d multi-candidate concepts with %s "
                  "(thinking=%s, explanation=%s)", stage, len(judge_ids),
                  len(sctids), judge_model, thinking, explanation_language)
-        wait_for_server(base_url)
+        if not use_sdk:
+            wait_for_server(base_url)
 
         def judge(sctid: str) -> tuple[str, str, bool, str]:
             cands = texts(sctid)
@@ -219,8 +222,8 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             user = user_prompts[sctid] + JUDGE_INSTRUCTION.format(
                 numbered=numbered, language=explanation_language)
             try:
-                resp = translate_one(base_url, model_id, system_prompt, user,
-                                     judge_params)
+                resp = complete(model, judge_model, system_prompt, user,
+                                judge_params)
                 idx, reason = _parse_judge(resp, len(cands))
             except Exception as exc:  # noqa: BLE001 — fall back, don't crash
                 log.error("judge %s -> ERROR %s", sctid[:12], exc)
