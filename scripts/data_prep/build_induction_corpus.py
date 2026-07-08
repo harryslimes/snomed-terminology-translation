@@ -19,28 +19,45 @@ is a quality lever, not just a cost one. Four strata:
 Emits one markdown corpus + a stats header. Feed it to the ``generate_text``
 flow node (Opus, thinking) to induce a translation instruction guide.
 
+    # defaults reproduce the original 248-example corpus
     python scripts/data_prep/build_induction_corpus.py [OUT.md]
 
-Override the data root with DATA_DIR (defaults to this repo's data/).
+    # a larger corpus: more examples per stratum
+    python scripts/data_prep/build_induction_corpus.py \
+        --reference-n 300 --minimal-cap 120 --bilingual-n 200 \
+        --critiques-per-stratum 12 --out data/evals/korean/induction_corpus_big.md
+
+    # or scale every stratum by a factor (rounds each default up)
+    python scripts/data_prep/build_induction_corpus.py --scale 3
+
+Stratum sizes are knobs: A (critiques) is capped by the SME-review rows that
+actually carry a written critique (~one hundred), so it saturates quickly; B/C
+draw from the ~3.7k-row eval set and D from ~475k bilingual pairs, so those scale
+far. Raising a knob past what a stratum can supply just yields all of it (the
+printed stats header reports the ACTUAL counts). Override the data root with
+DATA_DIR (defaults to this repo's data/) or --data-dir.
 """
 from __future__ import annotations
 
+import argparse
 import collections
 import csv
+import math
 import os
 import re
-import sys
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get(
+# Original per-stratum defaults (reproduce the historical 248-example corpus).
+DEFAULTS = {"critiques_per_stratum": 6, "reference_n": 110,
+            "minimal_cap": 60, "bilingual_n": 60}
+
+# Default data paths (repo data/ or $DATA_DIR); main() reassigns these globals
+# when --data-dir / $DATA_DIR points elsewhere.
+_DATA_DIR = Path(os.environ.get(
     "DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
-
-EVAL = DATA_DIR / "evals/korean/procedure_eval_set.csv"
-INTERNAL = DATA_DIR / "sme_review/2026-04-24/sme_review_internal.csv"
-BILINGUAL = DATA_DIR / "EN-KO/all_bilingual_pairs.csv"
-
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else (
-    DATA_DIR / "evals/korean/induction_corpus.md")
+EVAL = _DATA_DIR / "evals/korean/procedure_eval_set.csv"
+INTERNAL = _DATA_DIR / "sme_review/2026-04-24/sme_review_internal.csv"
+BILINGUAL = _DATA_DIR / "EN-KO/all_bilingual_pairs.csv"
 
 
 def spread(items: list, k: int) -> list:
@@ -128,10 +145,63 @@ def load_bilingual(target_n: int = 60) -> list[dict]:
     return spread(rows, target_n)
 
 
-def main() -> None:
-    crit = load_critiques()
-    minimal, diverse = load_reference()
-    biling = load_bilingual()
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Build a pruned EN->KO induction corpus (parameterised sizes).")
+    p.add_argument("out", nargs="?", default=None,
+                   help="Output .md path (positional, back-compat). Overridden by "
+                        "--out. Default: <data>/evals/korean/induction_corpus.md")
+    p.add_argument("--out", dest="out_flag", default=None,
+                   help="Output .md path (wins over the positional arg).")
+    p.add_argument("--data-dir", default=None,
+                   help="Data root (else $DATA_DIR, else this repo's data/).")
+    p.add_argument("--critiques-per-stratum", type=int,
+                   default=DEFAULTS["critiques_per_stratum"],
+                   help=f"Stratum A cap per stratum (default {DEFAULTS['critiques_per_stratum']}; "
+                        "saturates ~100 total).")
+    p.add_argument("--reference-n", type=int, default=DEFAULTS["reference_n"],
+                   help=f"Stratum C diverse reference pairs (default {DEFAULTS['reference_n']}).")
+    p.add_argument("--minimal-cap", type=int, default=DEFAULTS["minimal_cap"],
+                   help=f"Stratum B minimal-pair cap (default {DEFAULTS['minimal_cap']}).")
+    p.add_argument("--bilingual-n", type=int, default=DEFAULTS["bilingual_n"],
+                   help=f"Stratum D bilingual breadth pairs (default {DEFAULTS['bilingual_n']}).")
+    p.add_argument("--scale", type=float, default=None,
+                   help="Multiply every default stratum size by this factor "
+                        "(a convenience; per-stratum flags still override it).")
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    global EVAL, INTERNAL, BILINGUAL
+    args = _parse_args(argv)
+
+    data_dir = Path(args.data_dir or os.environ.get("DATA_DIR")
+                    or Path(__file__).resolve().parents[2] / "data")
+    EVAL = data_dir / "evals/korean/procedure_eval_set.csv"
+    INTERNAL = data_dir / "sme_review/2026-04-24/sme_review_internal.csv"
+    BILINGUAL = data_dir / "EN-KO/all_bilingual_pairs.csv"
+
+    # --scale sets any knob left at its default; explicit flags always win.
+    crit_n, ref_n = args.critiques_per_stratum, args.reference_n
+    min_n, bil_n = args.minimal_cap, args.bilingual_n
+    if args.scale is not None:
+        s = args.scale
+        d = DEFAULTS
+        if crit_n == d["critiques_per_stratum"]:
+            crit_n = math.ceil(d["critiques_per_stratum"] * s)
+        if ref_n == d["reference_n"]:
+            ref_n = math.ceil(d["reference_n"] * s)
+        if min_n == d["minimal_cap"]:
+            min_n = math.ceil(d["minimal_cap"] * s)
+        if bil_n == d["bilingual_n"]:
+            bil_n = math.ceil(d["bilingual_n"] * s)
+
+    out = Path(args.out_flag or args.out
+               or data_dir / "evals/korean/induction_corpus.md")
+
+    crit = load_critiques(crit_n)
+    minimal, diverse = load_reference(ref_n, min_n)
+    biling = load_bilingual(bil_n)
     total = len(crit) + len(minimal) + len(diverse) + len(biling)
 
     L: list[str] = []
@@ -171,9 +241,11 @@ def main() -> None:
     for r in biling:
         w(f"- {r['EN']}  ->  {r['KO']}")
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(L), encoding="utf-8")
-    print(f"wrote {OUT}  ({OUT.stat().st_size} bytes, {total} examples)")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(L), encoding="utf-8")
+    print(f"wrote {out}  ({out.stat().st_size} bytes, {total} examples: "
+          f"{len(crit)} critiques / {len(minimal)} minimal / "
+          f"{len(diverse)} reference / {len(biling)} bilingual)")
 
 
 if __name__ == "__main__":
