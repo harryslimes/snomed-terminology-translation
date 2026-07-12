@@ -1,0 +1,11 @@
+{
+  "id": "leakage-free-evaluation",
+  "title": "Leakage-free evaluation of translation quality",
+  "prose": "Define held-out train/dev/test splits and scorers (exact-match, chrF, cosine) such that exemplar retrieval cannot leak the gold Estonian translation into the model, so reported quality reflects genuine from-scratch translation.",
+  "parent": "snomed-translation",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+  <h2>Cost estimator</h2>
+  <p class="hint">
+    Rough cost of a bulk translation run. Pick a prompt (counted as the shared
+    system prompt), set the run size and per-term context, and enter your
+    provider's input / output prices. Everything updates live. Token counts are
+    <strong>estimates</strong> (~4 chars/token; real tokenizers vary), so treat
+    the total as a planning figure.
+  </p>
+</div>
+
+<div class="ce-cols">
+  {# ---------------- Inputs ---------------- #}
+  <div class="card">
+    <label for="ce-prompt">Prompt (shared system prompt)</label>
+    <select id="ce-prompt">
+      <option value="">— none / prompt not counted —</option>
+      {% for p in prompts %}
+      <option value="{{ p.id }}">{{ p.id }} ({{ p.kind }}) — ~{{ p.tokens }} tok</option>
+      {% endfor %}
+    </select>
+    <p class="hint" id="ce-prompt-info" style="margin-top:6px;">
+      No prompt selected — prompt tokens counted as 0.
+    </p>
+
+    <label for="ce-terms">Number of terms to translate</label>
+    <input type="number" id="ce-terms" min="0" step="1" value="{{ defaults.terms }}">
+
+    <label for="ce-ctx">Input tokens per term (supporting context + English term)</label>
+    <input type="number" id="ce-ctx" min="0" step="1" value="{{ defaults.context_tokens }}">
+    <p class="hint">The variable per-term user message (not cached): the exemplar lookup table + English term. Reconstructed from a real run with 5 exemplars: ~415 chars ≈ 100&ndash;155 tokens. Scales with the number of exemplars. The style guide is <em>not</em> here — it's the cacheable prompt above.</p>
+
+    <label for="ce-out">Assumed output tokens per term</label>
+    <input type="number" id="ce-out" min="0" step="1" value="{{ defaults.output_tokens }}">
+    <p class="hint">Measured from a Korean run (621 terms): ~15 chars/term ≈ 10&ndash;18 tokens depending on the tokenizer. Bump it up for a term-heavy target script.</p>
+
+    <div class="field-row">
+      <div>
+        <label for="ce-in-price">Input price ($ / 1M tokens)</label>
+        <input type="number" id="ce-in-price" min="0" step="0.01" value="{{ defaults.input_price }}">
+      </div>
+      <div>
+        <label for="ce-out-price">Output price ($ / 1M tokens)</label>
+        <input type="number" id="ce-out-price" min="0" step="0.01" value="{{ defaults.output_price }}">
+      </div>
+    </div>
+    <p class="hint">Set these to your provider / model's list prices — this is provider-agnostic.</p>
+
+    <label style="font-weight:500; margin-top:16px;">
+      <input type="checkbox" id="ce-cache" style="width:auto; margin-right:6px;">
+      Assume prompt caching
+    </label>
+    <div class="field-row" style="margin-top:4px;">
+      <div>
+        <label for="ce-cache-mult">Cache price multiplier</label>
+        <input type="number" id="ce-cache-mult" min="0" step="0.01" value="{{ defaults.cache_multiplier }}">
+      </div>
+      <div style="align-self:end;"><p class="hint" style="margin:0;">Applied to the prompt tokens (cache-read pricing ≈ 0.1× input).</p></div>
+    </div>
+
+    <label style="font-weight:500; margin-top:16px;">
+      <input type="checkbox" id="ce-bulk" style="width:auto; margin-right:6px;">
+      Assume bulk / batch API discount
+    </label>
+    <div class="field-row" style="margin-top:4px;">
+      <div>
+        <label for="ce-bulk-mult">Bulk price multiplier</label>
+        <input type="number" id="ce-bulk-mult" min="0" step="0.01" value="{{ defaults.bulk_multiplier }}">
+      </div>
+      <div style="align-self:end;"><p class="hint" style="margin:0;">Flat multiplier on the whole bill (batch APIs are ≈ 0.5×).</p></div>
+    </div>
+  </div>
+
+  {# ---------------- Results ---------------- #}
+  <div class="card ce-results">
+    <h3 style="margin-top:0;">Estimated cost</h3>
+    <div class="ce-total" id="ce-total">$0.00</div>
+    <p class="hint" id="ce-per-term" style="margin-top:0;">$0.00 per term</p>
+
+    <table class="ce-breakdown">
+      <tbody>
+        <tr><th>Prompt tokens</th><td id="ce-r-prompt">0</td></tr>
+        <tr><th>Effective prompt tokens / term</th><td id="ce-r-prompt-eff">0</td></tr>
+        <tr><th>Input tokens / term</th><td id="ce-r-in-term">0</td></tr>
+        <tr class="ce-sep"><th>Total input tokens</th><td id="ce-r-in-total">0</td></tr>
+        <tr><th>Total output tokens</th><td id="ce-r-out-total">0</td></tr>
+        <tr class="ce-sep"><th>Input cost</th><td id="ce-r-in-cost">$0.00</td></tr>
+        <tr><th>Output cost</th><td id="ce-r-out-cost">$0.00</td></tr>
+        <tr><th>Subtotal</th><td id="ce-r-subtotal">$0.00</td></tr>
+        <tr id="ce-row-discount"><th>Bulk discount</th><td id="ce-r-discount">—</td></tr>
+        <tr class="ce-sep ce-grand"><th>Total</th><td id="ce-r-total">$0.00</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" id="ce-note" style="margin-top:12px; font-size:.82rem;"></p>
+  </div>
+</div>
+
+<script>
+  // Server-computed token counts per prompt id ({id: {tokens, chars, kind}}).
+  const CE_PROMPTS = {{ prompts | tojson }};
+  const CE_BY_ID = {};
+  CE_PROMPTS.forEach(p => { CE_BY_ID[p.id] = p; });
+
+  const $ = id => document.getElementById(id);
+  const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? v : 0; };
+  const money = n => '$' + n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const money4 = n => '$' + n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
+  const intfmt = n => Math.round(n).toLocaleString();
+
+  function ceCalc() {
+    const sel = $('ce-prompt');
+    const p = sel.value ? CE_BY_ID[sel.value] : null;
+    const promptTokens = p ? p.tokens : 0;
+
+    $('ce-prompt-info').innerHTML = p
+      ? '<strong>' + intfmt(promptTokens) + '</strong> estimated tokens (' + intfmt(p.chars) + ' characters).'
+      : 'No prompt selected — prompt tokens counted as 0.';
+
+    const cacheOn  = $('ce-cache').checked;
+    const cacheMul = num('ce-cache-mult');
+    const bulkOn   = $('ce-bulk').checked;
+    const bulkMul  = num('ce-bulk-mult');
+    const terms    = num('ce-terms');
+    const ctx      = num('ce-ctx');
+    const outTok   = num('ce-out');
+    const inPrice  = num('ce-in-price');
+    const outPrice = num('ce-out-price');
+
+    const promptEff  = cacheOn ? promptTokens * cacheMul : promptTokens;
+    const inTokTerm  = promptEff + ctx;
+    const inTokTotal = inTokTerm * terms;
+    const outTokTotal = outTok * terms;
+
+    const inCost   = inTokTotal / 1e6 * inPrice;
+    const outCost  = outTokTotal / 1e6 * outPrice;
+    const subtotal = inCost + outCost;
+    const bulkFactor = bulkOn ? bulkMul : 1;
+    const total    = subtotal * bulkFactor;
+    const perTerm  = terms > 0 ? total / terms : 0;
+
+    $('ce-total').textContent = money(total);
+    $('ce-per-term').textContent = money4(perTerm) + ' per term';
+    $('ce-r-prompt').textContent = intfmt(promptTokens);
+    $('ce-r-prompt-eff').textContent = intfmt(promptEff) + (cacheOn ? ' (cached ×' + cacheMul + ')' : '');
+    $('ce-r-in-term').textContent = intfmt(inTokTerm);
+    $('ce-r-in-total').textContent = intfmt(inTokTotal);
+    $('ce-r-out-total').textContent = intfmt(outTokTotal);
+    $('ce-r-in-cost').textContent = money(inCost);
+    $('ce-r-out-cost').textContent = money(outCost);
+    $('ce-r-subtotal').textContent = money(subtotal);
+    $('ce-r-discount').textContent = bulkOn ? '×' + bulkMul + '  (−' + money(subtotal - total) + ')' : '—';
+    $('ce-r-total').textContent = money(total);
+
+    const notes = [];
+    if (cacheOn) notes.push('prompt tokens billed at ×' + cacheMul + ' (caching)');
+    if (bulkOn)  notes.push('bill scaled ×' + bulkMul + ' (bulk discount)');
+    $('ce-note').textContent = notes.length
+      ? 'Assumptions: ' + notes.join('; ') + '. Token counts are estimates.'
+      : 'Token counts are estimates (~4 chars/token).';
+  }
+
+  document.querySelectorAll('#ce-prompt, .ce-cols input').forEach(el => {
+    el.addEventListener('input', ceCalc);
+    el.addEventListener('change', ceCalc);
+  });
+  ceCalc();
+</script>
+
+<style>
+  .ce-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 820px) { .ce-cols { grid-template-columns: 1fr; } }
+  .ce-results .ce-total { font-size: 2.4rem; font-weight: 700; line-height: 1.1; }
+  .ce-breakdown { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .ce-breakdown th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 0; }
+  .ce-breakdown td { text-align: right; font-variant-numeric: tabular-nums; padding: 4px 0; }
+  .ce-breakdown tr.ce-sep th, .ce-breakdown tr.ce-sep td { border-top: 1px solid var(--border); padding-top: 8px; }
+  .ce-breakdown tr.ce-grand th, .ce-breakdown tr.ce-grand td { font-weight: 700; font-size: 1.05rem; }
+</style>
+{% endblock %}

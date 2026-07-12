@@ -47,6 +47,7 @@ def test_all_specs_are_valid_and_runners_load():
         "score_workflow_llm", "generate_text", "style_guide",
         "build_snomed_index",
         "snomed_retrieve", "back_translate", "rerank",
+        "transliteration_detect", "acceptability_judge",
     }
     for s in F.specs():
         assert callable(s.load_runner())

@@ -1,0 +1,8 @@
+# Estonian rule-violation hints used by the GEPA metric.
+# Copy-from-ko convention (see configs/ko/hints.yaml): carries data, not logic.
+# Empty lists are fine — chrF and exact-match work without any hints. Populate
+# solid_compounds / register rules once Estonian SME feedback exists.
+
+language: et
+
+solid_compounds: []

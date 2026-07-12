@@ -56,11 +56,20 @@ def _registries(ctx: RunContext) -> Registries:
     cached = ctx.extras.get("registries")
     if cached is not None:
         return cached
+    # The run subprocess (``python -m pipelines.run_flow``) inherits the app's
+    # ``WIZARD_*`` env but its ``ctx.configs_dir`` defaults to a bare "configs".
+    # Under the multi-language layout the real config bundle lives at
+    # ``configs/<lang>/`` (sources/resources) with a shared ``configs/models.json``
+    # — not reconstructible from one base dir — so honour the ``WIZARD_*`` paths
+    # (the same values the wizard passes) when set, and fall back to the
+    # configs_dir layout only for standalone/test runs.
+    import os
     base = Path(ctx.configs_dir) if ctx.configs_dir else Path("configs")
     reg = Registries.load(
-        models_json=base / "models.json",
-        sources_dir=base / "sources",
-        resources_path=base / "resources_ko.yaml",
+        models_json=os.environ.get("WIZARD_MODELS_JSON", str(base / "models.json")),
+        sources_dir=os.environ.get("WIZARD_SOURCES_DIR", str(base / "sources")),
+        resources_path=os.environ.get(
+            "WIZARD_RESOURCES_PATH", str(base / "resources_ko.yaml")),
     )
     ctx.extras["registries"] = reg
     return reg
@@ -892,6 +901,82 @@ rerank_spec = FunctionSpec(
 )
 
 
+transliteration_detect_spec = FunctionSpec(
+    name="transliteration_detect", label="Transliteration detect", category="detect",
+    description="Deterministic MT error gate: flag Korean translations that are "
+                "pure phonetic transliterations of the English source (e.g. "
+                "Herniogram -> 허니오그램) — the failure mode embedding/back-"
+                "translation confidence is blind to. Consonant-skeleton phonetic "
+                "echo, gated by native/Sino morpheme coverage from a dictionary "
+                "(the register oracle). Emits per-row flags + a false-positive "
+                "proxy when the input carries an SME-rating column.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="dictionary", label="KO dictionary", kinds=["dataset"],
+                 required=False),
+    ],
+    outputs=[
+        PortSpec(name="flags", label="Per-row flags", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="echo_threshold", label="Echo threshold", kind="number",
+                  default=0.80, help="Min consonant-skeleton similarity to flag."),
+        ParamSpec(name="cov_threshold", label="Coverage threshold", kind="number",
+                  default=0.20, help="Max native/Sino dictionary coverage to flag."),
+        ParamSpec(name="en_col", label="English column", kind="text",
+                  help="Override the datasource's `en` role."),
+        ParamSpec(name="ko_col", label="Korean column", kind="text",
+                  help="Override the datasource's `target` role (candidate KO)."),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="label_col", label="SME-rating column", kind="text",
+                  default="sme_rating",
+                  help="If present in the input, adds a false-positive proxy."),
+        ParamSpec(name="dict_col", label="Dictionary term column", kind="text",
+                  default="ko_term"),
+    ],
+    runner="snomed_translation.transliteration:transliteration_detect",
+)
+
+acceptability_judge_spec = FunctionSpec(
+    name="acceptability_judge", label="Acceptability judge (LLM)", category="detect",
+    description="Reference-free LLM judge: would a Korean SNOMED terminologist "
+                "accept this EN->KO translation? Labels ACCEPTABLE/PARTIAL/WRONG "
+                "+ a 0-1 score + reason. Catches semantic errors distance metrics "
+                "miss. Routes on `model`: a Claude alias (opus/sonnet/…) uses the "
+                "Agent SDK; anything else is a vLLM hf_id over `base_url`. Reports "
+                "agreement with the SME when the input carries an SME-rating column.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="judgements", label="Per-row judgements", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="model", label="Model", kind="text", required=True,
+                  help="Claude alias (opus/sonnet) OR a vLLM hf_id, e.g. "
+                       "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4."),
+        ParamSpec(name="base_url", label="vLLM base url", kind="text",
+                  default="http://localhost:8086",
+                  help="Used only for local (non-Claude) models."),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number",
+                  help="Parallel judge calls (default 16 local / 4 Claude)."),
+        ParamSpec(name="max_tokens", label="Max tokens", kind="number", default=220),
+        ParamSpec(name="limit", label="Row limit", kind="number"),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Korean column", kind="text"),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="label_col", label="SME-rating column", kind="text",
+                  default="sme_rating"),
+        ParamSpec(name="system", label="System prompt (rubric)", kind="textarea"),
+    ],
+    runner="snomed_translation.acceptability:acceptability_judge",
+)
+
+
 def specs() -> list[FunctionSpec]:
     return [
         translate_spec, translate_consistency_spec, evaluate_spec,
@@ -899,6 +984,7 @@ def specs() -> list[FunctionSpec]:
         score_workflow_llm_spec, generate_text_spec, style_guide_spec,
         build_snomed_index_spec,
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
+        transliteration_detect_spec, acceptability_judge_spec,
     ]
 
 

@@ -1,0 +1,55 @@
+{
+  "id": "judge-gemma-sme100",
+  "name": "judge_gemma_sme100",
+  "description": "",
+  "project": "acceptability_judge_v1",
+  "nodes": [
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "concurrency": 16,
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "labels"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "agreement_binary_pct",
+        "output_name": "agreement_binary_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "judge:metrics"
+      }
+    }
+  ]
+}

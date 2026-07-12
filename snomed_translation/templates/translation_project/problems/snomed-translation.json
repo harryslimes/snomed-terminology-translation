@@ -1,0 +1,11 @@
+{
+  "id": "snomed-translation",
+  "title": "Translate SNOMED CT into {{lang_name}}",
+  "prose": "Produce faithful, clinically-usable {{lang_name}} translations of SNOMED CT terms (EN->{{lang_name}}), matching the register and orthography of the {{lang_name}} national extension. The sub-problems below decompose the work: sourcing exemplar data, optimising the translation prompt, and evaluating quality without leakage.",
+  "parent": null,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

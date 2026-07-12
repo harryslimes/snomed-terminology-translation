@@ -1,0 +1,11 @@
+{
+  "id": "exemplar-corpus",
+  "title": "Bilingual exemplar corpus & retrieval",
+  "prose": "Assemble and index the EN->Estonian bilingual pool so per-concept exemplars can be retrieved at translation time. Covers pool provenance, column enrichment (sctid/source), and Qdrant indexing of the et exemplar collections.",
+  "parent": "snomed-translation",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

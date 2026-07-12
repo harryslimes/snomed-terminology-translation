@@ -1,0 +1,63 @@
+{
+  "id": "targeted-error-class-detectors-what-similarity-misses",
+  "title": "Targeted error-class detectors (what similarity misses)",
+  "prose": "Batch-1 SME review (100 long-tail radiology procedures, EN->KO) surfaced only 2 outright-WRONG translations, and BOTH are invisible to similarity-based confidence:\n\n1. **Transliteration slip** — \"Herniogram\" rendered as 허니오그램 (a bare phonetic transliteration) instead of a real translation (탈장 조영술). Cross-lingual embedding scores this in the *top 20%* of the batch, because a phonetic echo embeds close to its English source. Back-translation confidence is blind to it for the same reason.\n2. **Semantic substitution** — \"Mammogram - symptomatic\" rendered 유방 촬영 증상치료 (\"mammogram symptom *treatment*\"). Cross-lingual similarity ranks it mid-pack (22nd percentile); the meaning error is drowned out.\n\nReproduction on the batch confirmed the general failure: Spearman(cross-lingual BGE-M3 cosine, SME rating) = +0.11 (n.s.); mean cosine is ~identical across ACCEPTABLE/PARTIAL/WRONG. This matches the independent [[snomed_direct_xlingual_verify_v1]] result (bad-translation detection AUC ~0.5).\n\nThis problem develops and validates **targeted, error-class-specific detectors** for exactly the failure modes similarity misses, rather than a single similarity gate:\n- a deterministic **transliteration detector** (phonetic-echo of the source, reference-free, no LLM) — catches class 1;\n- an LLM **acceptability judge** (gemma local vs a Sonnet frontier arm) — catches class 2 (the semantic errors a distance metric cannot see).\n\nEach detector is validated against the batch-1 SME labels (100) and swept over the full untranslated frontier pool (~5.8k) for coverage / flag-rate. Outputs feed the confidence/triage layer ([[confidence-based-review-triage-policy]]) as per-term features, and operationalise error classes named in the SME error taxonomy (transliteration/loanword convention; adequacy/semantic).",
+  "parent": "output-translations-confidence",
+  "created": "2026-07-10T17:26:37",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Both detectors built as versioned function-node plugins (transliteration_detect, acceptability_judge) and validated as tracked Runs (2026-07-10/11).\n\nTRANSLITERATION DETECTOR — SME-100: 1/100 flagged (Herniogram), 100% precision (run 96d5fbaba78d). Full ~5.8k pool: 4/5796 = 0.069% flag rate (run 69db8c1acb10) — 3 genuine slips + Laser Doppler (benign eponym). Echo-only gate; register-oracle coverage gate off by default (loan fragment 그램 from 밀리그램 pollutes substring coverage).\n\nACCEPTABILITY JUDGE — over all 100 SME labels: gemma4-26b binary 62% / 3-way 56%, caught 2/2 WRONG (run 4c8e51d5fd8f); Sonnet binary 69% / 3-way 65%, caught 2/2 WRONG (run e22a7ced11cf). Both catch the mammogram semantic-substitution. Sonnet better SME-calibrated (dist 42/52/6 ≈ SME 47/51/2); gemma a viable zero-cost local gate.\n\nREAD: the two error classes similarity misses are each recoverable by a cheap targeted detector — a deterministic rule for transliteration, an LLM judge for semantics. Next: (1) wire both as per-term features into confidence-based-review-triage-policy; (2) optional clean register-filtered dictionary for the coverage gate; (3) fair gemma-vs-Sonnet judge comparison already in hand — feed blind-spot cases back to sme_judge_agreement_v1.\n\nProcess note: two infra frictions hit and worked around — new plugin specs need an MCP-server reconnect to register (a reload_functions tool would fix); and the run subprocess reads semi-automated-research/configs/sources (emptied by the multi-language refactor) not WIZARD_SOURCES_DIR, so sources were symlinked in as a shim.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "96d5fbaba78d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "69db8c1acb10",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4c8e51d5fd8f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e22a7ced11cf",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "transliteration_detector_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "acceptability_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-11T17:43:51"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

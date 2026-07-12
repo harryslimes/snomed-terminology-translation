@@ -1,0 +1,368 @@
+{
+  "conclusions": [
+    {
+      "id": "conclusion-1",
+      "statement": "Score translation accuracy with multi-reference semantic cosine as a SCREEN, not a verdict — reserve a blind LLM/SME judge for the ambiguous tail.",
+      "detail": "Single-reference string/cosine breaks on valid Korean synonyms; multi-ref (all KR synonyms) chrF + max BGE cosine fixes that. But even multi-ref understates valid-but-divergent translations: it rated organism context +2.8 chrF while a blind judge preferred it 69% vs 31%.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": "judge vs metric"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": "single-ref broke"
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-2",
+      "statement": "Back-translation LINKS Korean terms to the right SNOMED concept ~63-68%@1 at full scale, but is a poor ERROR detector — the round-trip LLM normalises errors away.",
+      "detail": "Full 36k extension: recall@1 63% (hybrid) / 68% (dense). As an MT error detector AUC ~0.5: recovery is identical for correct and incorrect candidates.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "high",
+      "problems": [
+        "back-translation-confidence-round-trip-snomed-linkage"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "eab48498e285",
+          "label": "full extension"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_backtrans_error_detection_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-3",
+      "statement": "A non-generative direct cross-lingual check beats back-translation for error detection (AUC 0.58-0.62 vs 0.51), but only a Korean reference gives a strong (0.98) check.",
+      "detail": "Skipping the laundering LLM recovers error signal; absolute strength is still weak reference-free (BGE compresses cross-lingual cosine). Strong detection needs a Korean reference -> multi-reference semantic validation where references exist.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "medium",
+      "problems": [
+        "back-translation-confidence-round-trip-snomed-linkage"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-4",
+      "statement": "SNOMED parent context improves EN->KO translation on the AMBIGUOUS tail (judge ~2:1 on organisms / qualifier values) but hurts concrete types — add it conditionally, fenced.",
+      "detail": "Neutral on the mean (harsh metric), but a blind judge shows organism 69% / qualifier 66% wins and body-structure/disorder losses. Naive '(tag)' formatting leaks into output; fence the context.",
+      "kind": "empirical",
+      "status": "established",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "concept_context_translation_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "research-agent",
+      "ts": "2026-06-26"
+    },
+    {
+      "id": "conclusion-5",
+      "statement": "Claude Fable 5 works as GEPA's feedback-judge: from a one-line seed it drove GEPA to a KO translation prompt scoring 55.6% exact / 81.6 chrF on the held-out test — beating both Opus-induced guides but not the hand guide v5_1 (58.1% / 84.1).",
+      "detail": "Setup (investigation fable_gepa_judge_v1): GEPA optimised a translation prompt seeded from ko_minimal_seed (a single instruction line). Task + reflection LM = gemma4-26b-qat (served vLLM). Reward = BGE-M3 semantic cosine to the gold Korean (exact->1.0), a local/free dense signal. Claude Fable 5 supplied ONLY the sparse reflective feedback GEPA learns from — gated to genuine reflection, score<0.9, capped at 40 calls, cached.\n\nGEPA run (job b7647eeaca10, auto=light, 396s): on GEPA's own dev-50 metric the seed improved 28.0%->42.0% exact (mean semantic 0.472->0.567, chrF 66.3->71.3). Fable fired only 10 judge calls. The evolved guide induced structured, transferable rules purely from Fable's critiques: preserve procedural head nouns (초음파검사/촬영 vs bare 초음파), anatomical precision (장딴지 over obscure 비복부), classifier-omission exceptions, and one-to-one back-mapping to prevent semantic collapse.\n\nHeld-out test (job 22c4b89b2ef3, kr_test_split=124, SAME eval infra as the baselines — gemma4-26b-qat + pooled_legacy exemplars): 55.6% exact / 81.6 chrF / 0.742 composite. Baselines on test: hand v5_1 58.1%/84.1; ko_induced_guide 50.0%/80.7; ko_induced_v1 50.8%/80.0.\n\nRead: Fable's judgment ALONE lifted a trivial one-line seed to near-expert quality (within 2.5 pts exact / 2.5 chrF of a human-tuned guide) and clearly surpassed both prior automated (Opus-induced) guides — a strong positive signal for Fable-as-GEPA-judge. It did not beat the hand guide. Caveats: single run / single seed / auto=light budget; dspy_splits are procedure-only; a larger GEPA budget or more Fable calls (10 of 40 used) may close the remaining gap.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "fable_gepa_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7647eeaca10",
+          "label": "[GEPA(minimal seed, Fable judge), dev 28->42% exact]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "22c4b89b2ef3",
+          "label": "[held-out test eval, 55.6% exact / 81.6 chrF]"
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-03"
+    },
+    {
+      "id": "conclusion-6",
+      "statement": "CORRECTS conclusion-5. Fable works as a GEPA feedback-judge — evidenced by a CLEAN 28%->42% dev-exact lift from a one-line seed — but the held-out TEST comparison (GEPA 55.6% vs hand v5_1 58.1%) is invalidated as a quality measure by ~88% gold-in-exemplar leakage.",
+      "detail": "The dspy_splits are Korean SNOMED extension procedure concepts, and the pooled_legacy exemplar corpus contains that same extension (39k SNOMED + 18k synonym pairs). So for 87.9% of test terms (109/124) the exact gold Korean was among the retrieved exemplars fed to the model (verified in the eval's own exemplar cache lookup_cache.exemplars_pooled_legacy_ko_1aca69d6.json). The test numbers therefore measure exemplar-selection, not from-scratch translation, and are inflated — this affects GEPA+Fable (55.6%), hand v5_1 (58.1%) and the Opus-induced guides (~50%) equally.\n\nWhat survives: the GEPA run (job b7647eeaca10) and its internal dev-50 metric used a DIFFERENT cache (data/sme_review/2026-04-24/lookup_cache.json) with 0% gold leak, and the DSPy translator returns NO exemplars on a cache miss (_format_exemplars). So the seed->evolved improvement 28.0%->42.0% exact on held-out dev is CLEAN and is the trustworthy evidence that Fable's feedback genuinely improves translation from a one-line seed. Caveat: train/eval regime mismatch — GEPA optimised gold-free, the final test eval was gold-leaked.\n\nAction needed for a valid cross-guide test comparison: (a) add self-concept exclusion at exemplar retrieval (lookup_pairs has none), or (b) re-evaluate on the ~100 SME-authored terms that are NOT in the Korean extension (hence not in the exemplar pool). Supersede conclusion-5 with this once confirmed.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "fable_gepa_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7647eeaca10",
+          "label": "[clean dev 28->42% exact, gold-free exemplars]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "22c4b89b2ef3",
+          "label": "[test 55.6% but ~88% gold-leaked exemplars]"
+        },
+        {
+          "to_kind": "note",
+          "to_id": "note-2",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-03"
+    },
+    {
+      "id": "conclusion-7",
+      "statement": "LEAKAGE-FREE verdict (supersedes conclusion-6): with the query concept's own canonical SNOMED entries excluded from the exemplars, the hand guide v5_1 (36.3% exact / 70.1 chrF) clearly beats the GEPA(Fable) guide (21.8% / 63.9) on kr_test_split. Leakage had inflated both by ~20 exact points and hidden a 14.5-point gap behind an apparent 2.5-point one.",
+      "detail": "After rebuilding the exemplar pool with per-row sctid + provenance and adding sctid self-exclusion to retrieval (the query concept's FSN + synonyms are dropped, other-vocabulary translations kept and shown WITH provenance), two clean held-out evals on kr_test_split (124), same model/pool/exclusion-cache:\n- hand v5_1: 36.3% exact / 70.1 chrF (run 6646ab05591c)\n- GEPA(Fable) guide: 21.8% exact / 63.9 chrF (run df42e169939c)\nExclusion audit (identical for both, from the shared cache): 270 exemplars dropped across 111/124 queries; gold removed for 108 (=87%, confirming the measured leak); residual gold via another source = 0 (no EDI/KCD7 duplicate leaked it). Compare the LEAKY numbers (v5_1 58.1%, GEPA 55.6%): leakage inflated both ~+20 exact points and compressed the gap.\n\nInterpretation: (1) The leaky test comparison was meaningless as a quality measure; the clean one shows the hand guide is substantially better than the Fable-GEPA guide as it stands. (2) IMPORTANT FAIRNESS CAVEAT: the GEPA guide was OPTIMISED in a different regime (its DSPy translator used the sme_review cache, which returns NO exemplars on a miss — near-exemplar-free), then evaluated here with pooled-but-self-excluded exemplars + provenance. That train/eval mismatch likely handicaps it. A fair verdict on Fable-as-GEPA-judge needs a GEPA RE-OPTIMISATION in this same clean pooled-excluded regime (deferred, D3). So this establishes the leakage-corrected BASELINE comparison, not a final verdict on the method. (3) The methodological win stands: Fable's feedback did drive a real clean dev improvement (28->42% on GEPA's gold-free dev metric, run b7647eeaca10).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "fable_gepa_judge_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6646ab05591c",
+          "label": "[hand v5_1 clean 36.3% exact]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df42e169939c",
+          "label": "[GEPA(Fable) clean 21.8% exact; 108/124 golds removed, 0 residual]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7647eeaca10",
+          "label": "[GEPA clean dev 28->42%]"
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-03"
+    },
+    {
+      "id": "conclusion-8",
+      "statement": "Exact-match understates EN→KO translation quality by ~18% of items; embeddings gauge closeness only with a Korean reference (KO↔KO), not reference-free EN↔KO.",
+      "detail": "On 3,693 procedure/therapy forward candidates (BGE-M3): of the 1,102 non-exact-match items, 59.6% are semantically equivalent valid synonyms (KO↔KO cosine ≥ τ=0.784; 41% even at τ=0.85), i.e. 17.8% of ALL items that exact-match wrongly zeroes — driven by Sino-Korean/native/loanword variation (칼륨/포타슘, 나트륨/소듐, 세침/가는 바늘). chrF partially credits them but still averages only 0.548, and misses 9.6% entirely (chrF<0.3). The user's reference-free EN↔KO direct comparison is weak (AUC 0.604; rank-normalisation does not help, 0.580) because BGE-M3 compresses cross-lingual pairs (exact-anchor sim_en 0.583 vs non-exact 0.557). Actionable: add a KO↔KO semantic partial-credit scorer to the eval recipe. Caveats: 'valid' is grounded by the embedding threshold itself (not SME-confirmed — validate against task-24 SME ratings); procedure/therapy hierarchy only; script-derived (scripts/analysis/graded_xlingual_closeness.py), not yet a tracked flow.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "note",
+          "to_id": "note-2",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-06"
+    },
+    {
+      "id": "conclusion-9",
+      "statement": "The LLM judge and the Korean SME systematically diverge on register: the judge rewards Sino-Korean/clinical-fluent forms while the SME prefers native-Korean for limbs, surface anatomy, and laterality — so optimizing to the judge drifts away from the human and the judge cannot see it.",
+      "detail": "Concrete demonstration (n=100, batch-1, in-sample): a guide authored by Opus purely from the SME feedback but told to abstract (no examples) defaulted to Sino-Korean anatomy/laterality (경비골, 상완골, 종골, 좌측/우측, 고관절, 조영증강) — exactly the forms the SME corrected AWAY from toward native (정강뼈/종아리뼈, 위팔뼈, 발꿈치뼈, 왼쪽/오른쪽, 엉덩관절, 조영제 사용). The calibrated judge scored this drifted guide HIGHEST (0.936 mean, 96% predicted-accept) while it was FARTHEST from the SME gold (BGE semantic 0.828 vs 0.89-0.91 for the register-aware guides). An LLM author + LLM judge form a closed loop that agrees with itself and drifts from the human. Implication: the calibrated judge (AUC 0.80 vs SME) is usable as an adequacy screen and blind-spot detector but must never be the sole optimization target; the human register preference must be carried as data (explicit rules / a native-vs-Sino lexicon), and the SME corpus stays the anchor.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "exploiting-sme-terminologist-feedback"
+      ],
+      "evidence": [
+        {
+          "to_kind": "note",
+          "to_id": "note-2",
+          "label": ""
+        },
+        {
+          "to_kind": "dataobject",
+          "to_id": "sme_labels_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "dataobject",
+          "to_id": "judge_calibration_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-06"
+    },
+    {
+      "id": "conclusion-10",
+      "statement": "The SME register preference is recoverable as a general directional rule, not an example-bound one: instructing the guide author to state the DIRECTION of the reviewer's edits (Sino->native for limbs/surface, native laterality) recovered the human-alignment lost by naive abstraction, using zero example pairs.",
+      "detail": "Re-running the Opus guide induction with a directional-extraction instruction (still no specific SME term or translation copied) lifted BGE semantic-to-SME-gold from 0.828 to 0.892 overall and 0.812 to 0.896 on the corrected rows, matching the hand-written register-aware guide (v5.2), while the judge score stayed high (0.921). This corrects an earlier overstatement that the register preference 'only lives in the instances' — it is a systematic pattern statable as a rule. Practical consequence: an LLM will silently default to Sino-Korean unless the native-preference direction is pinned explicitly; pin it (rule or lexicon), do not rely on the model abstracting it.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "exploiting-sme-terminologist-feedback"
+      ],
+      "evidence": [
+        {
+          "to_kind": "note",
+          "to_id": "note-2",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-06"
+    },
+    {
+      "id": "conclusion-11",
+      "statement": "A deterministic phonetic-echo detector flags transliteration slips at 100% precision on the SME-100 and a 0.07% flag rate on the 5.8k frontier pool.",
+      "detail": "transliteration_detect romanizes the hangul, reduces romanized-KO and the English to consonant skeletons, and flags high phonetic echo (>=0.70). On the 100 batch-1 SME labels it flags exactly 1 row (Herniogram -> 허니오그램), the known transliteration WRONG, at 100% precision (run 96d5fbaba78d). On the full ~5.8k untranslated pool it flags 4/5796 (0.069%): 3 genuine slips (Herniogram, Molegraphy, Pouchogram) + 1 benign eponym (Laser Doppler -> 레이저 도플러, correctly transliterated) (run 69db8c1acb10). Echo alone separates cleanly (pure transliterations >=0.73; next non-transliteration ~0.61); the register-oracle coverage gate is an optional refinement, off by default because loan fragments (그램 from 밀리그램) leak in. A high-recall, tiny-burden review-triage flag for a failure class similarity is blind to.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "96d5fbaba78d",
+          "label": "[translit SME-100]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "69db8c1acb10",
+          "label": "[translit pool sweep]"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "transliteration_detector_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-11"
+    },
+    {
+      "id": "conclusion-12",
+      "statement": "An LLM acceptability judge catches BOTH SME-confirmed WRONG translations — including the semantic substitution embeddings miss — with the local gemma model matching Sonnet on catch-rate at zero API cost, though Sonnet is better SME-calibrated.",
+      "detail": "acceptability_judge labels each EN->KO pair ACCEPTABLE/PARTIAL/WRONG vs the sme_acceptability_judge_v1 rubric. Over all 100 batch-1 SME labels: gemma4-26b (local vLLM) A/P/W=55/37/8, 3-way 56% / binary 62%, caught 2/2 WRONG (run 4c8e51d5fd8f); Sonnet (Agent SDK) A/P/W=42/52/6, 3-way 65% / binary 69%, caught 2/2 WRONG (run e22a7ced11cf). Both catch the mammogram->'증상치료' (symptom TREATMENT) semantic substitution that cross-lingual similarity ranks mid-pack. Sonnet's label distribution nearly matches the SME's own (47/51/2) so it is better calibrated; gemma is more polarized (more lenient on ACCEPTABLE, harsher on WRONG) but still catches the critical errors — a viable local zero-cost gate. Note the Sonnet arm spawns a bundled Claude CLI subprocess per call (heavy per-item overhead vs the local HTTP path).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "4c8e51d5fd8f",
+          "label": "[gemma judge]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e22a7ced11cf",
+          "label": "[sonnet judge]"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "acceptability_judge_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-11"
+    },
+    {
+      "id": "conclusion-13",
+      "statement": "Similarity-based confidence is blind to both SME-confirmed long-tail error classes; targeted class-specific detectors (a transliteration rule + an LLM judge) are the required complement, not a single similarity gate.",
+      "detail": "The two outright-WRONG translations in batch-1 are both invisible to cross-lingual embedding / back-translation confidence. Transliteration slips (Herniogram) even score in the TOP quintile of cross-lingual similarity because a phonetic echo embeds near its English source; semantic substitutions (mammogram->treatment) rank mid-pack and are drowned out. Reproduced on the SME batch (Spearman(BGE-M3 cosine, SME rating) ~ +0.11, n.s.; mean cosine ~equal across ACCEPTABLE/PARTIAL/WRONG), consistent with the independent snomed_direct_xlingual_verify_v1 result (bad-translation detection AUC ~0.5). The two new detectors close exactly these gaps and should feed the triage layer as per-term features.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": "[embedding AUC~0.5]"
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "transliteration_detector_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "acceptability_judge_v1",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-07-11"
+    }
+  ]
+}

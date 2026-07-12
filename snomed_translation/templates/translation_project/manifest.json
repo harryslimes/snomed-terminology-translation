@@ -1,0 +1,23 @@
+{
+  "name": "translation_project",
+  "title": "SNOMED translation project",
+  "description": "Canonical framing + wired flows for an EN->target SNOMED CT translation project: a problem tree, a starter plan, and translate/evaluate + GEPA-optimize flows bound to the project's data.",
+  "placeholders": [
+    "{{code}}",
+    "{{lang_name}}",
+    "{{data_dir}}",
+    "{{pool_source}}",
+    "{{test_split_source}}",
+    "{{train_split_source}}",
+    "{{dev_split_source}}",
+    "{{seed_guide}}",
+    "{{model_key}}",
+    "{{project}}"
+  ],
+  "seeds": {
+    "problems": 4,
+    "plan_tasks": 5,
+    "flows": 2,
+    "split_sources": 3
+  }
+}

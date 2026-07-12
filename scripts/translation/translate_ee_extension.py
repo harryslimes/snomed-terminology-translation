@@ -26,10 +26,10 @@ logger = logging.getLogger("translate_ee")
 
 VLLM_URL = "http://localhost:8000"
 VLLM_MODEL = "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4"
-EMBEDDINGS_CSV = Path("data/evals/ee_extension_embeddings.csv")
+EMBEDDINGS_CSV = Path("data/languages/et/evals/ee_extension_embeddings.csv")
 RULES_DIR = Path("data/rules/qwen35b_35b")
-OUTPUT_DIR = Path("data/evals/ee_extension_translations")
-EE_EXTENSION_PATH = Path("data/SNOMED_EE_national_extension/xsct2_Description_Snapshot-et_EE1000181_20250530.txt")
+OUTPUT_DIR = Path("data/languages/et/evals/ee_extension_translations")
+EE_EXTENSION_PATH = Path("data/languages/et/snomed/national_extension/xsct2_Description_Snapshot-et_EE1000181_20250530.txt")
 SNOMED_GRAPH_PATH = Path("data/snomed_graph/full_concept_graph.gml")
 
 SYSTEM_PROMPT_BASE = """\

@@ -1,0 +1,12 @@
+{
+  "id": "register_oracle_dict",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/ko/derived/register_oracle/register_oracle.csv",
+  "csv_path": "data/languages/ko/derived/register_oracle/register_oracle.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "en_fsn",
+    "target": "ko_term"
+  }
+}

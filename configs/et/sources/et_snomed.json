@@ -1,0 +1,9 @@
+{
+  "id": "et_snomed",
+  "kind": "snomed_national_extension",
+  "enabled": true,
+  "output_csv": "data/languages/et/pool/snomed_ee.csv",
+  "rf2_root": "data/languages/et/snomed/xSnomedCT_ManagedServiceEE_PREPRODUCTION_EE1000181_20250530T120000Z",
+  "description_file": "data/languages/et/snomed/xSnomedCT_ManagedServiceEE_PREPRODUCTION_EE1000181_20250530T120000Z/Snapshot/Terminology/xsct2_Description_Snapshot-et_EE1000181_20250530.txt",
+  "language_refset_id": "71000181105"
+}

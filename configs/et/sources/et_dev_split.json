@@ -1,0 +1,13 @@
+{
+  "id": "et_dev_split",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/et/evals/dspy_splits/dev.csv",
+  "csv_path": "data/languages/et/evals/dspy_splits/dev.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "et_reference"
+  },
+  "notes": "Forward-declared dev split; the stratified eval-split run writes the CSV. Adjust csv_columns to match its output."
+}

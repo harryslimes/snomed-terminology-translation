@@ -1,0 +1,11 @@
+{
+  "id": "snomed-translation",
+  "title": "Translate SNOMED CT into Estonian",
+  "prose": "Produce faithful, clinically-usable Estonian translations of SNOMED CT terms (EN->Estonian), matching the register and orthography of the Estonian national extension. The sub-problems below decompose the work: sourcing exemplar data, optimising the translation prompt, and evaluating quality without leakage.",
+  "parent": null,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}
