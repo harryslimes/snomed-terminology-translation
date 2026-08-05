@@ -102,22 +102,23 @@ def _task_lm(cfg: PipelineConfig):
 
 def _reflection_lm(cfg: PipelineConfig, opt: OptimizationStageSpec,
                    override_key: str | None, task_lm):
-    """Reflection LM: catalog candidates first, legacy spec next, task LM last."""
+    """Reflection LM, resolved to ANY models.json entry through the provider
+    adapter (Agent-SDK Claude models OR served vLLM): an explicit override key
+    first, catalog candidates next, legacy free-form spec, then the task LM."""
     import dspy
 
+    from snomed_translation.dspy_provider import dspy_lm_for
+
+    # An override that directly names a catalog model (e.g. a flow node's
+    # reflection_model_key = "gemma4-26b-qat" or "claude-sonnet").
+    if override_key and override_key in cfg.models:
+        return dspy_lm_for(override_key, cfg, temperature=1.0,
+                           max_tokens=4000), override_key
     if opt.reflection_candidates:
         c = opt.resolve_reflection_candidate(override_key)
-        model = cfg.models[c.model_key]
-        kwargs = dict(
-            api_base=cfg.model_base_url(c.model_key),
-            api_key=(os.environ.get(model.api_key_env, "EMPTY")
-                     if model.api_key_env else "EMPTY"),
-            temperature=c.temperature,
-            max_tokens=c.max_tokens,
-        )
-        if c.disable_thinking:
-            kwargs["extra_body"] = {"enable_thinking": False}
-        return dspy.LM(f"openai/{model.hf_id}", **kwargs), c.model_key
+        return dspy_lm_for(c.model_key, cfg, temperature=c.temperature,
+                           max_tokens=c.max_tokens,
+                           disable_thinking=c.disable_thinking), c.model_key
     rl = opt.reflection_lm
     if rl is not None:
         kwargs = dict(temperature=rl.temperature, max_tokens=rl.max_tokens)
@@ -221,9 +222,22 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                  len(train), len(valset), task_key, reflection_key, seed,
                  opt.hints_file, hard_rules)
 
-        # Metric honours the recipe's hints + hard rules (previously the
-        # module-level default metric was used, silently ignoring opt.hints_file).
-        metric = make_metric(hints=opt.hints_file, hard_rules=hard_rules)
+        # Reward metric: "semantic" (BGE-M3 cosine to gold + optional LLM judge
+        # for reflective feedback) or the legacy chrF metric. Both honour hints +
+        # hard rules.
+        judge_key = None
+        if opt.metric == "semantic":
+            from snomed_translation.gepa_metric import make_semantic_metric
+            judge_key = opt.judge_model_key
+            judge_spec = cfg.models.get(judge_key) if judge_key else None
+            metric = make_semantic_metric(
+                judge_spec=judge_spec, judge_key=judge_key, hard_rules=hard_rules,
+                max_judge_calls=opt.max_judge_calls,
+                judge_threshold=opt.judge_threshold)
+            log.info("GEPA metric=semantic judge=%s (max_calls=%d, threshold=%.2f)",
+                     judge_key or "(none)", opt.max_judge_calls, opt.judge_threshold)
+        else:
+            metric = make_metric(hints=opt.hints_file, hard_rules=hard_rules)
         translator = build_translator(style_guide_path=seed,
                                       lookup_cache_path=lookup,
                                       hard_rules=hard_rules)
@@ -301,5 +315,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "pre_mean_chrf": pre["mean_chrf"],
             "post_mean_chrf": post["mean_chrf"],
             "elapsed_seconds": round(elapsed, 1),
+            "judge_calls": float(metric.judge_calls())
+            if hasattr(metric, "judge_calls") else 0.0,
         },
     )

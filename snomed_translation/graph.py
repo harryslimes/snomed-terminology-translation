@@ -428,11 +428,12 @@ def build_optimize(node: FlowNode, base_cfg: PipelineConfig,
                 "style guide output"
             )
         cfg.optimization.seed_style_guide = Path(str(guide))
-    if cfg.optimization.seed_style_guide is None:
+    if cfg.optimization.seed_style_guide is None \
+            and not cfg.optimization.seed_template:
         raise GraphError(
-            f"node {node.id!r} needs a seed style guide — wire a style-guide "
-            "node to its seed_style_guide port, or set the project recipe's "
-            "optimization.seed_style_guide"
+            f"node {node.id!r} needs a seed — wire a style-guide node to its "
+            "seed_style_guide port, or set the recipe's optimization."
+            "seed_template (a prompt-store id, preferred) or seed_style_guide"
         )
     kwargs["output_tag"] = node.params.get("output_tag") or node.id
     for key in ("train_limit", "dev_limit"):

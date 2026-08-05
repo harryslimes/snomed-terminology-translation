@@ -190,15 +190,62 @@ def resolve_prompt(params: dict[str, Any],
     return params.get("prompt"), None, None
 
 
+def _wired_prompt(value: Any) -> tuple[str | None, str | None, str | None]:
+    """Read a prompt wired into the ``prompt`` input port. A prompt_source emits
+    ``{body, prompt_template, prompt_version}`` (pins the revision); a plain text
+    wire carries the body only. Returns ``(body, id, version)``."""
+    if isinstance(value, dict):
+        body = value.get("body") or value.get("prompt") or value.get("text")
+        return (str(body) if body else None,
+                value.get("prompt_template"), value.get("prompt_version"))
+    if value is None:
+        return None, None, None
+    return _value_to_text(value) or None, None, None
+
+
+def _lookup_model(ctx: RunContext, key: str) -> Any:
+    """Resolve a models.json entry by key → its ModelSpec, or None if the key
+    isn't catalogued (then `model` is treated as a raw Agent-SDK alias).
+    Catalog path: ``WIZARD_MODELS_JSON`` env, else ``<configs_dir>/models.json``."""
+    import json
+    import os
+    from snomed_translation.config import ModelSpec
+    path = os.environ.get("WIZARD_MODELS_JSON")
+    if not path:
+        cfg = getattr(ctx, "configs_dir", None)
+        path = str(Path(cfg) / "models.json") if cfg else "configs/models.json"
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+        entry = (raw.get("models") or {}).get(key)
+        return ModelSpec.model_validate(entry) if entry is not None else None
+    except Exception:  # a malformed catalog shouldn't crash the node
+        return None
+
+
 def generate_text(ctx: RunContext, inputs: dict[str, Any],
                   params: dict[str, Any]) -> FunctionResult:
-    try:
-        template, tmpl_id, tmpl_ver = resolve_prompt(params, ctx)
-    except FileNotFoundError as exc:
-        return FunctionResult(ok=False, message=str(exc))
+    # A wired `prompt` input wins over the params; pop it so it is NOT also
+    # concatenated into {{context}}. Falls back to prompt_template / inline prompt.
+    inputs = dict(inputs)
+    wired = inputs.pop("prompt", None)
+    if wired is not None:
+        template, tmpl_id, tmpl_ver = _wired_prompt(wired)
+        if not template:
+            return FunctionResult(
+                ok=False, message="wired `prompt` input carried no prompt body")
+    else:
+        try:
+            template, tmpl_id, tmpl_ver = resolve_prompt(params, ctx)
+        except FileNotFoundError as exc:
+            return FunctionResult(ok=False, message=str(exc))
     if not template:
         return FunctionResult(
-            ok=False, message="generate_text needs a `prompt` or `prompt_template`")
+            ok=False,
+            message="generate_text needs a wired `prompt`, or a `prompt_template` "
+                    "/ inline `prompt` param")
     context_paths = [s for s in str(params.get("context_paths") or "").split(",")]
     max_chars = int(params.get("max_context_chars") or 400_000)
     try:
@@ -215,17 +262,31 @@ def generate_text(ctx: RunContext, inputs: dict[str, Any],
                     f"Available: {{context}}, plus wired ports: {avail}")
 
     model = str(params.get("model") or "opus")
-    thinking = bool(params.get("thinking", True))
-    max_think = int(params.get("max_thinking_tokens") or 0)
-    effort = str(params.get("effort") or "high") if thinking else None
     system = params.get("system") or None
+    # If `model` names a models.json entry, resolve it through the unified
+    # provider layer (so generate_text can target ANY catalogued backend — an
+    # Agent-SDK Claude model OR a served vLLM model). Otherwise fall back to
+    # treating `model` as a raw Agent-SDK alias (back-compat: e.g. "opus").
+    spec = _lookup_model(ctx, model)
     try:
-        reply = run_query(rendered, model=model, system=system, thinking=thinking,
-                          max_thinking_tokens=max_think, effort=effort,
-                          cwd=str(ctx.configs_dir) if ctx.configs_dir else None,
-                          ctx=ctx)
+        if spec is not None:
+            from snomed_translation.llm import complete
+            call_params = {**(spec.llm_params or {})}
+            for k in ("thinking", "effort", "max_thinking_tokens",
+                      "temperature", "max_tokens"):
+                if k in params:
+                    call_params[k] = params[k]
+            reply = complete(spec, model, system, rendered, call_params, ctx=ctx)
+        else:
+            thinking = bool(params.get("thinking", True))
+            reply = run_query(
+                rendered, model=model, system=system, thinking=thinking,
+                max_thinking_tokens=int(params.get("max_thinking_tokens") or 0),
+                effort=(str(params.get("effort") or "high") if thinking else None),
+                cwd=str(ctx.configs_dir) if ctx.configs_dir else None,
+                ctx=ctx)
     except Exception as exc:  # noqa: BLE001 — surface as a stage failure
-        return FunctionResult(ok=False, message=f"Agent SDK call failed: {exc}")
+        return FunctionResult(ok=False, message=f"LLM call failed: {exc}")
     if not reply:
         return FunctionResult(ok=False, message="model returned no text")
 

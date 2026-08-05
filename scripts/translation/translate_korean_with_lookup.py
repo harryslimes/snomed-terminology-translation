@@ -92,12 +92,21 @@ def wait_for_server(base_url: str, timeout: int = 900) -> None:
 
 
 def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
-                 query_filter=None) -> list[list[str]]:
-    """Top-N ``[English, translation]`` exemplar pairs for one term.
+                 query_filter=None, exclude_sctid: str | None = None
+                 ) -> tuple[list[list[str]], list[list]]:
+    """Top-N exemplars for one term, with optional per-concept self-exclusion.
 
     YAKE keyword expansion + BGE-M3 hybrid queries against the collection,
     merged keeping each hit's best score. A pure function of the live index —
     callers may cache the result, but the index is the source of truth.
+
+    Each kept exemplar is ``[english, translation, source, sctid]`` — ``source``
+    is the per-row provenance (SNOMED/EDI/…) shown to the translating model,
+    ``sctid`` the concept id. When ``exclude_sctid`` is given, any hit whose
+    ``sctid`` equals it is DROPPED (the query concept's own canonical entries —
+    its FSN + synonyms — which are the gold we score against and must not be
+    handed to the model). Returns ``(kept, excluded)`` where ``excluded`` rows
+    are ``[english, translation, source, sctid, rank]`` for run-time reporting.
     """
     import yake
 
@@ -106,6 +115,9 @@ def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
     if text not in keywords:
         keywords = [text, *keywords]
 
+    # A concept can have several descriptions (FSN + synonyms) clustered at the
+    # top; widen the buffer when excluding so topn survivors still remain.
+    limit = max(topn * 6, topn + 20) if exclude_sctid else max(topn * 3, topn)
     hits_by_id: dict[str, tuple[float, dict]] = {}
     for keyword in keywords:
         try:
@@ -114,7 +126,7 @@ def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
                 collection_name=collection,
                 dense_vector=dense,
                 sparse_vector=sparse,
-                limit=max(topn * 3, topn),
+                limit=limit,
                 query_filter=query_filter,
             )
             for point in result.points:
@@ -129,7 +141,20 @@ def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
             log.warning("Lookup failed for %r: %s", keyword, exc)
 
     ranked = sorted(hits_by_id.values(), key=lambda x: x[0], reverse=True)
-    return [[p.get("text", ""), p.get("translation", "")] for _, p in ranked[:topn]]
+    kept: list[list[str]] = []
+    excluded: list[list] = []
+    want = str(exclude_sctid) if exclude_sctid not in (None, "") else None
+    for rank, (_, p) in enumerate(ranked, 1):
+        row = [p.get("text", ""), p.get("translation", ""),
+               p.get("row_source", ""), str(p.get("sctid") or "")]
+        if want is not None and row[3] == want:
+            # A self-hit competing for a shown slot — the leak we remove.
+            if len(kept) < topn:
+                excluded.append([*row, rank])
+            continue
+        if len(kept) < topn:
+            kept.append(row)
+    return kept, excluded
 
 
 def prepare_lookups(input_path: Path, collection: str, topn: int) -> None:
@@ -147,8 +172,10 @@ def prepare_lookups(input_path: Path, collection: str, topn: int) -> None:
     cache: dict[str, list[list[str]]] = {}
 
     for i, row in enumerate(rows, 1):
-        cache[row["sctid"]] = lookup_pairs(
-            embedder, store, collection, row["preferred_term"], topn, filt)
+        kept, _excluded = lookup_pairs(
+            embedder, store, collection, row["preferred_term"], topn, filt,
+            exclude_sctid=row.get("sctid"))
+        cache[row["sctid"]] = kept
 
         if i % 100 == 0:
             log.info("  lookups: %d/%d", i, len(rows))
@@ -159,14 +186,27 @@ def prepare_lookups(input_path: Path, collection: str, topn: int) -> None:
 
 
 def format_pairs_table(pairs: list[list[str]]) -> str:
+    """Render exemplar rows as a markdown table for the prompt.
+
+    Rows may be ``[en, ko]`` (legacy) or ``[en, ko, source, sctid]``. When
+    provenance is present, a ``Source`` column is shown so the model knows an
+    exemplar's origin (e.g. an Athena EDI/KCD7 match is a real translation but
+    NOT a canonical SNOMED reference for this concept), and weighs it
+    accordingly. The sctid is internal (exclusion key) and not rendered.
+    """
     if not pairs:
         return "(no similar translations found)"
-    lines = ["|English|Korean|", "|---|---|"]
-    for pair in pairs:
-        if len(pair) < 2:
-            continue
-        en, ko = pair[:2]
-        lines.append(f"|{en}|{ko}|")
+    has_source = any(len(p) >= 3 and (p[2] or "").strip() for p in pairs)
+    if has_source:
+        lines = ["|English|Korean|Source|", "|---|---|---|"]
+        for p in pairs:
+            en, ko = p[0], p[1]
+            source = p[2] if len(p) >= 3 else ""
+            lines.append(f"|{en}|{ko}|{source}|")
+    else:
+        lines = ["|English|Korean|", "|---|---|"]
+        for p in pairs:
+            lines.append(f"|{p[0]}|{p[1]}|")
     return "\n".join(lines)
 
 
