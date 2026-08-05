@@ -76,9 +76,10 @@ def _correct_local(prompt: str, *, model: str, base_url: str,
     return _parse(response["choices"][0]["message"]["content"])
 
 
-def _correct_claude(prompt: str, *, model: str, system: str) -> tuple[str, str]:
+def _correct_claude(prompt: str, *, model: str, system: str,
+                    ctx: "RunContext | None" = None) -> tuple[str, str]:
     from snomed_translation.generate import run_query
-    return _parse(run_query(prompt, model=model, system=system, thinking=False))
+    return _parse(run_query(prompt, model=model, system=system, thinking=False, ctx=ctx))
 
 
 def correction_round(ctx: RunContext, inputs: dict[str, Any],
@@ -143,7 +144,7 @@ def correction_round(ctx: RunContext, inputs: dict[str, Any],
                   f"automated_review: {review}")
         try:
             if _is_claude(model):
-                return _correct_claude(prompt, model=model, system=system)
+                return _correct_claude(prompt, model=model, system=system, ctx=ctx)
             return _correct_local(prompt, model=model, base_url=base_url,
                                   system=system, max_tokens=max_tokens, ctx=ctx)
         except Exception as exc:

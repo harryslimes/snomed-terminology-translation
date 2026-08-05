@@ -102,10 +102,11 @@ _DEFAULT_SYSTEM = (
 
 async def _aquery(prompt: str, *, model: str, system: str | None,
                   thinking: bool, max_thinking_tokens: int, effort: str | None,
-                  cwd: str | None) -> str:
+                  cwd: str | None) -> tuple[str, Any]:
     from claude_agent_sdk import (
         AssistantMessage,
         ClaudeAgentOptions,
+        ResultMessage,
         TextBlock,
         query,
     )
@@ -138,21 +139,32 @@ async def _aquery(prompt: str, *, model: str, system: str | None,
     # Drain the stream fully (do NOT break early — closing the async generator
     # mid-iteration raises "aclose(): asynchronous generator is already running").
     chunks: list[str] = []
+    usage: Any = None
     async for msg in query(prompt=prompt, options=options):
         if isinstance(msg, AssistantMessage):
             for block in msg.content:
                 if isinstance(block, TextBlock):
                     chunks.append(block.text)
-    return "".join(chunks).strip()
+        elif isinstance(msg, ResultMessage):
+            usage = getattr(msg, "usage", None)
+    return "".join(chunks).strip(), usage
 
 
 def run_query(prompt: str, *, model: str = "opus", system: str | None = None,
               thinking: bool = True, max_thinking_tokens: int = 0,
-              effort: str | None = "high", cwd: str | None = None) -> str:
-    return asyncio.run(_aquery(prompt, model=model, system=system,
-                               thinking=thinking,
-                               max_thinking_tokens=max_thinking_tokens,
-                               effort=effort, cwd=cwd))
+              effort: str | None = "high", cwd: str | None = None,
+              ctx: RunContext | None = None, node: str | None = None) -> str:
+    """Run one Agent-SDK query and return its text. When ``ctx`` is given, the
+    call's token usage (Anthropic shape) is recorded into the run so Agent-SDK
+    nodes (generate_text, LLM judge/correction) show up in usage.json."""
+    text, usage = asyncio.run(_aquery(prompt, model=model, system=system,
+                                      thinking=thinking,
+                                      max_thinking_tokens=max_thinking_tokens,
+                                      effort=effort, cwd=cwd))
+    if ctx is not None:
+        from pipelines.llm_accounting import record_anthropic_usage
+        record_anthropic_usage(ctx, model=model, usage=usage, node=node)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +222,8 @@ def generate_text(ctx: RunContext, inputs: dict[str, Any],
     try:
         reply = run_query(rendered, model=model, system=system, thinking=thinking,
                           max_thinking_tokens=max_think, effort=effort,
-                          cwd=str(ctx.configs_dir) if ctx.configs_dir else None)
+                          cwd=str(ctx.configs_dir) if ctx.configs_dir else None,
+                          ctx=ctx)
     except Exception as exc:  # noqa: BLE001 — surface as a stage failure
         return FunctionResult(ok=False, message=f"Agent SDK call failed: {exc}")
     if not reply:

@@ -101,9 +101,10 @@ def _local_query(prompt: str, *, model: str, base_url: str, system: str,
     return str(response["choices"][0]["message"]["content"])
 
 
-def _claude_query(prompt: str, *, model: str, system: str) -> str:
+def _claude_query(prompt: str, *, model: str, system: str,
+                  ctx: "RunContext | None" = None) -> str:
     from snomed_translation.generate import run_query
-    return run_query(prompt, model=model, system=system, thinking=False)
+    return run_query(prompt, model=model, system=system, thinking=False, ctx=ctx)
 
 
 def acceptability_judge_batched(ctx: RunContext, inputs: dict[str, Any],
@@ -163,7 +164,7 @@ def acceptability_judge_batched(ctx: RunContext, inputs: dict[str, Any],
         for used_attempts in range(1, attempts + 1):
             try:
                 if _is_claude(model):
-                    raw = _claude_query(prompt, model=model, system=system)
+                    raw = _claude_query(prompt, model=model, system=system, ctx=ctx)
                 else:
                     token_limit = min(max_tokens_cap,
                                       per_item_tokens * len(batch) + 100)

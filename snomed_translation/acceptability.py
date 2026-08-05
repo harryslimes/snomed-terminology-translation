@@ -85,10 +85,11 @@ def _judge_local(english: str, korean: str, *, model: str, base_url: str,
     return _parse(resp["choices"][0]["message"]["content"])
 
 
-def _judge_claude(english: str, korean: str, *, model: str, system: str) -> dict:
+def _judge_claude(english: str, korean: str, *, model: str, system: str,
+                  ctx: "RunContext | None" = None) -> dict:
     from snomed_translation.generate import run_query
     text = run_query(f"english: {english}\nkorean: {korean}",
-                     model=model, system=system, thinking=False)
+                     model=model, system=system, thinking=False, ctx=ctx)
     return _parse(text)
 
 
@@ -147,7 +148,8 @@ def acceptability_judge(ctx: RunContext, inputs: dict[str, Any],
     def one(r: dict) -> dict:
         en, ko = r[en_col].strip(), r[ko_col].strip()
         try:
-            v = (_judge_claude(en, ko, model=model, system=system) if _is_claude(model)
+            v = (_judge_claude(en, ko, model=model, system=system, ctx=ctx)
+                 if _is_claude(model)
                  else _judge_local(en, ko, model=model, base_url=base_url,
                                    system=system, max_tokens=max_tokens, ctx=ctx))
         except Exception as exc:
