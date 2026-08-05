@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import re
+import time
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,7 @@ def _col(params: dict, roles: dict, param_name: str, role: str,
 
 def transliteration_detect(ctx: RunContext, inputs: dict[str, Any],
                            params: dict[str, Any]) -> FunctionResult:
+    t0 = time.monotonic()
     tpath = _dataset_path(inputs.get("translations"))
     if not tpath or not Path(tpath).exists():
         return FunctionResult(ok=False,
@@ -191,7 +193,10 @@ def transliteration_detect(ctx: RunContext, inputs: dict[str, Any],
 
     n = len(out_rows)
     flagged = [r for r in out_rows if r["flag"]]
+    elapsed = time.monotonic() - t0
     metrics = {"n_rows": float(n), "n_flagged": float(len(flagged)),
+               "elapsed_seconds": round(elapsed, 3),
+               "throughput_rps": round(n / elapsed, 3) if elapsed else 0.0,
                "flag_rate_pct": round(100.0 * len(flagged) / n, 3),
                "dictionary_tokens": float(len(vocab))}
     if out_rows and "sme_rating" in out_rows[0]:

@@ -130,9 +130,34 @@ def _datasource_dict(value: Any, ctx: RunContext) -> dict[str, Any]:
             node = FlowNode(id="_ds", type="datasource",
                             params={"source": source.id})
             return graph.resolve_datasource(node, reg)
+    dynamic = _dynamic_dataset_dict(path)
+    if dynamic is not None:
+        return dynamic
     raise graph.GraphError(
         f"could not map dataset path {path!r} back to a known source; "
         f"available: {sorted(reg.sources)}")
+
+
+def _dynamic_dataset_dict(path: str) -> dict[str, Any] | None:
+    """Recover schema for a run-generated CSV that is not a named source."""
+    header = graph.read_csv_header(path)
+    if header is None:
+        return None
+    lower = {column.lower(): column for column in header}
+    roles: dict[str, str] = {}
+    for role, aliases in graph.ROLE_ALIASES.items():
+        for alias in aliases:
+            if alias in lower:
+                roles[role] = lower[alias]
+                break
+    return {
+        "dataset": path,
+        "source_id": "_dynamic_dataset",
+        "roles": roles,
+        "present": list(roles),
+        "columns": header,
+        "built": True,
+    }
 
 
 def _recover_input(kind: str, value: Any, ctx: RunContext) -> Any:
@@ -392,6 +417,10 @@ translate_spec = FunctionSpec(
         ParamSpec(name="limit", label="Row limit", kind="number"),
         ParamSpec(name="temperature", label="Temperature", kind="number"),
         ParamSpec(name="resume", label="Resume", kind="bool", default=False),
+        ParamSpec(name="request_timeout_seconds", label="Request timeout (s)",
+                  kind="number", default=120),
+        ParamSpec(name="max_attempts", label="Maximum attempts", kind="number",
+                  default=3),
     ],
     runner=f"{_RUN}:translate",
 )
@@ -976,6 +1005,206 @@ acceptability_judge_spec = FunctionSpec(
     runner="snomed_translation.acceptability:acceptability_judge",
 )
 
+acceptability_judge_batched_spec = FunctionSpec(
+    name="acceptability_judge_batched", label="Acceptability judge (batched LLM)",
+    category="detect",
+    description="Judge N EN/KO pairs per call, recording call reduction, parsing "
+                "reliability, runtime, and optional reference-label agreement.",
+    inputs=[PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                     required=True)],
+    outputs=[
+        PortSpec(name="judgements", label="Per-row judgements", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="model", label="Model", kind="text", required=True),
+        ParamSpec(name="base_url", label="vLLM base url", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="batch_size", label="Terms per call", kind="number", default=10),
+        ParamSpec(name="concurrency", label="Concurrent calls", kind="number"),
+        ParamSpec(name="max_attempts", label="Maximum attempts", kind="number", default=2),
+        ParamSpec(name="max_tokens_per_item", label="Output tokens per item",
+                  kind="number", default=90),
+        ParamSpec(name="max_tokens", label="Output token cap", kind="number", default=8192),
+        ParamSpec(name="sample_size", label="Fixed random sample size", kind="number"),
+        ParamSpec(name="seed", label="Sample seed", kind="number", default=20260714),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Korean column", kind="text"),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="reference_label_col", label="Reference label column",
+                  kind="text", default="judge_label"),
+        ParamSpec(name="system", label="System prompt (batch rubric)", kind="textarea"),
+    ],
+    runner="snomed_translation.acceptability_batched:acceptability_judge_batched",
+)
+correction_round_spec = FunctionSpec(
+    name="correction_round", label="Correction round (LLM)", category="translate",
+    description="Revise translations flagged by transliteration_detect OR rejected "
+                "by acceptability_judge. On SME-labelled input, report exact/chrF "
+                "against the corrected SME rendering without exposing it to the LLM.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"], required=True),
+        PortSpec(name="transliteration_flags", label="Transliteration flags",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="judgements", label="Judge results", kinds=["dataset"], required=True),
+    ],
+    outputs=[PortSpec(name="translations", label="Corrected translations", kinds=["dataset"])],
+    params=[
+        ParamSpec(name="model", label="Correction model", kind="text", required=True),
+        ParamSpec(name="base_url", label="vLLM base url", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number"),
+        ParamSpec(name="max_tokens", label="Max tokens", kind="number", default=260),
+        ParamSpec(name="limit", label="Row limit", kind="number"),
+        ParamSpec(name="judge_score_threshold", label="Judge score threshold",
+                  kind="number", default=0.85),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Korean column", kind="text"),
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="reference_col", label="SME corrected column", kind="text",
+                  default="sme_corrected_ko"),
+        ParamSpec(name="label_col", label="SME rating column", kind="text",
+                  default="sme_rating"),
+        ParamSpec(name="system", label="Correction system prompt", kind="textarea"),
+    ],
+    runner="snomed_translation.correction:correction_round",
+)
+
+select_sme_batch_spec = FunctionSpec(
+    name="select_sme_batch", label="Select SME review batch", category="evaluate",
+    description="Select a reproducible, non-overlapping imaging-procedure batch. "
+                "Excludes prior SCTIDs and near-duplicate English terms, learns "
+                "error-prone source tokens from prior SME labels, and supports "
+                "coverage, active-risk, or balanced selection.",
+    inputs=[
+        PortSpec(name="candidates", label="Translated frontier", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="previous_sme", label="Prior SME labels", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="backtranslations", label="Back-translation signals",
+                 kinds=["dataset"], required=False),
+    ],
+    outputs=[
+        PortSpec(name="batch", label="SME review batch", kinds=["dataset"]),
+        PortSpec(name="audit", label="Selection audit", kinds=["text"]),
+    ],
+    params=[
+        ParamSpec(name="strategy", label="Strategy", kind="select", default="balanced",
+                  options=["balanced", "coverage", "active"]),
+        ParamSpec(name="size", label="Batch size", kind="number", default=100),
+        ParamSpec(name="seed", label="Seed", kind="number", default=20260712),
+        ParamSpec(name="max_prior_similarity", label="Max similarity to batch 1",
+                  kind="number", default=0.72),
+        ParamSpec(name="max_internal_similarity", label="Max within-batch similarity",
+                  kind="number", default=0.50,
+                  help="Reject a candidate at or above this token-Jaccard similarity "
+                       "to an already selected term."),
+        ParamSpec(name="max_topic_repeats", label="Max topic repetitions",
+                  kind="number", default=10,
+                  help="Cap repeated non-modality content such as an anatomy or "
+                       "procedure family."),
+    ],
+    runner="snomed_translation.batch_selection:select_sme_batch",
+)
+
+package_sme_batch_spec = FunctionSpec(
+    name="package_sme_batch", label="Package SME review batch", category="evaluate",
+    description="Join selection metadata to newly generated translations and emit "
+                "one reviewer-ready CSV with blank structured SME feedback fields.",
+    inputs=[
+        PortSpec(name="selection", label="Selected terms", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="translations", label="Generated translations", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="packet", label="SME review packet", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Packet metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="id_col", label="Id column", kind="text", default="sctid"),
+        ParamSpec(name="translation_col", label="Translation column", kind="text",
+                  default="translation"),
+    ],
+    runner="snomed_translation.batch_selection:package_sme_batch",
+)
+
+translation_evaluation_summary_spec = FunctionSpec(
+    name="translation_evaluation_summary", label="Translation evaluation summary",
+    category="evaluate",
+    description="Aggregate translation, judge, and transliteration outcomes with "
+                "measured stage runtimes into a JSON report and tracked metrics.",
+    inputs=[
+        PortSpec(name="translation_metrics", label="Translation metrics",
+                 kinds=["metrics"], required=True),
+        PortSpec(name="judge_metrics", label="Judge metrics",
+                 kinds=["metrics"], required=True),
+        PortSpec(name="transliteration_metrics", label="Transliteration metrics",
+                 kinds=["metrics"], required=True),
+    ],
+    outputs=[PortSpec(name="report", label="Evaluation report", kinds=["text"])],
+    params=[],
+    runner="snomed_translation.evaluation_summary:translation_evaluation_summary",
+)
+
+semantic_partial_credit_calibration_spec = FunctionSpec(
+    name="semantic_partial_credit_calibration",
+    label="Semantic partial-credit calibration",
+    category="evaluate",
+    description="Reproduce the large-set KO↔KO partial-credit estimate and "
+                "independently validate its threshold against SME ratings.",
+    inputs=[
+        PortSpec(name="scores", label="Precomputed large-set scores",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="sme_labels", label="SME labels",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[
+        PortSpec(name="audit", label="SME calibration audit", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[ParamSpec(name="threshold", label="KO↔KO threshold",
+                      kind="number", default=0.784)],
+    runner="snomed_translation.evidence_analysis:semantic_partial_credit_calibration",
+)
+
+register_feedback_analysis_spec = FunctionSpec(
+    name="register_feedback_analysis",
+    label="SME register feedback analysis",
+    category="evaluate",
+    description="Audit category-specific Sino↔native SME edits and measure "
+                "Sonnet over-acceptance on those rows.",
+    inputs=[PortSpec(name="sme_labels", label="SME labels",
+                     kinds=["dataset"], required=True)],
+    outputs=[
+        PortSpec(name="audit", label="Register-shift audit", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[],
+    runner="snomed_translation.evidence_analysis:register_feedback_analysis",
+)
+
+transliteration_recall_calibration_spec = FunctionSpec(
+    name="transliteration_recall_calibration",
+    label="Transliteration recall calibration",
+    category="evaluate",
+    description="Evaluate the phonetic-echo rule on an explicitly labelled "
+                "audit set and report frontier flag burden at calibrated thresholds.",
+    inputs=[
+        PortSpec(name="audit", label="Labelled transliteration audit",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="frontier", label="Full translated frontier",
+                 kinds=["dataset"], required=False),
+    ],
+    outputs=[
+        PortSpec(name="audit", label="Scored audit", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[ParamSpec(name="current_threshold", label="Current threshold",
+                      kind="number", default=0.70)],
+    runner="snomed_translation.evidence_analysis:transliteration_recall_calibration",
+)
+
 
 def specs() -> list[FunctionSpec]:
     return [
@@ -985,6 +1214,12 @@ def specs() -> list[FunctionSpec]:
         build_snomed_index_spec,
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
         transliteration_detect_spec, acceptability_judge_spec,
+        acceptability_judge_batched_spec, correction_round_spec,
+        select_sme_batch_spec, package_sme_batch_spec,
+        translation_evaluation_summary_spec,
+        semantic_partial_credit_calibration_spec,
+        register_feedback_analysis_spec,
+        transliteration_recall_calibration_spec,
     ]
 
 

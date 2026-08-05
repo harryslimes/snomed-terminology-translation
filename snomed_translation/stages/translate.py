@@ -22,6 +22,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
+from pipelines.llm_accounting import record_completion, vllm_cache_scope
 from snomed_translation.exemplars import ExemplarError, ensure_exemplars
 from scripts.translation.translate_korean_with_lookup import (
     translate_one,
@@ -120,7 +121,9 @@ def _load_eval_rows(cfg: PipelineConfig, limit: int | None) -> list[dict]:
 
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         limit: int | None = None, resume: bool = False,
-        temperature: float | None = None, **_) -> StageResult:
+        temperature: float | None = None,
+        request_timeout_seconds: float = 120.0,
+        max_attempts: int = 3, **_) -> StageResult:
     """Translate every concept in the eval set; write a CSV of results."""
     try:
         candidate = cfg.translation.resolve_candidate()
@@ -201,6 +204,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     write_lock = Lock()
     completed = [0]
     errors = [0]
+    retries = [0]
     t0 = time.monotonic()
     mode = "a" if resume and done_sctids else "w"
     outf = out_path.open(mode, encoding="utf-8", newline="")
@@ -217,11 +221,25 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         user_prompt = render_user(
             user_template, paired_translations=pairs_table, english=english,
             language_name=cfg.language.name)
-        try:
-            t = translate_one(base_url, model_id, system_prompt, user_prompt, llm_params)
-        except Exception as exc:
-            log.error("%s -> ERROR %s", english[:40], exc)
-            t = f"ERROR: {exc}"
+        last_exc: Exception | None = None
+        for attempt in range(max(1, max_attempts)):
+            try:
+                t, usage = translate_one(
+                    base_url, model_id, system_prompt, user_prompt, llm_params,
+                    timeout=(10, request_timeout_seconds), return_usage=True,
+                )
+                record_completion(ctx, model=model_key, usage=usage)
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt + 1 < max(1, max_attempts):
+                    with write_lock:
+                        retries[0] += 1
+                    log.warning("%s -> retry %d/%d after %s", english[:40],
+                                attempt + 2, max(1, max_attempts), exc)
+        else:
+            log.error("%s -> ERROR %s", english[:40], last_exc)
+            t = f"ERROR: {last_exc}"
         return {
             "sctid": row["sctid"],
             "preferred_term": english,
@@ -229,7 +247,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "translation": t,
         }
 
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+    with vllm_cache_scope(ctx, base_url=base_url, model_id=model_id,
+                          model_key=model_key), \
+         ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {pool.submit(process_row, row): row for row in remaining}
         for fut in as_completed(futures):
             if ctx.is_cancelled():
@@ -263,6 +283,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "n_errors": float(errors[0]),
             "elapsed_seconds": elapsed,
             "throughput_rps": completed[0] / elapsed if elapsed > 0 else 0,
+            "n_retries": float(retries[0]),
+            "request_timeout_seconds": float(request_timeout_seconds),
+            "max_attempts": float(max_attempts),
         },
         message=f"{completed[0]} translations, {errors[0]} errors, {elapsed:.0f}s",
     )

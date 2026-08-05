@@ -21,11 +21,13 @@ from __future__ import annotations
 import csv
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 from pipelines.context import RunContext
+from pipelines.llm_accounting import record_completion
 from pipelines.functions import FunctionResult
 
 DEFAULT_SYSTEM = """You are a senior Korean clinical terminologist reviewing machine translations of SNOMED CT terms for the Korean edition. For each (english, korean) pair, judge how you would rate the Korean rendering of the English concept.
@@ -68,7 +70,8 @@ def _parse(text: str) -> dict:
 
 
 def _judge_local(english: str, korean: str, *, model: str, base_url: str,
-                 system: str, max_tokens: int) -> dict:
+                 system: str, max_tokens: int,
+                 ctx: "RunContext | None" = None) -> dict:
     import urllib.request
     body = json.dumps({
         "model": model, "temperature": 0.0, "max_tokens": max_tokens,
@@ -78,6 +81,7 @@ def _judge_local(english: str, korean: str, *, model: str, base_url: str,
     req = urllib.request.Request(base_url.rstrip("/") + "/v1/chat/completions",
                                  data=body, headers={"Content-Type": "application/json"})
     resp = json.loads(urllib.request.urlopen(req, timeout=180).read())
+    record_completion(ctx, model=model, usage=resp.get("usage"))
     return _parse(resp["choices"][0]["message"]["content"])
 
 
@@ -108,6 +112,7 @@ def _col(params, roles, param_name, role, fallback) -> str:
 
 def acceptability_judge(ctx: RunContext, inputs: dict[str, Any],
                         params: dict[str, Any]) -> FunctionResult:
+    t0 = time.monotonic()
     tpath = _dataset_path(inputs.get("translations"))
     if not tpath or not Path(tpath).exists():
         return FunctionResult(ok=False,
@@ -144,7 +149,7 @@ def acceptability_judge(ctx: RunContext, inputs: dict[str, Any],
         try:
             v = (_judge_claude(en, ko, model=model, system=system) if _is_claude(model)
                  else _judge_local(en, ko, model=model, base_url=base_url,
-                                   system=system, max_tokens=max_tokens))
+                                   system=system, max_tokens=max_tokens, ctx=ctx))
         except Exception as exc:
             v = {"label": "?", "score": "", "reason": f"judge error: {exc}"[:200]}
         out = {id_col: (r.get(id_col) or "").strip(), "english": en, "korean": ko,
@@ -168,9 +173,12 @@ def acceptability_judge(ctx: RunContext, inputs: dict[str, Any],
         w.writerows(results)
 
     n = len(results)
+    elapsed = time.monotonic() - t0
     dist = {lab: sum(1 for r in results if r["judge_label"] == lab)
             for lab in ("ACCEPTABLE", "PARTIAL", "WRONG")}
     metrics = {"n_judged": float(n), "model_is_claude": float(_is_claude(model)),
+               "elapsed_seconds": round(elapsed, 3),
+               "throughput_rps": round(n / elapsed, 3) if elapsed else 0.0,
                "judged_acceptable": float(dist["ACCEPTABLE"]),
                "judged_partial": float(dist["PARTIAL"]),
                "judged_wrong": float(dist["WRONG"]),

@@ -314,6 +314,12 @@ def build_translate(node: FlowNode, base_cfg: PipelineConfig,
         kwargs["resume"] = bool(node.params["resume"])
     if "temperature" in node.params:
         kwargs["temperature"] = float(node.params["temperature"])
+    if "request_timeout_seconds" in node.params:
+        kwargs["request_timeout_seconds"] = float(
+            node.params["request_timeout_seconds"]
+        )
+    if "max_attempts" in node.params:
+        kwargs["max_attempts"] = int(node.params["max_attempts"])
     return cfg, kwargs
 
 
