@@ -1,0 +1,25 @@
+sctid,english,korean,is_transliteration_error,label_source,label_reason
+40901004,Herniogram,허니오그램,1,SME batch 1,Phonetic rendering replaces the clinical meaning
+241211009,Tenogram,테노그램,1,frontier analyst audit,Bare phonetic rendering of an -ogram procedure
+241120006,Kymography,키모그래피,1,frontier analyst audit,Bare phonetic rendering of kymography
+241172001,Pouchogram,포코그램,1,frontier analyst audit,Bare phonetic rendering of pouchogram
+241151004,Cineswallow,시네스왈로,1,frontier analyst audit,Bare phonetic rendering instead of a swallowing imaging procedure
+27300001,Molegraphy,모로그래피,1,frontier analyst audit,Bare phonetic rendering of molegraphy
+271317002,Kymography/electrokymography,키모그래피/전기 키모그래피,1,frontier analyst audit,Core procedure names remain phonetic
+169057008,Kymography - lungs,폐 키모그래피,1,frontier analyst audit,Translated site but untranslated phonetic procedure
+169055000,Kymography - heart,심장 키모그래피,1,frontier analyst audit,Translated site but untranslated phonetic procedure
+169058003,Kymography - diaphragm,가로막 키모그래피,1,frontier analyst audit,Translated site but untranslated phonetic procedure
+252452009,Laser Doppler,레이저 도플러,0,frontier analyst audit,Established loanword and eponym rather than a translation slip
+276018001,Gastrografin meal,가스트로그래핀 식사,0,frontier analyst audit,Brand name is phonetic but the procedure component is translated
+276017006,Gastrografin swallow,가스트로그래핀 연하 검사,0,frontier analyst audit,Brand name is phonetic but the procedure is translated
+276019009,Gastrografin enema,가스트로그래핀 관장,0,frontier analyst audit,Brand name is phonetic but the procedure is translated
+416112003,Tc-99m hexamethylpropyleneamine oxime leukocyte hip scan,Tc-99m hexamethylpropyleneamine oxime 백혈구 고관절 방사성 핵종 영상,0,frontier analyst audit,Chemical name is retained but clinical procedure is translated
+168998008,Fluoroscopy - skull,머리뼈 투시,0,frontier analyst audit,Clinical meaning is translated
+423736003,Color Doppler ultrasound,컬러 도플러 초음파,0,frontier analyst audit,Standard modality loanwords
+91453008,"Echography of chest, A-mode",흉부 초음파 검사 A-mode,0,frontier analyst audit,Clinical meaning is translated
+717193008,Cone beam computed tomography,콘빔 컴퓨터 단층 촬영,0,frontier analyst audit,Standard modality loanword plus translated head
+168681006,Stress X-ray knee,무릎 스트레스 X선 촬영,0,frontier analyst audit,Standard loanword modifier plus translated procedure
+241153001,Barium meal,바륨 식사 검사,0,frontier analyst audit,Substance loanword plus translated procedure
+252447004,Pulsed wave ultrasonic Doppler,펄스파 도플러 초음파 검사,0,frontier analyst audit,Standard modality terms with translated procedure head
+241186002,Gynecogram,부인과 조영상,0,frontier analyst audit,Clinical meaning is translated
+252573007,Taub test,타우 검사,0,frontier analyst audit,Eponym is retained and test is translated

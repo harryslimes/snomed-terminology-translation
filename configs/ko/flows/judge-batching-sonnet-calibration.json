@@ -1,0 +1,140 @@
+{
+  "id": "judge-batching-sonnet-calibration",
+  "name": "judge_batching_sonnet_calibration",
+  "description": "With explicit approval to send these terminology rows to Sonnet, compare the established 100 singleton Sonnet labels against the same rubric and structured response schema at N=1,2,3,5,10 terms per call. Record agreement, label drift, parse reliability, calls, and elapsed time.",
+  "project": "judge_batching_sonnet_v1",
+  "nodes": [
+    {
+      "id": "singleton",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sonnet_singleton_sme100_judgements_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "batch_1",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 1,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_2",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 2,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_3",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 3,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_5",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 5,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_10",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 10,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "id": "sme-batch2-diverse-gemma-translate",
+  "name": "sme_batch2_diverse_gemma_translate",
+  "description": "Select a fresh 100-term Korean SME batch from untranslated imaging procedures with feedback-aware but diversity-capped active sampling, strict exclusion of batch-1 and internal near-variants, then freshly translate every selected concept with local Gemma 4 26B QAT + style guide v5.1 and pooled leak-excluded exemplars. Package one reviewer-ready CSV and retain local judge/transliteration signals only as hidden audit evidence.",
+  "project": "sme_batch_selection_v1",
+  "nodes": [
+    {
+      "id": "pool",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "translations_sme_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "previous",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "backtrans",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_backtranslations_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/style_guide/style_guide_ko_v5_1.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "select",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "strategy": "balanced",
+        "size": 100,
+        "seed": 20260714,
+        "max_prior_similarity": 0.6,
+        "max_internal_similarity": 0.45,
+        "max_topic_repeats": 8,
+        "function": "select_sme_batch"
+      },
+      "inputs": {
+        "candidates": "pool",
+        "previous_sme": "previous",
+        "backtranslations": "backtrans"
+      }
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "sme_batch2_diverse_gemma_v5_1",
+        "resume": false,
+        "request_timeout_seconds": 180,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "select:batch",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "package",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "package_sme_batch"
+      },
+      "inputs": {
+        "selection": "select:batch",
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "translit",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "max_tokens": 220,
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "(judged_partial + judged_wrong) / n_judged * 100",
+        "output_name": "judge_review_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "judge:metrics"
+      }
+    },
+    {
+      "id": "publish_packet",
+      "type": "promote",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "name": "sme_batch2_diverse_gemma_v1"
+      },
+      "inputs": {
+        "value": "package:packet"
+      }
+    }
+  ]
+}

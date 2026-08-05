@@ -1,0 +1,10 @@
+{
+  "id": "xlingual_closeness_v1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "../wizard-data/eval_inputs/xlingual_closeness_full.csv",
+  "csv_path": "../wizard-data/eval_inputs/xlingual_closeness_full.csv",
+  "csv_columns": {
+    "sctid": "sctid"
+  }
+}

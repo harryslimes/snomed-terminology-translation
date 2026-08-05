@@ -1,0 +1,74 @@
+{
+  "id": "full-frontier-sonnet-batched-n10-judge",
+  "name": "full_frontier_sonnet_batched_n10_judge",
+  "description": "Judge all 5,796 completed frontier translations with Sonnet in batches of 10 after explicit user approval. N=10 was selected as a population-level/triage compromise: 90% nominal call reduction, complete final parsing in calibration, and agreement close to Sonnet's measured rerun ceiling, while not claiming per-term interchangeability. Record A/P/W, parse failures, retries, Gemma-reference agreement, and elapsed time; publish per-term Sonnet judgements.",
+  "project": "full_frontier_translation_sonnet_eval_v1",
+  "nodes": [
+    {
+      "id": "translations",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "full_frontier_gemma_singleton_judgements_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sonnet_n10",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "sonnet",
+        "batch_size": 10,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "judged_acceptable / n_judged * 100",
+        "output_name": "sonnet_acceptable_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "sonnet_n10:metrics"
+      }
+    },
+    {
+      "id": "publish_judgements",
+      "type": "promote",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "name": "full_frontier_sonnet_batched_n10_judgements_v1"
+      },
+      "inputs": {
+        "value": "sonnet_n10:judgements"
+      }
+    }
+  ]
+}

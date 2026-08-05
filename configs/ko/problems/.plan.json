@@ -371,7 +371,7 @@
         "task-25"
       ],
       "investigation": "sme_batch_selection_v1",
-      "status": "todo",
+      "status": "active",
       "proposed_by": ""
     },
     {
@@ -411,8 +411,8 @@
         "task-24"
       ],
       "investigation": "clean_eval_leakage_fix_v1",
-      "status": "todo",
-      "proposed_by": "agent"
+      "status": "done",
+      "proposed_by": ""
     }
   ],
   "gates": [

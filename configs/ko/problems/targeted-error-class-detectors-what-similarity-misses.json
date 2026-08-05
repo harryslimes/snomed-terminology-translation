@@ -54,6 +54,59 @@
       ],
       "author": "agent",
       "ts": "2026-07-11T17:43:51"
+    },
+    {
+      "id": "note-2",
+      "body": "Tracked transliteration recall audit completed on 24 explicitly labelled observed translations (10 errors, 14 benign loanword/eponym or translated cases), plus the 5,796 frontier. At the current 0.70 echo threshold the rule has 80% precision but only 40% recall (six false negatives); lowering to the audit-optimal 0.66 gives 75% precision / 60% recall and raises frontier flags only from 6 to 9. The rule is a conservative candidate generator, not a high-recall detector. LLM judging remains a complementary semantic triage signal, but neither should be described as closing the similarity gap without independent calibration.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "6d95975a66a8",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "transliteration_recall_audit_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4c8e51d5fd8f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e22a7ced11cf",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-07-15T09:13:13"
+    },
+    {
+      "id": "note-3",
+      "body": "Final reproducibility rerun 96598434b93b uses the labelled transliteration audit from the versioned configuration bundle and reproduces the prior metrics exactly. Run 85d2b7bac298 is an expected failed path-resolution attempt and should not be used as evidence.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "96598434b93b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "85d2b7bac298",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "transliteration_recall_audit_v1",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-07-15T09:16:09"
     }
   ],
   "plan": {

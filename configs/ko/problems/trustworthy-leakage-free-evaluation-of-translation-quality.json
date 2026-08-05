@@ -58,6 +58,25 @@
       ],
       "author": "research-agent",
       "ts": "2026-07-06T15:01:04"
+    },
+    {
+      "id": "note-3",
+      "body": "Tracked semantic partial-credit calibration completed. The 3,693-item heuristic reproduces the earlier 17.8% exact-match penalty estimate, and reference-based KO↔KO similarity ranks SME acceptability strongly (AUC 0.902 on SME-100). However, the old 0.784 cutoff has only 54% accuracy and 17% specificity against SME labels, so 17.8% is not a validated prevalence of acceptable synonyms. Direct reference-free EN↔KO remains weak (AUC 0.605; rank-normalised 0.582). Use KO↔KO similarity as graded partial credit/screening, not a hard verdict.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "2ce6c53b36a5",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "semantic_partial_credit_calibration_v1",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-07-15T09:13:12"
     }
   ],
   "plan": {

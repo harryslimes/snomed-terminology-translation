@@ -1,0 +1,182 @@
+{
+  "id": "judge-batching-gemma-calibration",
+  "name": "judge_batching_gemma_calibration",
+  "description": "On one fixed-seed 600-term sample from the completed full-frontier singleton Gemma judgements, rerun the same rubric using structured batches of N=1,5,10,20,50,100 terms per call. Record runtime, call reduction, parse failures, three-way agreement, binary acceptable/non-acceptable agreement, and label distributions.",
+  "project": "judge_batching_gemma_v1",
+  "nodes": [
+    {
+      "id": "singleton",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "full_frontier_gemma_singleton_judgements_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "batch_1",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 1,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_5",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 5,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_10",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 10,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_20",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 20,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_50",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 50,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    },
+    {
+      "id": "batch_100",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "batch_size": 100,
+        "concurrency": 4,
+        "max_attempts": 2,
+        "max_tokens_per_item": 70,
+        "max_tokens": 8192,
+        "sample_size": 600,
+        "seed": 20260714,
+        "id_col": "sctid",
+        "en_col": "english",
+        "ko_col": "korean",
+        "reference_label_col": "judge_label",
+        "function": "acceptability_judge_batched"
+      },
+      "inputs": {
+        "translations": "singleton"
+      }
+    }
+  ]
+}
