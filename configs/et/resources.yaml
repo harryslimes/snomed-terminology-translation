@@ -1,0 +1,32 @@
+# Estonian SNOMED translation resource manifest.
+# Mirrors configs/resources_ko.yaml (see that file for the full kind / scope /
+# key_path DSL documentation). Kept deliberately minimal at seed: a base style
+# guide plus exemplar retrieval over the EE-EN pool. Add Estonian-specific
+# term_dictionary / prompt_addendum / retrieval_corpus entries as SME-validated
+# resources become available (sonaveeb lexicon, eesti_arst corpus, etc.).
+
+version: 1
+language: et
+
+defaults:
+  overlap:
+    prompt_addendum: additive
+    term_dictionary: most_specific
+    retrieval_corpus: additive
+    exemplar_set: union_dedupe
+
+resources:
+
+  # Base style guide — always applies.
+  - id: base_style_guide
+    kind: prompt_addendum
+    scope: "<<138875005"                  # SNOMED CT Concept (root)
+    payload:
+      path: style_guide/et/style_guide_et_seed.md
+
+  # Similar EN->ET pairs retrieved per concept from the bilingual pool.
+  - id: pool_exemplars
+    kind: exemplar_set
+    scope: "<<138875005"
+    payload:
+      source: et_pool

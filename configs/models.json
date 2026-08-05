@@ -151,32 +151,6 @@
       "host": "dashscope-intl.aliyuncs.com",
       "notes": "Qwen 3.7 Max via Alibaba Model Studio (OpenAI-compatible). Thinking model — set enable_thinking=false in llm_params for direct output. Auth via DASHSCOPE_API_KEY env var (read by translate script's _auth_headers()). Use VLLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode to target."
     },
-    "gpt-oss-120b": {
-      "hf_id": "openai/gpt-oss-120b",
-      "quantization": "mxfp4",
-      "dtype": "auto",
-      "gpu_memory_utilization": 0.7,
-      "max_model_len": 8192,
-      "max_num_batched_tokens": 8192,
-      "max_num_seqs": 256,
-      "enable_prefix_caching": true,
-      "trust_remote_code": true,
-      "extra_args": [
-        "--moe-backend",
-        "flashinfer_cutlass",
-        "--kv-cache-dtype",
-        "fp8",
-        "--load-format",
-        "fastsafetensors"
-      ],
-      "port": 8085,
-      "container_name": "snomed-gpt-oss-120b",
-      "image": "dgx-vllm-mxfp4:latest",
-      "env": {
-        "VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"
-      },
-      "notes": "OpenAI gpt-oss-120b on DGX Spark (GB10, MXFP4 native). Served via dgx-vllm-mxfp4 image; FlashInfer + CUTLASS MoE + FP8 KV cache. Tuned for batch throughput (max_num_seqs=256). See ~/Projects/dgx-docker-images/vllm-mxfp4/Dockerfile."
-    },
     "qwen122b-gguf": {
       "backend": "llamacpp",
       "model_path": "/models/Qwen3.5-122B-A10B-UD-Q4_K_XL/UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf",

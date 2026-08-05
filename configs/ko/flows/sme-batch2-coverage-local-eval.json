@@ -1,0 +1,131 @@
+{
+  "id": "sme-batch2-coverage-local-eval",
+  "name": "sme_batch2_coverage_local_eval",
+  "description": "Coverage-oriented candidate: round-robin over imaging modality and term-complexity cells after excluding batch-1 SCTIDs and near-duplicate wording; locally self-evaluated.",
+  "project": "sme_batch_selection_v1",
+  "nodes": [
+    {
+      "id": "pool",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "translations_sme_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "previous",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "backtrans",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_backtranslations_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "select",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "strategy": "coverage",
+        "size": 100,
+        "seed": 20260712,
+        "max_prior_similarity": 0.72,
+        "function": "select_sme_batch"
+      },
+      "inputs": {
+        "candidates": "pool",
+        "previous_sme": "previous",
+        "backtranslations": "backtrans"
+      }
+    },
+    {
+      "id": "translit",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "select:batch",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "select:batch"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "(judged_partial + judged_wrong) / n_judged * 100",
+        "output_name": "judge_review_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "judge:metrics"
+      }
+    }
+  ]
+}

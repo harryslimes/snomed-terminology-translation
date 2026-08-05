@@ -1,0 +1,370 @@
+{
+  "version": 1,
+  "language": {
+    "code": "ko",
+    "name": "Korean",
+    "direction": "EN->KO",
+    "tokenizer_lang": "en"
+  },
+  "paths": {
+    "root": ".",
+    "data_dir": "data",
+    "output_dir": "data/evals/korean",
+    "lookup_cache": "data/evals/korean/lookup_cache.json"
+  },
+  "sources": {
+    "data_sources": [
+      {
+        "id": "kr_snomed",
+        "kind": "snomed_national_extension",
+        "enabled": true,
+        "output_csv": "data/EN-KO/snomed_kr.csv",
+        "rf2_root": "data/korean/SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z",
+        "description_file": "data/korean/SnomedCT_ManagedServiceKR_PRODUCTION_KR1000267_20251215T120000Z/Snapshot/Terminology/sct2_Description_Snapshot-ko_KR1000267_20251215.txt",
+        "language_refset_id": "21000267104"
+      },
+      {
+        "id": "pooled_legacy",
+        "kind": "csv",
+        "enabled": true,
+        "output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+        "csv_path": "data/EN-KO/all_bilingual_pairs.csv",
+        "csv_columns": {
+          "sctid": "sctid",
+          "en": "en_term",
+          "target": "target_term"
+        }
+      }
+    ],
+    "pool": {
+      "sources": [],
+      "output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+      "dedup_key": [
+        "en_lower",
+        "target"
+      ]
+    }
+  },
+  "eval_set": {
+    "csv": "data/evals/korean/procedure_eval_set.csv",
+    "columns": {
+      "sctid": "sctid",
+      "source_term": "preferred_term",
+      "reference": "ko_reference",
+      "all_references": "ko_all"
+    },
+    "multi_ref_separator": "|",
+    "splits_dir": "data/evals/korean/dspy_splits"
+  },
+  "resources": [],
+  "overlap_defaults": {
+    "prompt_addendum": "additive",
+    "term_dictionary": "most_specific",
+    "retrieval_corpus": "additive",
+    "exemplar_set": "union_dedupe"
+  },
+  "qdrant": {
+    "url": "http://localhost:6333",
+    "exemplar_collection": "paired_translations_ko",
+    "bgem3": {
+      "model_name": "BAAI/bge-m3",
+      "use_fp16": false,
+      "batch_size": 256,
+      "max_length": 512
+    }
+  },
+  "models": {
+    "gemma4-26b": {
+      "hf_id": "cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit",
+      "port": 8083,
+      "container_name": "snomed-gemma4",
+      "notes": "Gemma 4 26B-A4B MoE (4B active). AWQ-4bit ~13GB weights. Smoke-tested gpu_memory_utilization.",
+      "quantization": "compressed-tensors",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.4,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": []
+    },
+    "qwen35b": {
+      "hf_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+      "port": 8002,
+      "container_name": "snomed-vllm",
+      "notes": "Qwen 3.5 35B-A3B MoE GPTQ-Int4.",
+      "quantization": "gptq_marlin",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 8192,
+      "max_num_batched_tokens": 2096,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--language-model-only",
+        "--reasoning-parser",
+        "qwen3"
+      ]
+    },
+    "qwen122b": {
+      "hf_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+      "port": 8001,
+      "container_name": "snomed-vllm-122b",
+      "notes": "Qwen 3.5 122B-A10B MoE. Large model, needs most of GPU.",
+      "quantization": "gptq_marlin",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.85,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--language-model-only",
+        "--reasoning-parser",
+        "qwen3"
+      ]
+    },
+    "gemma4-31b-remote": {
+      "hf_id": "gemma-4-31b",
+      "port": 18000,
+      "host": "192.168.1.76",
+      "notes": "LilaRest/gemma-4-31B-it-NVFP4-turbo served via vLLM on LAN. 8192 max_model_len — use style_guide_ko_v3_abbr.md. Set VLLM_BASE_URL=http://192.168.1.76:18000 to target."
+    },
+    "gemma4-26b-nvfp4-remote": {
+      "hf_id": "gemma-4-26b-a4b",
+      "port": 18000,
+      "host": "192.168.1.76",
+      "notes": "RedHatAI/gemma-4-26B-A4B-it-NVFP4 served via vLLM on LAN. Same base model as local gemma4-26b but NVFP4 quant. 8192 max_model_len — use style_guide_ko_v3_abbr.md."
+    },
+    "qwen36b": {
+      "hf_id": "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+      "port": 8084,
+      "container_name": "snomed-qwen36b",
+      "notes": "Qwen 3.6 35B-A3B MoE (3B active). AWQ-4bit ~22GB weights.",
+      "quantization": "compressed-tensors",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_model_len": 16384,
+      "max_num_batched_tokens": 16384,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8",
+        "--reasoning-parser",
+        "qwen3"
+      ]
+    },
+    "qwen37-max-remote": {
+      "hf_id": "qwen3.7-max",
+      "port": 443,
+      "host": "dashscope-intl.aliyuncs.com",
+      "notes": "Qwen 3.7 Max via Alibaba Model Studio (OpenAI-compatible). Thinking model — set enable_thinking=false in llm_params for direct output. Auth via DASHSCOPE_API_KEY env var (read by translate script's _auth_headers()). Use VLLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode to target."
+    },
+    "gpt-oss-120b": {
+      "hf_id": "openai/gpt-oss-120b",
+      "port": 8085,
+      "image": "dgx-vllm-mxfp4:latest",
+      "container_name": "snomed-gpt-oss-120b",
+      "notes": "OpenAI gpt-oss-120b on DGX Spark (GB10, MXFP4 native). Served via dgx-vllm-mxfp4 image; FlashInfer + CUTLASS MoE + FP8 KV cache. Tuned for batch throughput (max_num_seqs=256). See ~/Projects/dgx-docker-images/vllm-mxfp4/Dockerfile.",
+      "quantization": "mxfp4",
+      "dtype": "auto",
+      "gpu_memory_utilization": 0.7,
+      "max_model_len": 8192,
+      "max_num_batched_tokens": 8192,
+      "max_num_seqs": 256,
+      "enable_prefix_caching": true,
+      "trust_remote_code": true,
+      "extra_args": [
+        "--moe-backend",
+        "flashinfer_cutlass",
+        "--kv-cache-dtype",
+        "fp8",
+        "--load-format",
+        "fastsafetensors"
+      ],
+      "env": {
+        "VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"
+      }
+    },
+    "qwen122b-gguf": {
+      "model_path": "/models/Qwen3.5-122B-A10B-UD-Q4_K_XL/UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf",
+      "port": 8082,
+      "container_name": "snomed-qwen122b",
+      "notes": "Qwen 3.5 122B via llama.cpp GGUF Q4_K_XL.",
+      "backend": "llamacpp",
+      "ctx_size": 8192,
+      "n_gpu_layers": 99,
+      "parallel": 8,
+      "flash_attn": true,
+      "extra_args": [
+        "--reasoning",
+        "off"
+      ]
+    },
+    "qwen36plus-remote": {
+      "hf_id": "qwen3.6-plus",
+      "port": 443,
+      "host": "dashscope-intl.aliyuncs.com",
+      "notes": "Qwen 3.6 Plus via Dashscope. Thinking model — use enable_thinking=false."
+    }
+  },
+  "jobs": {
+    "translate_korean_lookup": {
+      "script": "scripts/translation/translate_korean_with_lookup.py",
+      "description": "EN->KO procedure translation with Qdrant bilingual pair lookup + style guide",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "eval_set": "data/evals/korean/procedure_eval_set.csv",
+      "output_dir": "data/evals/korean",
+      "qdrant_collection": "paired_translations_ko",
+      "lookup_topn": 5,
+      "style_guide": "style_guide/style_guide_ko.md",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "enable_thinking": false
+      }
+    },
+    "translate_korean_baseline": {
+      "script": "scripts/translation/translate_korean_sample.py",
+      "description": "EN->KO baseline translation (no lookup, optional style guide)",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "eval_set": "data/evals/korean/procedure_eval_sample_100.csv",
+      "output_dir": "data/evals/korean",
+      "lookup_topn": 5,
+      "style_guide": "style_guide/style_guide_ko.md",
+      "llm_params": {
+        "max_tokens": 128,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ]
+      }
+    },
+    "score_korean": {
+      "script": "scripts/evaluation/score_korean_translations.py",
+      "description": "Score translations against KR extension reference (char_sim, token_jaccard, exact)",
+      "concurrency": 16,
+      "lookup_topn": 5,
+      "llm_params": {}
+    },
+    "judge_korean": {
+      "script": "scripts/evaluation/judge_korean_translations.py",
+      "description": "LLM-as-judge: classify non-matching translations as ACCEPTABLE / PARTIAL / WRONG",
+      "default_model": "gemma4-26b",
+      "concurrency": 16,
+      "lookup_topn": 5,
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "notes": "For Qwen3 reasoning models, disable thinking — otherwise the model burns all tokens on reasoning and returns null content."
+    }
+  },
+  "translation": {
+    "model_key": "gemma4-26b",
+    "concurrency": 16,
+    "lookup_topn": 5,
+    "style_guide_path": "style_guide/style_guide_ko_v5_1.md",
+    "llm_params": {
+      "max_tokens": 256,
+      "temperature": 0.0,
+      "stop": [
+        "\n\n",
+        "English:"
+      ],
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "enable_thinking": false
+    },
+    "prompt_templates": {
+      "system": "You are a medical terminology translator specialising in English to {language_name} translation of SNOMED CT clinical terms in the **Procedure** hierarchy. You must follow the style guide below. Return ONLY the {language_name} translation in {language_script_name} — no explanation, no quotes, no romanisation, no English, no extra text.\n\n# Style guide\n\n{style_guide}",
+      "user": "Here are similar {language_name} SNOMED translations for reference:\n\n{paired_translations}\n\nTranslate this SNOMED CT procedure term from English to {language_name}.\nEnglish: {english}\n{language_name}:"
+    },
+    "output_tag": "gemma4-26b_v5_1_pipeline",
+    "output_filename_pattern": "translations_{output_tag}_lookup.csv"
+  },
+  "evaluation": {
+    "scorers": [
+      {
+        "kind": "exact_match",
+        "weight": 0.2,
+        "params": {}
+      },
+      {
+        "kind": "chrf",
+        "weight": 0.5,
+        "params": {}
+      },
+      {
+        "kind": "cosine_similarity",
+        "weight": 0.3,
+        "params": {}
+      }
+    ],
+    "multi_ref": true,
+    "judge": {
+      "kind": "none",
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "concurrency": 8
+    }
+  },
+  "optimization": {
+    "enabled": false,
+    "seed_style_guide": "style_guide/style_guide_ko_v5_1.md",
+    "splits_dir": "data/evals/korean/dspy_splits",
+    "lookup_cache": "data/sme_review/2026-04-24/lookup_cache.json",
+    "gepa": {
+      "auto": "medium",
+      "track_stats": true
+    },
+    "reflection_lm": {
+      "model_id": "openai/qwen3.7-max",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "disable_thinking": true,
+      "temperature": 1.0,
+      "max_tokens": 4000
+    },
+    "hints_file": "configs/hints/ko.yaml"
+  },
+  "sme": {
+    "sample_size": 100,
+    "stratify_by": [
+      "modality",
+      "hierarchy"
+    ],
+    "output_dir": "data/sme_review",
+    "reviewer": {
+      "kind": "sonnet"
+    },
+    "prepare_lookups": true
+  }
+}

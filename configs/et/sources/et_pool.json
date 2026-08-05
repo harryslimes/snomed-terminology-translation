@@ -1,0 +1,12 @@
+{
+  "id": "et_pool",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/et/pool/all_bilingual_pairs.csv",
+  "csv_path": "data/languages/et/pool/all_bilingual_pairs.csv",
+  "csv_columns": {
+    "en": "EN",
+    "target": "EE"
+  },
+  "notes": "TODO: this pool has only EN,EE columns. Concept-keyed exemplar retrieval and multi-source dedup need sctid + source columns (cf. the Korean pool EN,KO,source,sctid). Rebuild via scripts/data_prep before indexing exemplars."
+}

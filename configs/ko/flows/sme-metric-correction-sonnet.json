@@ -1,0 +1,148 @@
+{
+  "id": "sme-metric-correction-sonnet",
+  "name": "sme_metric_correction_gemma",
+  "description": "Local-only SME correction evaluation: transliteration rule + Gemma judge trigger one Gemma correction round, followed by the same checks.",
+  "project": "sme_metric_correction_gemma_v1",
+  "nodes": [
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "detect_before",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "labels",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge_before",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "concurrency": 16,
+        "function": "acceptability_judge",
+        "base_url": "http://localhost:8086"
+      },
+      "inputs": {
+        "translations": "labels"
+      }
+    },
+    {
+      "id": "correct",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "concurrency": 16,
+        "judge_score_threshold": 0.85,
+        "reference_col": "sme_corrected_ko",
+        "label_col": "sme_rating",
+        "function": "correction_round",
+        "base_url": "http://localhost:8086"
+      },
+      "inputs": {
+        "translations": "labels",
+        "transliteration_flags": "detect_before:flags",
+        "judgements": "judge_before:judgements"
+      }
+    },
+    {
+      "id": "detect_after",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "label_col": "__no_post_sme_label__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "correct:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge_after",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko",
+        "concurrency": 16,
+        "label_col": "__no_post_sme_label__",
+        "function": "acceptability_judge",
+        "base_url": "http://localhost:8086"
+      },
+      "inputs": {
+        "translations": "correct:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "delta_mean_chrf_vs_sme",
+        "output_name": "delta_mean_chrf_vs_sme",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "correct:metrics"
+      }
+    }
+  ]
+}

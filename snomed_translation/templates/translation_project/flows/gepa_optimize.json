@@ -1,0 +1,63 @@
+{
+  "id": "{{code}}_gepa_optimize",
+  "name": "{{lang_name}} GEPA optimise style guide",
+  "description": "Evolve the seed style guide with GEPA over the train/dev split; the optimised guide is the run output.",
+  "project": "{{project}}",
+  "nodes": [
+    {
+      "id": "trainset",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "{{train_split_source}}"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "devset",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "{{dev_split_source}}"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "seed_guide",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 400.0
+      },
+      "params": {
+        "path": "{{seed_guide}}",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "optimize",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 120.0
+      },
+      "params": {
+        "model_key": "{{model_key}}",
+        "output_tag": "{{code}}_gepa",
+        "function": "optimize"
+      },
+      "inputs": {
+        "trainset": "trainset",
+        "devset": "devset",
+        "seed_style_guide": "seed_guide"
+      }
+    }
+  ]
+}

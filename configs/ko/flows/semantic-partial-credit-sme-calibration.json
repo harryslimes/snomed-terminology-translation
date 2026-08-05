@@ -1,0 +1,64 @@
+{
+  "id": "semantic-partial-credit-sme-calibration",
+  "name": "semantic_partial_credit_sme_calibration",
+  "description": "",
+  "project": "semantic_partial_credit_calibration_v1",
+  "nodes": [
+    {
+      "id": "scores",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "xlingual_closeness_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "calibrate",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "threshold": 0.784,
+        "function": "semantic_partial_credit_calibration"
+      },
+      "inputs": {
+        "sme_labels": "labels",
+        "scores": "scores"
+      }
+    },
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "sme_ko_similarity_auc",
+        "output_name": "sme_ko_similarity_auc",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "calibrate:metrics"
+      }
+    }
+  ]
+}

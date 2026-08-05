@@ -1,0 +1,11 @@
+{
+  "id": "snomed-translation",
+  "title": "Translate SNOMED CT into Spanish",
+  "prose": "Produce faithful, clinically-usable Spanish translations of SNOMED CT terms (EN->Spanish), matching the register and orthography of the Spanish national extension. The sub-problems below decompose the work: sourcing exemplar data, optimising the translation prompt, and evaluating quality without leakage.",
+  "parent": null,
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

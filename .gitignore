@@ -14,7 +14,12 @@ wheels/
 build.log
 *.log
 
-# Runtime data & model weights — never committed (regenerate via scripts)
+# Runtime data & model weights — never committed (regenerate via scripts).
+# Layout (see docs/design/multi-language-and-data-layout.md):
+#   data/reference/      language-neutral terminologies (snomed-intl, loinc, athena, caches)
+#   data/languages/<code>/  per-language source + derived (snomed, pool, lexicons, corpora, evals, ...)
+#   data/services/       machine-local caches: qdrant, model_cache (symlinks to the live stores)
+#   run OUTPUT state (wizard_runs/objects/published/sessions) lives in ../wizard-data, NOT here
 data/
 models/
 chroma/

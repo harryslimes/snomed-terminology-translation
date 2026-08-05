@@ -1,0 +1,66 @@
+{
+  "id": "translit-detect-sme100",
+  "name": "translit_detect_sme100",
+  "description": "",
+  "project": "transliteration_detector_v1",
+  "nodes": [
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "detect",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "function": "transliteration_detect",
+        "en_col": "english_term",
+        "ko_col": "pipeline_translation_ko"
+      },
+      "inputs": {
+        "translations": "labels",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "flag_precision_pct",
+        "output_name": "flag_precision_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "detect:metrics"
+      }
+    }
+  ]
+}

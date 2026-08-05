@@ -1,0 +1,78 @@
+{
+  "id": "es_te_gj2",
+  "name": "Spanish translate + evaluate",
+  "description": "Baseline: translate the held-out test split with the seed style guide + pool exemplars, then evaluate against the reference.",
+  "project": "es",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "es_test_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "es_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "seed_guide",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 400.0
+      },
+      "params": {
+        "path": "data/languages/es/evals/runs/gj_seed2/artifacts/style_guide_es_gepa.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 300.0,
+        "y": 80.0
+      },
+      "params": {
+        "model_key": "gemma4-26b",
+        "output_tag": "es_gj2_eval",
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "seed_guide"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 560.0,
+        "y": 80.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "translate",
+        "reference": "terms"
+      }
+    }
+  ]
+}

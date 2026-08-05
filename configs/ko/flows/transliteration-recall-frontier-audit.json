@@ -1,0 +1,64 @@
+{
+  "id": "transliteration-recall-frontier-audit",
+  "name": "transliteration_recall_frontier_audit",
+  "description": "",
+  "project": "transliteration_recall_audit_v1",
+  "nodes": [
+    {
+      "id": "audit_labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "transliteration_audit_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "frontier",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "data_object": "full_frontier_translation_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "calibrate",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "current_threshold": 0.7,
+        "function": "transliteration_recall_calibration"
+      },
+      "inputs": {
+        "audit": "audit_labels",
+        "frontier": "frontier"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "current_recall_pct",
+        "output_name": "current_recall_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "calibrate:metrics"
+      }
+    }
+  ]
+}

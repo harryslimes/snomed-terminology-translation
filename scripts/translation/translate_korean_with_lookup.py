@@ -227,8 +227,14 @@ def translate_one(
     user_prompt: str,
     llm_params: dict,
     timeout: tuple[float, float | None] | float | None = (10, None),
-) -> str:
+    return_usage: bool = False,
+):
     """Single chat-completion call.
+
+    Returns the cleaned completion text. When ``return_usage`` is True, returns
+    ``(text, usage)`` where ``usage`` is the provider's token-usage dict
+    (``prompt_tokens`` / ``completion_tokens`` / ``prompt_tokens_details`` with
+    ``cached_tokens`` under vLLM prefix caching), or ``{}`` if absent.
 
     ``timeout`` is passed straight to ``requests``. The default ``(10, None)``
     is a (connect, read) pair: fail fast (10s) if vLLM is unreachable, but
@@ -247,7 +253,8 @@ def translate_one(
     r = requests.post(f"{base_url}/v1/chat/completions",
                       json=payload, headers=_auth_headers(), timeout=timeout)
     r.raise_for_status()
-    msg = r.json()["choices"][0]["message"]
+    data = r.json()
+    msg = data["choices"][0]["message"]
     # Reasoning models (gpt-oss, qwen3-thinking) may emit only into
     # `reasoning_content` and leave `content` empty/None when the response
     # was truncated. Fall back to reasoning_content's last line so we
@@ -258,7 +265,10 @@ def translate_one(
         content = rc[-1] if rc else ""
     if "<think>" in content:
         content = content.split("</think>")[-1]
-    return content.strip().strip('"').strip("'").strip()
+    content = content.strip().strip('"').strip("'").strip()
+    if return_usage:
+        return content, (data.get("usage") or {})
+    return content
 
 
 def smoke_test_throughput(

@@ -1,0 +1,53 @@
+{
+  "id": "translit-detect-pool",
+  "name": "translit_detect_pool",
+  "description": "",
+  "project": "transliteration_detector_v1",
+  "nodes": [
+    {
+      "id": "pool",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "translations_sme_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "detect",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "flag_rate_pct",
+        "output_name": "flag_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "detect:metrics"
+      }
+    }
+  ]
+}

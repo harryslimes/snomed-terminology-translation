@@ -1,0 +1,12 @@
+{
+  "id": "transliteration_audit_v1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "../snomed-terminology-translation/configs/ko/datasets/transliteration_audit_v1.csv",
+  "csv_path": "../snomed-terminology-translation/configs/ko/datasets/transliteration_audit_v1.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "english",
+    "target": "korean"
+  }
+}

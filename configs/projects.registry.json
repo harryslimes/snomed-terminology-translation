@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "_comment": "Shared registry of projects (workspaces) for the app switcher (/switch). One app process serves one project; this lists the siblings. 'port' is resolved against the requesting host so links work over localhost or Tailscale. Shared across instances (pointed at by WIZARD_PROJECTS_REGISTRY), like models.json.",
+  "projects": [
+    {
+      "code": "ko",
+      "name": "Korean",
+      "direction": "EN→KO",
+      "port": 8099,
+      "description": "SNOMED CT terminology translation, English → Korean.",
+      "mcp_port": 8765
+    },
+    {
+      "code": "et",
+      "name": "Estonian",
+      "direction": "EN→ET",
+      "port": 8100,
+      "description": "SNOMED CT terminology translation, English → Estonian.",
+      "mcp_port": 8766
+    },
+    {
+      "code": "es",
+      "name": "Spanish",
+      "direction": "EN→ES",
+      "port": 8101,
+      "description": "SNOMED CT terminology translation, English → Spanish."
+    }
+  ]
+}

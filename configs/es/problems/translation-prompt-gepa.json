@@ -1,0 +1,11 @@
+{
+  "id": "translation-prompt-gepa",
+  "title": "Optimising the translation prompt / style guide (GEPA)",
+  "prose": "Evolve the seed Spanish style guide into a better translation prompt using GEPA (reflective prompt optimisation) over a held-out train/dev split, and measure the lift over the seed on clean, leakage-free evaluation.",
+  "parent": "snomed-translation",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

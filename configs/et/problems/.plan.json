@@ -1,0 +1,74 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Build stratified eval split (train/dev/test)",
+      "rationale": "Held-out splits are the basis of leakage-free evaluation and GEPA train/dev.",
+      "problem": "leakage-free-evaluation",
+      "addresses": [
+        "source_ingestion"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-2",
+      "title": "Index bilingual exemplars into Qdrant",
+      "rationale": "Per-concept exemplar retrieval needs the et pool indexed (exemplars_*_et_* collections).",
+      "problem": "exemplar-corpus",
+      "addresses": [
+        "build_snomed_index"
+      ],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-3",
+      "title": "Baseline translate + evaluate on the seed guide",
+      "rationale": "Establish a from-scratch baseline before optimisation.",
+      "problem": "snomed-translation",
+      "addresses": [
+        "translate",
+        "evaluate"
+      ],
+      "depends_on": [
+        "task-1",
+        "task-2"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-4",
+      "title": "Optimise the style guide with GEPA",
+      "rationale": "Evolve the seed prompt on the train/dev split.",
+      "problem": "translation-prompt-gepa",
+      "addresses": [
+        "optimize"
+      ],
+      "depends_on": [
+        "task-1"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-5",
+      "title": "Evaluate GEPA-optimised guide vs seed",
+      "rationale": "Measure the lift on the held-out test split.",
+      "problem": "leakage-free-evaluation",
+      "addresses": [
+        "evaluate"
+      ],
+      "depends_on": [
+        "task-3",
+        "task-4"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    }
+  ],
+  "gates": []
+}

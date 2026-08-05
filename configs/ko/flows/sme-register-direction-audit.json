@@ -1,0 +1,50 @@
+{
+  "id": "sme-register-direction-audit",
+  "name": "sme_register_direction_audit",
+  "description": "",
+  "project": "sme_register_direction_audit_v1",
+  "nodes": [
+    {
+      "id": "audit",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "register_feedback_analysis"
+      },
+      "inputs": {
+        "sme_labels": "labels"
+      }
+    },
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "sme_labels_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "register_shift_rows",
+        "output_name": "register_shift_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "audit:metrics"
+      }
+    }
+  ]
+}

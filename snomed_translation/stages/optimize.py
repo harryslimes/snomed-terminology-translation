@@ -249,6 +249,12 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             gepa_kwargs["max_metric_calls"] = opt.gepa.max_metric_calls
         else:
             gepa_kwargs["auto"] = opt.gepa.auto
+        # Optional GEPA search seed (env override) so runs can be varied for a
+        # seed sweep / reproduced exactly.
+        _gepa_seed = os.environ.get("GEPA_SEED")
+        if _gepa_seed:
+            gepa_kwargs["seed"] = int(_gepa_seed)
+            log.info("GEPA seed=%s (from GEPA_SEED)", _gepa_seed)
 
         t0 = time.monotonic()
         optimized = GEPA(**gepa_kwargs).compile(

@@ -1,0 +1,12 @@
+{
+  "id": "sonnet_singleton_sme100_judgements_v1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/e22a7ced11cf/acceptability_judgements.csv",
+  "csv_path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/e22a7ced11cf/acceptability_judgements.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "english",
+    "target": "korean"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "es_snomed",
+  "kind": "snomed_national_extension",
+  "enabled": true,
+  "output_csv": "data/languages/es/pool/snomed_es.csv",
+  "rf2_root": "data/spanish-snomed-edition/SnomedCT_SpanishRelease-es_PRODUCTION_20260510T120000Z",
+  "description_file": "data/spanish-snomed-edition/SnomedCT_SpanishRelease-es_PRODUCTION_20260510T120000Z/Snapshot/Terminology/sct2_Description_SpanishExtensionSnapshot-es_INT_20260510.txt",
+  "language_refset_id": "450828004"
+}

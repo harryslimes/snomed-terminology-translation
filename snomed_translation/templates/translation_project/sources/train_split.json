@@ -1,0 +1,13 @@
+{
+  "id": "{{code}}_train_split",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "{{data_dir}}/evals/dspy_splits/train.csv",
+  "csv_path": "{{data_dir}}/evals/dspy_splits/train.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "{{code}}_reference"
+  },
+  "notes": "Forward-declared train split; the stratified eval-split run writes the CSV. Adjust csv_columns to match its output."
+}

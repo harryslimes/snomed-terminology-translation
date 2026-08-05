@@ -22,6 +22,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from snomed_translation.config import PipelineConfig
 from pipelines.context import RunContext, StageResult
+from pipelines.llm_accounting import vllm_cache_scope
 from snomed_translation.exemplars import ExemplarError, ensure_exemplars
 from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
 from scripts.translation.translate_korean_with_lookup import (
@@ -120,7 +121,9 @@ def _load_eval_rows(cfg: PipelineConfig, limit: int | None) -> list[dict]:
 
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         limit: int | None = None, resume: bool = False,
-        temperature: float | None = None, **_) -> StageResult:
+        temperature: float | None = None,
+        request_timeout_seconds: float = 120.0,
+        max_attempts: int = 3, **_) -> StageResult:
     """Translate every concept in the eval set; write a CSV of results."""
     try:
         candidate = cfg.translation.resolve_candidate()
@@ -138,6 +141,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     # translate_one appends /v1/chat/completions — strip /v1 from our helper
     if base_url.endswith("/v1"):
         base_url = base_url[:-3]
+    # Served model id — used to scope the vLLM prefix-cache metric (harmless for
+    # Agent-SDK models, whose /metrics query simply returns nothing).
+    model_id = model.hf_id or model_key
     # Endpoint-less Agent-SDK models: no server to poll, and subprocess-per-call
     # + subscription rate limits mean the HTTP fan-out must be throttled.
     concurrency = recommended_concurrency(model, candidate.concurrency)
@@ -251,6 +257,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     write_lock = Lock()
     completed = [0]
     errors = [0]
+    retries = [0]
     t0 = time.monotonic()
     mode = "a" if resume and done_sctids else "w"
     outf = out_path.open(mode, encoding="utf-8", newline="")
@@ -268,7 +275,10 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             user_template, paired_translations=pairs_table, english=english,
             language_name=cfg.language.name)
         try:
-            t = complete(model, model_key, system_prompt, user_prompt, llm_params)
+            # complete() (the unified provider) records this call's token usage
+            # into ctx — vLLM input/output/cached OR Agent-SDK usage.
+            t = complete(model, model_key, system_prompt, user_prompt, llm_params,
+                         ctx=ctx)
         except Exception as exc:
             log.error("%s -> ERROR %s", english[:40], exc)
             t = f"ERROR: {exc}"
@@ -279,7 +289,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "translation": t,
         }
 
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+    with vllm_cache_scope(ctx, base_url=base_url, model_id=model_id,
+                          model_key=model_key), \
+         ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {pool.submit(process_row, row): row for row in remaining}
         for fut in as_completed(futures):
             if ctx.is_cancelled():

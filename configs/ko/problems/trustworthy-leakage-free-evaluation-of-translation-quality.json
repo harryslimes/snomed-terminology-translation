@@ -1,0 +1,86 @@
+{
+  "id": "trustworthy-leakage-free-evaluation-of-translation-quality",
+  "title": "Trustworthy (leakage-free) evaluation of translation quality",
+  "prose": "The headline held-out numbers are compromised: gold-in-exemplar leakage means ~88% of kr_test_split terms had their gold Korean among the retrieved exemplars (see translation-prompt-context note-2), so 55.6%/58.1% 'test' scores measure exemplar-selection, not from-scratch translation. Before any further prompt/context optimisation is trusted, the eval harness needs: (1) self-concept exclusion at retrieval time (drop any exemplar whose SCTID or tag-stripped English matches the query concept), (2) a leakage-audited re-run of the headline comparisons (hand v5_1 vs GEPA+Fable vs induced guide), and (3) an extension-EXTERNAL eval set — the ~100 SME-translated terms whose golds are NOT in the exemplar pool are the only currently-clean human references. Also in scope: how far reference-based metrics (exact/chrF/semantic-to-gold) understate quality by penalising valid alternatives — the blind-judge work in translation-prompt-context already showed the metric masking a 2:1 win.",
+  "parent": "snomed-translation",
+  "created": "2026-07-06T14:18:40",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "STATUS AT CREATION (avoid re-doing work): the retrieval fix already exists. On 2026-07-03 sctid self-concept exclusion was built (design: docs/design/leakage-free-exemplars.md; pool regenerated with per-row sctid+source, 514,756 rows; Qdrant collection exemplars_pooled_legacy_ko_8d5bcc2e; run emits exclusion metrics + excluded_exemplars_*.csv). Clean kr_test_split (124) results: hand v5_1 = 36.3% exact / 70.1 chrF (run 6646ab05591c); GEPA(Fable) = 21.8% / 63.9 (run df42e169939c). Audit: gold removed for 108/124 (87%), residual leakage via other sources = 0. So draft task-23 (self-exclusion + audit) is effectively DONE — accept-and-close or discard it; task-26 (re-run headline comparison) is the live one, with three open pieces: induced-guide re-runs, the SME-external eval set, and the clean GEPA re-optimisation (prior GEPA optimised in a near-exemplar-free regime, so the clean-harness comparison vs v5_1 is train/eval-mismatched until GEPA is re-run in the pooled-excluded regime). Caveat inherited from the blind-judge work: exact/chrF-to-gold also penalise valid alternatives, so clean absolute numbers still understate quality — the SME-external set + judge calibration (sme_judge_agreement_v1) address that.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "clean_eval_leakage_fix_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6646ab05591c",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df42e169939c",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "sme_judge_agreement_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-06T14:22:24"
+    },
+    {
+      "id": "note-2",
+      "body": "**Graded cross-lingual closeness (task-E): exact-match understates quality by ~18% of all items; the usable graded signal is KO↔KO-vs-reference, NOT the EN↔KO direct comparison.** Analysed 3,693 forward-translation candidates (procedure/therapy eval set, gemma4-26b lookup; gold = KR-extension preferred term) with BGE-M3. Script: scripts/analysis/graded_xlingual_closeness.py; per-item table wizard-data/eval_inputs/xlingual_closeness_full.csv; worked examples xlingual_penalty_examples.csv.\n\n- 2,591 exact / 1,102 non-exact. Exact anchors sanity-check: sim_ko(cand,gold)=0.998.\n- METRIC PENALTY: of the 1,102 non-exact items, **59.6% are semantically equivalent** (sim_ko ≥ τ=0.784, τ calibrated as the 5th-pct sim_ko of chrF≥0.9 near-variants). That is **17.8% of ALL items that exact-match wrongly calls 'wrong'.** Robust to τ: 41% valid even at 0.85, 26% at 0.90. These valid synonyms average chrF 0.548 (not 1.0), and 106 of them (9.6% of non-exact) score chrF<0.3 — the surface metric misses them entirely. Cause is Sino-Korean vs native vs loanword variation: 칼륨/포타슘 (potassium), 나트륨/소듐 (sodium), 세침/가는 바늘 (fine needle), 유돌/꼭지돌기 (mastoid), X선/방사선 (X-ray).\n- USER'S EN↔KO DIRECT IDEA (reference-free candidate-KO vs source-EN): weak. Raw AUC 0.604 for recovering the KO↔KO 'correct' label; rank-normalising to control BGE's cross-lingual compression did NOT help (0.580). Confirms BGE-M3 compresses EN↔KO (exact-anchor sim_en 0.583 vs non-exact 0.557 — barely separated). So embeddings gauge closeness well ONLY with a Korean reference (KO↔KO); reference-free EN↔KO is not a usable graded score. Consistent with note-direct-xlingual-verify's binary-detector finding (0.58–0.62), now shown for the graded/non-exact framing too.\n\nIMPLICATION: add a KO↔KO semantic partial-credit scorer to the eval recipe so valid synonyms aren't zeroed — this directly de-noises task-26's clean comparison (the leakage-free 36.3% exact almost certainly understates real quality by a similar ~18% margin). CAVEATS: 'valid' here is grounded by the sim_ko threshold itself (semantic-embedding estimate, mildly circular), not SME-confirmed — validate τ against the task-24 SME ratings before trusting the 59.6% precisely; eval set is procedure/therapy only. Script-derived numbers (not yet a tracked flow) — promote the scorer to a flow node to make it reproducible.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "snomed_direct_xlingual_verify_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "clean_eval_leakage_fix_v1",
+          "label": ""
+        }
+      ],
+      "author": "research-agent",
+      "ts": "2026-07-06T15:01:04"
+    },
+    {
+      "id": "note-3",
+      "body": "Tracked semantic partial-credit calibration completed. The 3,693-item heuristic reproduces the earlier 17.8% exact-match penalty estimate, and reference-based KO↔KO similarity ranks SME acceptability strongly (AUC 0.902 on SME-100). However, the old 0.784 cutoff has only 54% accuracy and 17% specificity against SME labels, so 17.8% is not a validated prevalence of acceptable synonyms. Direct reference-free EN↔KO remains weak (AUC 0.605; rank-normalised 0.582). Use KO↔KO similarity as graded partial credit/screening, not a hard verdict.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "2ce6c53b36a5",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "semantic_partial_credit_calibration_v1",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-07-15T09:13:12"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

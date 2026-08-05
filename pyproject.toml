@@ -47,6 +47,11 @@ snomed_translation = "snomed_translation.functions:specs"
 [project.entry-points."semi_automated_research.sources"]
 snomed_translation = "snomed_translation.functions:resolve_source"
 
+# UI sections (nav + router + templates) this plugin contributes to the app —
+# domain pages that assume LLMs / API costs and don't belong in the generic app.
+[project.entry-points."semi_automated_research.ui"]
+snomed_translation = "snomed_translation.ui:plugin"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

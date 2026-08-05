@@ -1,0 +1,12 @@
+{
+  "id": "sme_backtranslations_v1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/ko/sme_review/2026-04-24/back_trans.csv",
+  "csv_path": "data/languages/ko/sme_review/2026-04-24/back_trans.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  }
+}

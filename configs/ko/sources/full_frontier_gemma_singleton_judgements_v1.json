@@ -1,0 +1,12 @@
+{
+  "id": "full_frontier_gemma_singleton_judgements_v1",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/7e2b31d27ac2/acceptability_judgements.csv",
+  "csv_path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/7e2b31d27ac2/acceptability_judgements.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "english",
+    "target": "korean"
+  }
+}

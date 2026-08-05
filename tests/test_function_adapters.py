@@ -48,9 +48,33 @@ def test_all_specs_are_valid_and_runners_load():
         "text_source", "prompt_source", "promote_prompt",
         "build_snomed_index",
         "snomed_retrieve", "back_translate", "rerank",
+        "transliteration_detect", "acceptability_judge",
+        "acceptability_judge_batched", "correction_round",
+        "select_sme_batch", "package_sme_batch",
+        "translation_evaluation_summary",
+        "semantic_partial_credit_calibration",
+        "register_feedback_analysis",
+        "transliteration_recall_calibration",
     }
     for s in F.specs():
         assert callable(s.load_runner())
+
+
+def test_dynamic_dataset_schema_supports_upstream_selected_terms(tmp_path):
+    selected = tmp_path / "selected.csv"
+    selected.write_text(
+        "sctid,preferred_term,translation\n1,Computed tomography of head,머리 CT\n",
+        encoding="utf-8",
+    )
+
+    recovered = F._dynamic_dataset_dict(str(selected))
+
+    assert recovered is not None
+    assert recovered["roles"] == {
+        "sctid": "sctid",
+        "en": "preferred_term",
+        "target": "translation",
+    }
 
 
 def test_evaluate_formula_reduces_upstream_metrics(tmp_path):

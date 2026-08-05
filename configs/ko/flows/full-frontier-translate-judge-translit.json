@@ -1,0 +1,177 @@
+{
+  "id": "full-frontier-translate-judge-translit",
+  "name": "full_frontier_translate_judge_translit",
+  "description": "Translate all 5,796 untranslated imaging procedures with current local Gemma baseline, run transliteration_detect and the local Gemma acceptability judge over every output, aggregate timing/throughput and quality metrics, and publish translations plus JSON summary.",
+  "project": "full_frontier_translation_eval_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "untranslated_imaging_v1"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/style_guide/style_guide_ko_v5_1.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate_all",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "full_frontier_5796_v5_1",
+        "resume": false,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "translit",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "translate_all:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "max_tokens": 220,
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "translate_all:translations"
+      }
+    },
+    {
+      "id": "summary",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "function": "translation_evaluation_summary"
+      },
+      "inputs": {
+        "translation_metrics": "translate_all:metrics",
+        "judge_metrics": "judge:metrics",
+        "transliteration_metrics": "translit:metrics"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "expression": "judged_acceptable / n_translated * 100",
+        "output_name": "judge_acceptable_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "summary:metrics"
+      }
+    },
+    {
+      "id": "publish_translations",
+      "type": "promote",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "name": "full_frontier_translation_v1"
+      },
+      "inputs": {
+        "value": "translate_all:translations"
+      }
+    },
+    {
+      "id": "publish_summary",
+      "type": "promote",
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "params": {
+        "name": "full_frontier_translation_eval_summary_v1",
+        "type": "text"
+      },
+      "inputs": {
+        "value": "summary:report"
+      }
+    }
+  ]
+}

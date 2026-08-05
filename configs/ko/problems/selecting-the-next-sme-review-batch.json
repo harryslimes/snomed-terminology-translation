@@ -1,0 +1,72 @@
+{
+  "id": "selecting-the-next-sme-review-batch",
+  "title": "Selecting the next SME review batch",
+  "prose": "SME hours are the scarcest resource, so each review batch must be designed to answer a question, not sampled blindly. Proposed composition for a ~100-150 term batch: (1) ~40% STRATIFIED RANDOM from the production frontier — concepts NOT in the Korean extension, stratified by hierarchy/semantic tag (procedure subtype, radiology modality), term length / compositional complexity, and retrieval-neighbour quality — giving an unbiased quality estimate on the terms that actually need translating; (2) ~40% ACTIVELY SAMPLED for information value — terms where signals disagree: judge-vs-reference divergence, prompt/model output disagreement, consistency-check violations, low retrieval margin, back-translation mismatch; (3) ~20% RELIABILITY items — repeats from the first SME batch (intra-rater consistency) and, if 2+ SMEs, an overlap subset for inter-rater agreement, which upper-bounds achievable judge agreement. Operational: dedupe near-identical terms (laterality/site variants) before sending; deliver with a structured feedback form (accept/edit/reject + error category from the taxonomy + corrected translation) so the output is machine-usable for GEPA and judge calibration.",
+  "parent": "exploiting-sme-terminologist-feedback",
+  "created": "2026-07-06T14:19:16",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Batch-2 candidate selection is now implemented as a reusable flow node rather than a one-off sampler. It restricts the pool to untranslated imaging procedures, excludes all batch-1 SCTIDs, filters close source-term variants, learns error-enriched English tokens from batch-1 SME labels without exposing SME corrections, and compares coverage, active-risk, and balanced candidates. The stricter balanced candidate is packaged with blank structured SME fields plus its audit and local judgements. It preserves broad modality/complexity coverage while intentionally retaining a substantial likely-error arm. No transliteration flags appeared in any candidate; the local LLM judge provides prioritisation only and must not substitute for SME verdicts.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "investigation",
+          "to_id": "sme_batch_selection_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4a8fafa34e74",
+          "label": "[initial balanced]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6de1444d72ab",
+          "label": "[coverage]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25cf0e01b039",
+          "label": "[active]"
+        },
+        {
+          "to_kind": "run",
+          "to_id": "0084a2bd8be8",
+          "label": "[chosen stricter balanced]"
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-07-12T17:21:23"
+    },
+    {
+      "id": "note-2",
+      "body": "Review of the earlier balanced candidate found that its active-risk arm repeatedly sampled the same upper-limb terminology issue and several skeletal-survey templates. The selector now excludes laterality/location words from learned feedback risk, balances active candidates across modality and complexity cells, caps repeated non-modality topics, applies a stricter within-batch similarity threshold, and corrects ultrasound/nuclear modality routing. The replacement packet was freshly translated with local Gemma QAT and packaged with blank SME fields. Hidden automated judgments remain audit signals only and are not included in the SME packet.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "0084a2bd8be8",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        }
+      ],
+      "author": "Codex",
+      "ts": "2026-07-14T16:06:35"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}
