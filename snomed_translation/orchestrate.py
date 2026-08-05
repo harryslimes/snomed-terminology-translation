@@ -118,9 +118,13 @@ def orchestrate_language_project(
         shutil.copyfile(pool_csv, pool_out)
         stage("pool", mode="provided", out=str(pool_out))
     elif athena_bundle and language_name:
-        r = mat.build_pool(bundle=Path(athena_bundle), out=pool_out,
-                           language_name=language_name)
-        stage("pool", mode="athena", pairs=r["pairs"], concepts=r["concepts"])
+        try:
+            r = mat.build_pool(bundle=Path(athena_bundle), out=pool_out,
+                               language_name=language_name)
+            stage("pool", mode="athena", pairs=r["pairs"], concepts=r["concepts"])
+        except Exception as exc:  # bad bundle / unknown language — record, don't abort
+            receipt["gaps"].append(f"build_pool failed: {exc}")
+            pool_out = None
     else:
         receipt["gaps"].append(
             "no pool.csv and no athena_bundle(+language_name) → pool not built")
@@ -142,11 +146,16 @@ def orchestrate_language_project(
     # 6. Disjoint train/dev/test splits (gold = RF2 preferred term).
     splits_dir = data_dir / "evals" / "dspy_splits"
     if archive and pool_out and pool_out.exists():
-        r = mat.build_splits(rf2_snapshot=Path(archive.edition_dir) / "Snapshot",
-                             pool_csv=pool_out, outdir=splits_dir, code=code,
-                             test=test, dev=dev, train=train, seed=seed)
-        stage("splits", eligible=r["eligible"], test=r["test"], dev=r["dev"],
-              train=r["train"])
+        try:
+            r = mat.build_splits(
+                rf2_snapshot=Path(archive.edition_dir) / "Snapshot",
+                pool_csv=pool_out, outdir=splits_dir, code=code,
+                language_refset_id=archive.language_refset_id,
+                test=test, dev=dev, train=train, seed=seed)
+            stage("splits", eligible=r["eligible"], test=r["test"], dev=r["dev"],
+                  train=r["train"])
+        except Exception as exc:  # too few eligible / provided-pool column mismatch
+            receipt["gaps"].append(f"build_splits failed: {exc}")
     else:
         receipt["gaps"].append("splits skipped (need RF2 archive + pool)")
 

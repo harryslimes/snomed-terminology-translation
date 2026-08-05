@@ -116,13 +116,17 @@ def build_pool(*, bundle: Path, out: Path, language_name: str,
 # --------------------------------------------------------------------------- #
 # 2. Disjoint train/dev/test eval splits from an RF2 Snapshot.
 # --------------------------------------------------------------------------- #
-def _preferred_desc_ids(lang_refset: Path) -> set[str]:
+def _preferred_desc_ids(lang_refset: Path, refset_id: str | None = None) -> set[str]:
+    """referencedComponentIds marked Preferred. Filtered to ``refset_id`` when
+    given (a combined edition's Language file carries several refsets — e.g. GB/US
+    English alongside the target — so scope to the detected language refset)."""
     out: set[str] = set()
     with lang_refset.open(encoding="utf-8", newline="") as f:
         r = csv.reader(f, delimiter="\t")
         next(r, None)  # id,effectiveTime,active,moduleId,refsetId,referencedComponentId,acceptabilityId
         for row in r:
-            if len(row) >= 7 and row[2] == "1" and row[6] == _PREFERRED:
+            if (len(row) >= 7 and row[2] == "1" and row[6] == _PREFERRED
+                    and (refset_id is None or row[4] == refset_id)):
                 out.add(row[5])
     return out
 
@@ -148,22 +152,33 @@ def _concept_gold(desc_file: Path, pref_ids: set[str],
     return pt, tag
 
 
-def _find_rf2_files(rf2_snapshot: Path) -> tuple[Path, Path]:
-    """Locate the Description + Language-refset snapshot files (national-ext or
-    International-edition naming)."""
-    desc = next((p for pat in ("Terminology/sct2_Description_*Snapshot*.txt",
-                               "**/sct2_Description_*Snapshot*.txt")
+def _find_rf2_files(rf2_snapshot: Path, language_code: str) -> tuple[Path, Path]:
+    """Locate the **target-language** Description + Language-refset snapshot files.
+
+    A full edition ships the International English files (``…-en_INT…``) beside the
+    target-language ones in the same dirs, so the glob MUST be scoped by
+    ``-{language_code}`` — otherwise the English files sort first and we'd build
+    splits against English descriptions (0 eligible). Mirrors the code-scoped
+    matching in ``provision.detect_snomed_archive``. Handles national-extension
+    (``…Snapshot-et_EE…``) and International (``…SpanishExtensionSnapshot-es_INT…``)
+    naming."""
+    c = language_code
+    desc = next((p for pat in (f"**/sct2_Description_*Snapshot*-{c}_*.txt",
+                               f"**/sct2_Description_*Snapshot*-{c}.txt")
                  for p in sorted(rf2_snapshot.glob(pat))), None)
-    lang = next((p for pat in ("Refset/Language/der2_cRefset_Language*Snapshot*.txt",
-                               "**/der2_cRefset_Language*Snapshot*.txt")
+    lang = next((p for pat in (f"**/der2_cRefset_Language*Snapshot*-{c}_*.txt",
+                               f"**/der2_cRefset_Language*Snapshot*-{c}.txt")
                  for p in sorted(rf2_snapshot.glob(pat))), None)
     if desc is None or lang is None:
-        raise ValueError(f"could not find Description/Language snapshot under {rf2_snapshot}")
+        raise ValueError(
+            f"could not find Description/Language snapshot for language {c!r} "
+            f"under {rf2_snapshot}")
     return desc, lang
 
 
 def build_splits(*, rf2_snapshot: Path, pool_csv: Path, outdir: Path, code: str,
                  language_code: str | None = None,
+                 language_refset_id: str | None = None,
                  test: int = 200, dev: int = 100, train: int = 300,
                  seed: int = 42) -> dict:
     """Write disjoint ``{test,dev,train}.csv`` (columns
@@ -172,10 +187,11 @@ def build_splits(*, rf2_snapshot: Path, pool_csv: Path, outdir: Path, code: str,
     Concepts must have both to be eligible. Returns a summary dict."""
     rf2_snapshot, pool_csv, outdir = Path(rf2_snapshot), Path(pool_csv), Path(outdir)
     lang_code = language_code or code
-    desc, lang = _find_rf2_files(rf2_snapshot)
-    log.info("build_splits: desc=%s lang=%s (languageCode=%s)", desc.name, lang.name, lang_code)
+    desc, lang = _find_rf2_files(rf2_snapshot, lang_code)
+    log.info("build_splits: desc=%s lang=%s (languageCode=%s, refset=%s)",
+             desc.name, lang.name, lang_code, language_refset_id or "any")
 
-    pref = _preferred_desc_ids(lang)
+    pref = _preferred_desc_ids(lang, language_refset_id)
     pt, tag = _concept_gold(desc, pref, lang_code)
     en: dict[str, str] = {}
     with pool_csv.open(encoding="utf-8", newline="") as f:
