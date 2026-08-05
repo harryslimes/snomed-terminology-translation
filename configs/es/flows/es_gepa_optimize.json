@@ -1,0 +1,63 @@
+{
+  "id": "es_gepa_optimize",
+  "name": "Spanish GEPA optimise style guide",
+  "description": "Evolve the seed style guide with GEPA over the train/dev split; the optimised guide is the run output.",
+  "project": "es",
+  "nodes": [
+    {
+      "id": "trainset",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "es_train_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "devset",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 240.0
+      },
+      "params": {
+        "source": "es_dev_split"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "seed_guide",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 400.0
+      },
+      "params": {
+        "path": "style_guide/es/style_guide_es_seed.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "optimize",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 120.0
+      },
+      "params": {
+        "model_key": "gemma4-26b",
+        "output_tag": "es_gepa",
+        "function": "optimize"
+      },
+      "inputs": {
+        "trainset": "trainset",
+        "devset": "devset",
+        "seed_style_guide": "seed_guide"
+      }
+    }
+  ]
+}

@@ -95,13 +95,18 @@ def detect_snomed_archive(archive_path: str | Path, code: str) -> ArchiveInfo:
 
     desc = _glob_one(
         edition / "Snapshot",
-        [f"*Description_Snapshot-{code}_*.txt", f"*Description_Snapshot-{code}.txt"],
+        # National extensions: "…Description_Snapshot-et_EE…". International
+        # editions carry an infix before "Snapshot" (e.g. Spanish edition:
+        # "…Description_SpanishExtensionSnapshot-es_INT…"), so allow "*" between.
+        [f"*Description_Snapshot-{code}_*.txt", f"*Description_Snapshot-{code}.txt",
+         f"*Description_*Snapshot-{code}_*.txt", f"*Description_*Snapshot-{code}.txt"],
         f"a Description snapshot for language '{code}'",
     )
     lang = _glob_one(
         edition / "Snapshot",
         [f"*LanguageSnapshot-{code}_*.txt", f"*Language_Snapshot-{code}_*.txt",
-         f"*LanguageSnapshot-{code}.txt"],
+         f"*LanguageSnapshot-{code}.txt",
+         f"*Language*Snapshot-{code}_*.txt", f"*Language*Snapshot-{code}.txt"],
         f"a Language refset snapshot for language '{code}'",
     )
 

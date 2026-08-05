@@ -1,0 +1,13 @@
+{
+  "id": "es_pool",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/es/pool/athena_es_pool_clean.csv",
+  "csv_path": "data/languages/es/pool/athena_es_pool_clean.csv",
+  "csv_columns": {
+    "en": "en",
+    "target": "target",
+    "sctid": "sctid",
+    "source": "source"
+  }
+}

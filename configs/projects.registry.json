@@ -17,6 +17,13 @@
       "port": 8100,
       "description": "SNOMED CT terminology translation, English → Estonian.",
       "mcp_port": 8766
+    },
+    {
+      "code": "es",
+      "name": "Spanish",
+      "direction": "EN→ES",
+      "port": 8101,
+      "description": "SNOMED CT terminology translation, English → Spanish."
     }
   ]
 }
