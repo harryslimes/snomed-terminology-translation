@@ -141,7 +141,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                            message=f"Nothing to do ({len(rows)} already complete)")
 
     try:
-        lookup_cache = ensure_exemplars(cfg, remaining)
+        # ensure_exemplars returns (cache, self_exclusions) — the second element
+        # is the per-concept gold dropped by self-exclusion, unused here.
+        lookup_cache, _exclusions = ensure_exemplars(cfg, remaining)
     except ExemplarError as exc:
         return StageResult(stage=stage, ok=False,
                            message=f"exemplars unavailable: {exc}")

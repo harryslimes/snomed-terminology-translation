@@ -288,3 +288,169 @@ def sme_metric_separation(ctx: RunContext, inputs: dict[str, Any],
            f"balanced acc {metrics['cosine_best_threshold_balanced_acc']})")
     return FunctionResult(ok=True, outputs={"audit": str(out)},
                           metrics=metrics, message=msg)
+
+
+# ---------------------------------------------------------------------------
+# self_review — can a model catch its own mistakes?
+# ---------------------------------------------------------------------------
+
+# Deliberately NEUTRAL. It names no error class (no mention of contrast,
+# suffixes, register, word order, dropped modifiers) and gives no style guide,
+# so a flagged row reflects the model's own judgement rather than a checklist
+# we handed it. Telling it what to look for would test instruction-following,
+# not self-critique.
+SELF_REVIEW_SYSTEM = """You are reviewing Korean translations of English SNOMED CT clinical terms.
+
+For each pair you are given the English source term and a proposed Korean translation.
+Decide whether the proposed translation should be used as-is, or changed.
+
+Reply with STRICT JSON only, no prose around it:
+{"verdict": "KEEP|CHANGE", "revision": "<the Korean you would use instead, or empty if KEEP>", "reason": "<one short sentence>"}
+
+If you would use the proposed translation unchanged, reply KEEP with an empty revision."""
+
+
+def self_review(ctx: RunContext, inputs: dict[str, Any],
+                params: dict[str, Any]) -> FunctionResult:
+    """Ask a model to review translations (usually its own) and measure it.
+
+    Reports, against the SME gold when a ``gold`` dataset is wired:
+      detection  — CHANGE rate on rows that did NOT match gold (mistakes found)
+      false_alarm— CHANGE rate on rows that DID match gold (needless edits)
+      repair     — of the CHANGEd wrong rows, how many revisions reach gold
+      damage     — of the CHANGEd correct rows, how many revisions leave gold
+    """
+    import json as _json
+    from concurrent.futures import ThreadPoolExecutor
+
+    from snomed_translation.acceptability import _judge_claude, _judge_local, _is_claude
+
+    tpath = _dataset_path(inputs.get("translations"))
+    if not tpath or not Path(tpath).exists():
+        return FunctionResult(ok=False, message="self_review: no `translations` wired")
+    roles = _roles(inputs.get("translations"))
+    id_col = _col(params, roles, "id_col", "sctid", "sctid")
+    en_col = _col(params, roles, "en_col", "en", "preferred_term")
+    ko_col = _col(params, roles, "ko_col", "target", "translation")
+    model = str(params.get("model") or "")
+    if not model:
+        return FunctionResult(ok=False, message="self_review: `model` param required")
+    base_url = str(params.get("base_url") or "http://localhost:8086")
+    system = str(params.get("system") or SELF_REVIEW_SYSTEM)
+    # Optional: give the reviewer the same style guide the translator had. The
+    # unguided arm measures the model's own prior; the guided arm measures
+    # whether it can apply a rulebook it demonstrably follows when translating.
+    sg = inputs.get("style_guide")
+    sg_text = ""
+    if isinstance(sg, dict):
+        sg_text = sg.get("text") or sg.get("body") or ""
+        if not sg_text and sg.get("path") and Path(sg["path"]).exists():
+            sg_text = Path(sg["path"]).read_text(encoding="utf-8")
+    elif isinstance(sg, str) and sg.strip():
+        sg_text = (Path(sg).read_text(encoding="utf-8")
+                   if Path(sg).exists() else sg)
+    if sg_text:
+        system = f"{system}\n\n# Style guide\n\n{sg_text}"
+    max_tokens = int(params.get("max_tokens") or 220)
+    concurrency = int(params.get("concurrency") or (4 if _is_claude(model) else 16))
+
+    gold: dict[str, set[str]] = {}
+    gpath = _dataset_path(inputs.get("gold"))
+    if gpath and Path(gpath).exists():
+        allrefs = str(params.get("allrefs_col") or "ko_all")
+        refcol = str(params.get("reference_col") or "ko_reference")
+        with Path(gpath).open(encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                raw = (r.get(allrefs) or r.get(refcol) or "")
+                gold[(r.get("sctid") or "").strip()] = {
+                    norm_text(x) for x in raw.split("|") if x.strip()}
+
+    with Path(tpath).open(encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f)
+                if (r.get(en_col) or "").strip() and (r.get(ko_col) or "").strip()]
+
+    def one(r: dict) -> dict:
+        en, ko = r[en_col].strip(), r[ko_col].strip()
+        payload = f"english: {en}\nkorean: {ko}"
+        try:
+            if _is_claude(model):
+                from snomed_translation.generate import run_query
+                text = run_query(payload, model=model, system=system,
+                                 thinking=False, ctx=ctx)
+            else:
+                import urllib.request
+                body = _json.dumps({
+                    "model": model, "temperature": 0.0, "max_tokens": max_tokens,
+                    "messages": [{"role": "system", "content": system},
+                                 {"role": "user", "content": payload}],
+                }).encode()
+                req = urllib.request.Request(
+                    base_url.rstrip("/") + "/v1/chat/completions", data=body,
+                    headers={"Content-Type": "application/json"})
+                resp = _json.loads(urllib.request.urlopen(req, timeout=180).read())
+                from pipelines.llm_accounting import record_completion
+                record_completion(ctx, model=model, usage=resp.get("usage"))
+                text = resp["choices"][0]["message"]["content"]
+            m = re.search(r"\{.*\}", text, re.S)
+            d = _json.loads(m.group(0)) if m else {}
+        except Exception as exc:  # a failed review must not kill the run
+            d = {"verdict": "ERROR", "revision": "", "reason": str(exc)[:120]}
+        verdict = str(d.get("verdict") or "").strip().upper()
+        revision = str(d.get("revision") or "").strip()
+        sid = (r.get(id_col) or "").strip()
+        refs = gold.get(sid)
+        was_right = None if refs is None else int(norm_text(ko) in refs)
+        rev_right = None
+        if refs is not None and verdict == "CHANGE" and revision:
+            rev_right = int(norm_text(revision) in refs)
+        return {"sctid": sid, "english": en, "korean": ko, "verdict": verdict,
+                "revision": revision, "reason": str(d.get("reason") or "")[:200],
+                "was_correct": "" if was_right is None else was_right,
+                "revision_correct": "" if rev_right is None else rev_right}
+
+    with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
+        out_rows = list(ex.map(one, rows))
+
+    out = Path(ctx.log_dir) / "self_review.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(out_rows[0].keys()))
+        w.writeheader()
+        w.writerows(out_rows)
+
+    n = len(out_rows)
+    changed = [r for r in out_rows if r["verdict"] == "CHANGE"]
+    metrics = {"n_rows": float(n), "n_change": float(len(changed)),
+               "n_keep": float(sum(1 for r in out_rows if r["verdict"] == "KEEP")),
+               "n_error": float(sum(1 for r in out_rows if r["verdict"] == "ERROR")),
+               "change_rate_pct": round(100.0 * len(changed) / n, 2)}
+    scored = [r for r in out_rows if r["was_correct"] != ""]
+    if scored:
+        wrong = [r for r in scored if r["was_correct"] == 0]
+        right = [r for r in scored if r["was_correct"] == 1]
+        ch_wrong = [r for r in wrong if r["verdict"] == "CHANGE"]
+        ch_right = [r for r in right if r["verdict"] == "CHANGE"]
+        metrics["n_was_wrong"] = float(len(wrong))
+        metrics["n_was_correct"] = float(len(right))
+        metrics["detection_rate_pct"] = round(
+            100.0 * len(ch_wrong) / len(wrong), 2) if wrong else 0.0
+        metrics["false_alarm_rate_pct"] = round(
+            100.0 * len(ch_right) / len(right), 2) if right else 0.0
+        metrics["repair_rate_pct"] = round(
+            100.0 * sum(1 for r in ch_wrong if r["revision_correct"] == 1)
+            / len(ch_wrong), 2) if ch_wrong else 0.0
+        metrics["damage_rate_pct"] = round(
+            100.0 * sum(1 for r in ch_right if r["revision_correct"] == 0)
+            / len(ch_right), 2) if ch_right else 0.0
+        net = (sum(1 for r in ch_wrong if r["revision_correct"] == 1)
+               - sum(1 for r in ch_right if r["revision_correct"] == 0))
+        metrics["net_rows_gained"] = float(net)
+
+    msg = (f"{len(changed)}/{n} CHANGE"
+           + (f"; detection {metrics.get('detection_rate_pct')}% "
+              f"false-alarm {metrics.get('false_alarm_rate_pct')}% "
+              f"repair {metrics.get('repair_rate_pct')}% "
+              f"damage {metrics.get('damage_rate_pct')}% "
+              f"net {int(metrics.get('net_rows_gained', 0)):+d} rows" if scored else ""))
+    return FunctionResult(ok=True, outputs={"reviews": str(out)},
+                          metrics=metrics, message=msg)

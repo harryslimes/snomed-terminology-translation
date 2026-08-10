@@ -11,6 +11,7 @@ import csv
 import json
 import logging
 import os
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -164,8 +165,43 @@ def _apply_thinking(llm_params: dict, thinking: bool | None,
     return out
 
 
+ATTR_KEYS = [
+    ("method_fsn", "method"),
+    ("procedure_site_direct_fsn", "site"),
+    ("procedure_site_indirect_fsn", "site"),
+    ("procedure_site_fsn", "site"),
+    ("finding_site_fsn", "site"),
+    ("direct_substance_fsn", "substance"),
+    ("using_device_fsn", "device"),
+]
+
+
+def _strip_tag(fsn: str) -> str:
+    """'Breast structure (body structure)' -> 'Breast structure'."""
+    return re.sub(r"\s*\([^)]*\)\s*$", "", (fsn or "").strip())
+
+
+def render_concept_facts(attr: dict) -> str:
+    """A compact English fact block from a concept's defining attributes.
+
+    Targets referent-resolution errors that no amount of style guidance fixes:
+    the model reads 'Gynecogram' and resolves it to the gynaecology DEPARTMENT
+    rather than the female genital tract, which `procedure site = Female
+    genital structure` settles outright.
+    """
+    seen: set[str] = set()
+    facts: list[str] = []
+    for key, label in ATTR_KEYS:
+        val = _strip_tag(attr.get(key, ""))
+        if val and (label, val) not in seen:
+            seen.add((label, val))
+            facts.append(f"- {label}: {val}")
+    return "\n".join(facts)
+
+
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         limit: int | None = None, resume: bool = False,
+        attributes_json: str | None = None,
         temperature: float | None = None,
         thinking: bool | None = None,
         request_timeout_seconds: float = 120.0,
@@ -217,6 +253,16 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     # DASHSCOPE_API_KEY / VLLM_API_KEY from env). We just need the right env var set.
     if candidate.api_key_env and os.getenv(candidate.api_key_env):
         os.environ.setdefault("VLLM_API_KEY", os.environ[candidate.api_key_env])
+
+    # Optional concept-attribute context (SNOMED defining relationships).
+    attributes: dict = {}
+    if attributes_json:
+        ap = Path(attributes_json)
+        if not ap.exists():
+            return StageResult(stage="translate", ok=False,
+                               message=f"attributes_json not found: {ap}")
+        attributes = json.loads(ap.read_text(encoding="utf-8"))
+        log.info("Concept attributes loaded: %d concepts", len(attributes))
 
     # Prompts
     system_prompt, user_template = _build_prompts(cfg)
@@ -349,6 +395,13 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         user_prompt = render_user(
             user_template, paired_translations=pairs_table, english=english,
             language_name=cfg.language.name)
+        if attributes:
+            facts = render_concept_facts(attributes.get(row["sctid"], {}))
+            if facts:
+                user_prompt = (
+                    "Facts about this SNOMED concept (from its formal "
+                    "definition — use them to resolve what the term refers "
+                    "to):\n" + facts + "\n\n" + user_prompt)
         try:
             # complete() (the unified provider) records this call's token usage
             # into ctx — vLLM input/output/cached OR Agent-SDK usage.

@@ -575,6 +575,9 @@ translate_spec = FunctionSpec(
     outputs=[PortSpec(name="translations", kinds=["dataset"],
                       roles=["sctid", "en", "target"])],
     params=[
+        # Optional SNOMED defining-attribute context, keyed by sctid.
+        ParamSpec(name="attributes_json", label="Concept attributes JSON",
+                  kind="text"),
         # Force reasoning on/off per node across backends (Claude `thinking`,
         # vLLM/DashScope `enable_thinking`); unset inherits the model default.
         ParamSpec(name="thinking", label="Reasoning/thinking mode", kind="bool"),
@@ -1423,6 +1426,37 @@ curate_exemplar_pool_spec = FunctionSpec(
     runner="snomed_translation.pool_curation:curate_exemplar_pool",
 )
 
+self_review_spec = FunctionSpec(
+    name="self_review", label="Self review (model checks translations)",
+    category="evaluate",
+    description="Ask a model to review translations (typically its own) with a "
+                "deliberately neutral prompt that names no error class, then "
+                "measure it against gold: detection rate on wrong rows, "
+                "false-alarm rate on correct rows, repair and damage rates.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="gold", label="Gold references", kinds=["dataset"]),
+        PortSpec(name="style_guide", label="Style guide (optional)",
+                 kinds=["style_guide", "text"]),
+    ],
+    outputs=[
+        PortSpec(name="reviews", label="Per-row reviews", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="model", label="Review model", kind="text", required=True),
+        ParamSpec(name="base_url", label="Base URL", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number"),
+        ParamSpec(name="max_tokens", label="Max tokens", kind="number", default=220),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Korean column", kind="text"),
+        ParamSpec(name="system", label="Review system prompt", kind="textarea"),
+    ],
+    runner="snomed_translation.sme_feedback:self_review",
+)
+
 contrast_fidelity_detect_spec = FunctionSpec(
     name="contrast_fidelity_detect", label="Contrast fidelity detect",
     category="detect",
@@ -1529,6 +1563,7 @@ def specs() -> list[FunctionSpec]:
         translation_evaluation_summary_spec,
         semantic_partial_credit_calibration_spec,
         curate_exemplar_pool_spec,
+        self_review_spec,
         contrast_fidelity_detect_spec,
         sme_metric_separation_spec,
         register_feedback_analysis_spec,
