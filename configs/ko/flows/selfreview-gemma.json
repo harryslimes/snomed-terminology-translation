@@ -1,0 +1,29 @@
+{
+  "id": "selfreview-gemma",
+  "name": "selfreview_gemma",
+  "description": "Can gemma4-26b-qat catch its OWN mistakes? Re-translates the 200-row SME gold, then asks the same model to review each (english, korean) pair with a deliberately neutral prompt naming no error class and giving no style guide. Scored against gold: detection rate on rows it got wrong vs false-alarm rate on rows it got right (needless edits), plus repair and damage rates.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "terms", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "sme_gold_all"}, "inputs": {}},
+    {"id": "exemplars", "type": "datasource", "pos": {"x": 40.0, "y": 200.0},
+     "params": {"source": "pooled_legacy"}, "inputs": {}},
+    {"id": "style", "type": "function", "pos": {"x": 40.0, "y": 340.0},
+     "params": {"path": "style_guide/style_guide_ko_v6_0.md", "function": "style_guide"}, "inputs": {}},
+    {"id": "translate", "type": "function", "pos": {"x": 320.0, "y": 60.0},
+     "params": {"model_key": "gemma4-26b-qat", "output_tag": "selfreview_gemma",
+                "resume": false, "request_timeout_seconds": 180, "max_attempts": 3,
+                "function": "translate"},
+     "inputs": {"terms": "terms", "exemplars": "exemplars", "style_guide": "style:style_guide"}},
+    {"id": "review", "type": "function", "pos": {"x": 620.0, "y": 60.0},
+     "params": {"model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+                "base_url": "http://localhost:8086", "concurrency": 16,
+                "en_col": "preferred_term", "ko_col": "translation",
+                "function": "self_review"},
+     "inputs": {"translations": "translate:translations", "gold": "terms"}},
+    {"id": "headline", "type": "function", "pos": {"x": 900.0, "y": 60.0},
+     "params": {"expression": "detection_rate_pct", "output_name": "self_detection_pct",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "review:metrics"}}
+  ]
+}

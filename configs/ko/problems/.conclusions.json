@@ -903,7 +903,7 @@
       "statement": "Translation model choice is the dominant accuracy lever, dwarfing prompt optimisation: on the 200-row SME gold set with the identical v6.0 recipe (cleaned exemplar pool, temp 0), Claude Opus scores 37.5% exact / chrF 72.1, Qwen 3.8-Max 35.0% / 71.1, and gemma4-26b-qat 30.0% / 66.3-67.1 — all with zero contrast-fidelity flags. The +5 to +7.5pt model gaps are 3-5x larger than any prompt-side effect measured tonight.",
       "detail": "Qwen 3.8-Max added as qwen38-max-remote (DashScope, same endpoint/key as 3.7-Max; DASHSCOPE_API_KEY now provided to the MCP service via systemd EnvironmentFile). Claude Sonnet could not be measured — two attempts hit subscription-window rejections (156/200 errors). Production trade-off to decide: gemma is local/free at 30%, Qwen 3.8-Max is paid API at 35% (200 terms ≈ 11 min at 0.3 req/s), Opus is subscription-throttled (concurrency 2) at 37.5%. Exact-vs-gold remains a lower bound on SME acceptability throughout.",
       "kind": "empirical",
-      "status": "provisional",
+      "status": "superseded",
       "confidence": "high",
       "problems": [
         "integrating-batch-2-sme-feedback-into-the-translation-recipe",
@@ -931,7 +931,7 @@
           "label": ""
         }
       ],
-      "proposed_by": "agent",
+      "proposed_by": "",
       "author": "",
       "ts": "2026-08-10"
     },
@@ -1162,7 +1162,7 @@
       "statement": "Opus's lead does NOT come from its reasoning budget: with thinking explicitly DISABLED it scores 42.0% exact / chrF 74.4, inside the 40.5-43.0 spread of its own thinking-ON runs. Conversely Qwen 3.8-Max gains slightly WITH thinking (40.5% vs 38.0-39.5% without) at 23x the wall-clock. Under one frozen, thinking-matched condition the model gap narrows to roughly 2-3 points (Opus ~42%, Qwen ~39-40.5%) — at the edge of the +/-1-2 point noise floor, and much smaller than the 5-point gap claimed from the unmatched comparison.",
       "detail": "Frozen condition: patched gold (SME 'original translation can be used as a synonym' alternates recovered), raw pool 8d5bcc2e with NO SME gold in retrieval (no sibling-gold leakage), multi-ref live. Opus thinking-ON 43.0/40.5/42.0 (mean 41.8, spread 2.5pt); Opus thinking-OFF 42.0 (n=1); Qwen thinking-OFF 38.0/39.0/39.5/39.0 (mean 38.9, spread 1.5pt); Qwen thinking-ON 40.5 (n=1, 966s vs 22s). Practical read: thinking buys Qwen ~1.5pt for 40x the time, and buys Opus nothing measurable. Cost/throughput therefore dominates the production choice, since Opus is subscription-throttled at concurrency 2 (~9.5 min per 200 rows vs Qwen's 22s).",
       "kind": "empirical",
-      "status": "provisional",
+      "status": "superseded",
       "confidence": "medium",
       "problems": [
         "integrating-batch-2-sme-feedback-into-the-translation-recipe"
@@ -1199,7 +1199,7 @@
           "label": ""
         }
       ],
-      "proposed_by": "agent",
+      "proposed_by": "",
       "author": "",
       "ts": "2026-08-10"
     },
@@ -1258,6 +1258,270 @@
         {
           "to_kind": "run",
           "to_id": "c5216cb3e215",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-43",
+      "statement": "CORRECTED model comparison (supersedes conclusions 32 and 40): under one frozen condition (patched gold, leak-free raw pool 8d5bcc2e, multi-ref live) the models are far closer than previously reported — Opus ~42%, Qwen 3.8-Max 38.0-39.5%, gemma4-26b-qat 37.5%, DeepSeek-V4-Flash 34.0% exact on the 200-row SME gold. The 6-point gemma deficit reported earlier was measurement artifact: that number (33.5%) came from the contaminated pool with unpatched gold. The real gemma-vs-Qwen gap is ~1.5 points, inside the noise floor — the local free model is statistically level with the paid API.",
+      "detail": "KNOWN BIAS in this measurement: the gold patch credits the SME's 'original translation can be used as a synonym' rows, and that 'original' IS gemma's batch-2 output. On those 17 rows gemma scores 71% vs Qwen 59%; on the other 183 rows they are level (gemma 34%, Qwen 36%). The patch is legitimate (the SME did bless those renderings) but is NOT model-neutral — future comparisons must report flagged rows separately. Opus remains nominally top but at ~4pt over Qwen with a 2.5pt own-spread and no temperature control, and costs 9.5 min per 200 rows vs 22s.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "cd7f7e1190f5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ab5cc428150c",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-44",
+      "statement": "The two leading models fail in qualitatively DIFFERENT ways, which matters more than their 1.5-point score difference: gemma drops content words (Radionuclide venography of lower limb -> 다리 정맥 조영, silently losing 방사성 핵종; Cementoplasty -> 비구 성형, losing 시멘트), while Qwen over-applies the native-register rule (큰창자 for large intestine where gold has 대장; 빗장밑정맥 where gold has 쇄골하). A dropped modality word is a safety-relevant omission an SME must catch; a register swap is a preference they mark Partial and accept as a synonym.",
+      "detail": "Miss profiles are otherwise near-identical (both ~124 misses, 60% structural, 5% spacing/word-order). Qwen's misses sit marginally closer to gold (mean chrF 56.4 vs 54.6; 49 rows below chrF 50 vs 57). Recommendation: prefer Qwen for the deliverable on error-KIND grounds rather than score, and put the register question (대장/큰창자, 쇄골하/빗장밑) to the SME in batch-3, since v6.0's native-preference rule may be stated more strongly than they practise it.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-45",
+      "statement": "gemma can PARTLY detect its own mistakes but cannot repair them, and reliably damages what was already right: reviewing its own 200 translations with a neutral prompt it flagged 51.6% of its genuine errors (some signal) but repaired only 7.7% of them, while changing 23% of its CORRECT answers and moving 100% of those away from gold. Net effect -12 of 200 rows, i.e. a self-correction pass would cost ~6 points of accuracy.",
+      "detail": "This is the MECHANISM behind the earlier correction-round failure (31.0%->25.0%, run a9c14eb39e1e): not judge over-triggering alone, but that the reviser's edits are net-negative. The neutral prompt named no error class and supplied no style guide, so a flag reflects the model's own judgement rather than a checklist.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a9c14eb39e1e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-46",
+      "statement": "The self-corrections revert precisely the SME's rulings, because the model's prior IS the old KR-extension register: unguided, gemma 'improved' 단순 촬영 -> 방사선 촬영 (undoing the SME's X-ray ruling), 다리 -> 하지 and 엉덩이 -> 고관절 (undoing the native-register preference) — each with a confident clinical-sounding rationale. Supplying style guide v6.0 at review time helps but does not fix it: detection 51.6->60.2%, false alarms 23->13.9%, damage 100->80%, net -12 -> -1 rows.",
+      "detail": "The model complies with the guide when TRANSLATING but reverts to its prior when REVIEWING, which is why the guided arm only reaches break-even (net -1) rather than a gain. Practical rules: (1) never run an unguided self-correction pass; (2) if a correction round is ever revived, it must be guide-carrying AND restricted to rows flagged by the deterministic detectors, never applied to unflagged rows; (3) the same prior is what makes deprecated-form exemplars dangerous — they reinforce the register the SME overruled.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-47",
+      "statement": "CLOSED, NEGATIVE: a model-authored review/self-correction step cannot work in this pipeline, and review-by-selection cannot either. Three independent measurements explain why. (1) Repair is broken: gemma detects 52-60% of its own errors but repairs only 8-9% and damages 80-100% of the correct rows it touches (net -12 rows unguided, -1 guided). (2) Detector-gating has no error mass left to gate: the contrast detector fires on 1 of 125 wrong rows, because style guide v6.0 already eliminated that class in generation — ceiling +0.5pt. (3) Selection has almost nothing to select: oracle any-of-5 at temp 0.7 is 43.5% vs greedy 37.5% (+6.0 ceiling), while free majority-vote self-consistency scores 35.0%, WORSE than greedy — the sampled mass sits on the wrong string, so a selector must repeatedly beat the model's own consensus, an ability three separate results show it lacks.",
+      "detail": "Written up explicitly so the line is not reopened. What survives: (a) the register-oracle + hard-rule regex veto, booked at ZERO gain and kept purely as damage insurance on any future edit path; (b) detection (60% at 14% false alarm) as a ROUTER for SME triage or a selective second translation pass, never as a judge or author. MBR with chrF is not expected to rescue selection: on 2-4 token clinical strings it is the same consensus-medoid estimator as majority vote, which is already negative here. Also fixed en route: translate_consistency had been broken since self-exclusion changed ensure_exemplars to return a tuple.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-48",
+      "statement": "Concept-attribute injection into the TRANSLATOR prompt is the next bet and it is feasible: 100% of the 200 SME gold concepts (and all 125 of gemma's wrong rows) already have SNOMED defining attributes on file (method_fsn, procedure_site_direct/indirect_fsn), and the error profile is dominated by classes those attributes address — 35 low-overlap sense/structural rows and ~26 redundancy/duplication rows out of 125, comfortably above the ~15-20 needed to plausibly clear a 3-point bar. Unlike every review design, its upside is NOT capped by the oracle@5 ceiling, because it changes the generating distribution rather than re-picking from it.",
+      "detail": "Mechanism: the observed sense errors are referent-resolution failures (Gynecogram -> 부인과 'gynaecology department' rather than 여성생식기; 뇌 뇌실 조영 duplicating brain+ventricle) that no reviewer sharing the same English surface form can fix, but which the concept model disambiguates mechanically. CAVEAT on the sizing: the error-class buckets are crude heuristics and demonstrably mislabel — short strings like 쓸개/담낭 (gallbladder native vs Sino) land in 'sense' purely because chrF is low on 2-token strings, and one 'duplication' example is really a dropped modifier (입체적/stereotactic). Treat 35+26 as an upper bound; a manual pass over the low-overlap rows should precede building the injection plumbing.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-49",
+      "statement": "NEGATIVE: injecting SNOMED defining attributes (method / procedure site / substance / device, rendered as English facts) into the translator prompt does NOT help and is mildly harmful — gemma 35.0% and 35.0% vs 37.5% control; Qwen 3.8-Max 32.5% vs 38.0-39.5% control. Crucially it failed on its own target population: of the 11 low-overlap rows manually judged attribute-fixable, the control scored 0/11 and the attribute arm also scored 0/11. The mechanism did not fire even once.",
+      "detail": "Diagnostic on the flagship case: for Gynecogram the attributes explicitly state 'site: Female genital structure', and the model STILL produced 부인과 ('gynaecology department') — and additionally degraded 조영술 to 방사선 촬영, i.e. the injected 'method: Radiographic imaging' pulled it toward a literal method rendering and away from the SME's form. Same pattern on the basilic-vein row: the site fact ('Structure of basilic vein') did not displace the wrong vessel 빗장밑정맥, while the method fact flipped 정맥 조영 to 혈관 조영. So the English fact block acts as extra source text to translate rather than as disambiguating context — it adds surface tokens that compete with the term itself. Note also that attributes are sometimes WRONG for the concept: bilateral kidneys carried 'Left kidney structure', bilateral lower limbs carried 'right lower limb', and a transapical valve implantation carried method='Ultrasound imaging' (the guidance, not the action).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "3f70a638310a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d1471fcf722e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "f72ecd892568",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-50",
+      "statement": "With review-as-correction, review-as-selection and attribute injection all closed as negatives, the remaining levers on this task are (a) SME-facing triage rather than accuracy — detection at 60%/14% FA to rank the 5,012-term deliverable for human review, and (b) a manual pass over the gold's own defects, which are now a material share of the measured error. Further prompt/architecture tinkering against a 200-row set with a +/-1-2pt noise floor is not expected to pay.",
+      "detail": "Evidence that gold defects are now material: the manual read of 43 low-overlap misses found at least one row (Ilium X-ray) where our output IS the gold's first alternate but the cell holds two comma-joined renderings ('엉덩벌 단순 촬영, 장골 단순 촬영') that the parser declines to split — the comma-split heuristic requires 4+ tokens per segment, and splitting more aggressively would wrongly break legitimate multi-site lists ('복강 동맥, 상장간막 동맥 및 ...'). Several other 'sense' misses are register variants inflated by chrF being unstable on 2-token strings (쓸개/담낭). A careful human pass over gold would likely recover more measured points than any further model-side change.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "3f70a638310a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
           "label": ""
         }
       ],
