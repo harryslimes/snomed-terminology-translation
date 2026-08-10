@@ -1,0 +1,12 @@
+{
+  "id": "sme_batch2_diverse_sent",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/sme_review/2026-07-14/batch2_diverse_sent_100.csv",
+  "csv_path": "data/sme_review/2026-07-14/batch2_diverse_sent_100.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  }
+}

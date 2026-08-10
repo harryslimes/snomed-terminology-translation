@@ -1,0 +1,114 @@
+# Korean exemplar-pool curation rules.
+#
+# WHY THIS FILE EXISTS
+# The bilingual pool (data/EN-KO/all_bilingual_pairs.csv) is a DERIVED artifact
+# built by scripts/data_prep/build_en_ko_pairs.py from per-source CSVs. It must
+# never be edited in place: doing so silently changes what every translate run
+# retrieves, with no provenance, no history and no rollback.
+#
+# Instead, curation is DECLARATIVE and TRACKED:
+#   raw pool  --(curate_exemplar_pool node + this file)-->  curated pool
+# The node emits a NEW csv (leaving the raw pool untouched), reports per-rule
+# counts as run metrics, and stamps this file's content hash on the run. The
+# curated output is registered as its own source, so a flow chooses raw vs
+# curated explicitly and an A/B is a flow edit, not a file mutation. Because the
+# exemplar collection name is derived from CSV content, each variant
+# automatically gets its own Qdrant collection.
+#
+# RULE SCHEMA
+#   id           stable identifier (appears in run metrics as dropped_<id>)
+#   description  what it does
+#   rationale    WHY — cite the SME ruling or the measurement that justifies it
+#   evidence     run ids / conclusion ids / note ids backing the rationale
+#   action       drop | rewrite
+#   enabled      false leaves the rule documented but inert
+#   match:       all listed conditions must hold for the rule to fire
+#     en_regex        matches the English side
+#     target_regex    matches the Korean side
+#     source_in       list of provenance sources (EDI, KCD7, SNOMED, ...)
+#   replace:     (rewrite only) target_regex -> replacement on the Korean side
+#
+# Prefer `drop` over `rewrite` for reference data: dropping removes a
+# contradiction, rewriting FABRICATES a translation no human ever validated.
+
+language: ko
+version: 1
+
+rules:
+
+  # --- Pairs that teach forms the SME has explicitly overruled -------------
+  # These are tiny in volume but high in impact: they are retrieved precisely
+  # for the queries they mislead. Measured on the 5,012-term production run,
+  # 4% of prompts showed an X-ray exemplar in a deprecated form and 4% showed
+  # a 조영상 exemplar, directly contradicting the style guide in the same
+  # prompt (see the translation-prompt-context note, 2026-08-10).
+
+  - id: deprecated-xray-form
+    description: >-
+      Drop EN X-ray/radiograph pairs whose Korean uses X선 / 일반 X선 /
+      방사선 영상 촬영 instead of the SME-canonical 단순 촬영.
+    rationale: >-
+      SME Q&A 2026-08-09: "X-ray should be translated into '단순 촬영'".
+      Style guide v6.0 encodes this; the retrieved exemplars contradicted it.
+    evidence: ["run:6ba05d4eca9a", "conclusion:conclusion-35"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '\b([xX]-?ray|[Rr]adiograph)'
+      target_regex: '([xX]\s*선|방사선\s*영상\s*촬영)'
+
+  - id: deprecated-joyeongsang-image
+    description: >-
+      Drop pairs whose Korean uses 조영상 for a produced image.
+    rationale: >-
+      SME Q&A 2026-08-09: procedures end 조영/조영술, images end 영상 —
+      "Images should in '영상' not '조영상'". Batch-2 gold (written after the
+      ruling) contains ZERO 조영상, confirming the ruling reflects current
+      practice. Also an enforced hard rule (images-end-yeongsang), so these
+      exemplars pull the model toward a penalised form.
+    evidence: ["run:6ba05d4eca9a", "conclusion:conclusion-35"]
+    action: drop
+    enabled: true
+    match:
+      target_regex: '조영상'
+
+  # --- Documented but NOT enabled ------------------------------------------
+
+  - id: edi-bracketed-billing-qualifier
+    description: >-
+      EDI rows whose Korean carries a bracketed billing qualifier
+      (e.g. [1일당], [편측]) — 7% of production prompts showed one occupying a
+      scarce top-5 exemplar slot.
+    rationale: >-
+      DELIBERATELY DISABLED. The pattern matches 304,447 rows (59% of the
+      pool): brackets are the NORM for HIRA billing codes, not an artifact, so
+      a blanket drop would gut the richest procedure source on no evidence.
+      The observed failure (an unrelated impedance-study billing row retrieved
+      for a cephalogram query) is a RETRIEVAL-ranking problem, not a content
+      problem. Revisit with a targeted relevance filter, not a content drop.
+    evidence: ["run:6ba05d4eca9a"]
+    action: drop
+    enabled: false
+    match:
+      source_in: ["EDI"]
+      target_regex: '[\[\(][^\]\)]{2,}[\]\)]'
+
+# --- Additions -------------------------------------------------------------
+# Extra pairs appended after filtering. `ruling_updated_only` applies the same
+# post-ruling rewrites used when building the SME gold (X선 -> 단순 촬영,
+# 조영상 -> 영상), so pre-ruling batch-1 gold cannot re-contaminate the pool —
+# which is exactly what happened when SME gold was first appended by hand and
+# `발목 x선` reappeared as a retrieved exemplar tagged SME_gold_v1.
+additions:
+  - id: sme-gold
+    description: SME-approved renderings from the batch-1/batch-2 reviews.
+    rationale: >-
+      In-domain, register-correct pairs the SME personally authored. Retrieval
+      self-excludes a query concept's own sctid, so a concept can never be
+      shown its own gold answer (verified: 0/177 leakage on the reviewed set).
+    evidence: ["conclusion:conclusion-36"]
+    csv: data/evals/korean/sme_gold_splits/sme_gold_all.csv
+    columns: {en: preferred_term, target: ko_reference, sctid: sctid}
+    source_tag: SME_gold_v1
+    ruling_updated_only: true
+    enabled: true
