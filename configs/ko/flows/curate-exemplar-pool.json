@@ -1,0 +1,52 @@
+{
+  "id": "curate-exemplar-pool",
+  "name": "curate_exemplar_pool",
+  "description": "Build the curated exemplar pool from the immutable raw pool by applying configs/ko/pool_rules/ko.yaml. Drops pairs teaching SME-overruled forms (X선/방사선 영상 촬영 for X-ray; 조영상 for images) and appends SME gold with post-ruling rewrites applied, so pre-ruling batch-1 gold cannot re-contaminate retrieval. Raw pool is never modified; per-rule counts and the rules content hash land in the run ledger.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "raw_pool",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "curate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/pool_rules/ko.yaml",
+        "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/pool/curated/all_bilingual_pairs_curated.csv",
+        "function": "curate_exemplar_pool"
+      },
+      "inputs": {
+        "pool": "raw_pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "rows_out",
+        "output_name": "curated_pool_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "curate:metrics"
+      }
+    }
+  ]
+}

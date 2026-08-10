@@ -1,0 +1,152 @@
+{
+  "id": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+  "title": "Integrating batch-2 SME feedback into the translation recipe",
+  "prose": "The second SME review (returned 2026-08-09: 100 rated imaging terms + answers to 15 style questions) yields three distinct assets that want three different destinations:\n\n1. EXPLICIT RULES (the Q&A): canonical modality forms (X-ray=단순 촬영, CT=컴퓨터 단층 촬영, MRI=자기 공명 영상, fluoroscopy exam=투시 검사 vs guidance=투시/형광 투시, angiography=혈관 조영 with named vessel / 동맥 조영 without, venography=정맥 조영), contrast modifiers always first, -graphy procedures end 조영/조영술 but images end 영상 (NOT 조영상), native-Korean anatomy preferred (Sino-Korean as synonyms), \"structure of\" omitted except true bone-structure targets, approaches (경피/피부 경유, 도관/카테터 경유, 혈관/내강 경유), vague historical terms → modern conventional Korean procedure names, transliteration only for drugs/substances/devices/new procedures. These are deterministic → hand-encode into style guide v6 + hard rules (freeze+enforce), NOT left for GEPA to rediscover.\n\n2. GOLD LABELS: 33 Correct/Acceptable rows confirm the sent translation; 67 Partial/Wrong rows carry sme_corrected_ko; notes contain acceptable synonyms → ~100 in-domain multi-reference gold (plus batch-1 labels ≈ 200 total). This replaces the KR-extension splits as GEPA train/dev — the extension prefers the Sino register the SME explicitly rejects (see register-oracle findings).\n\n3. METRIC CALIBRATION DATA: the SME defined the acceptability boundary (spacing + preferred-synonym diffs acceptable; word-order diffs NOT). Per-row ratings let us calibrate the semantic metric to rank Correct > Partial > Wrong before optimising it.\n\nRating profile of batch-2: 30 Correct / 3 Acceptable / 61 Partial / 5 Wrong / 1 unrated; Partial wall dominated by word-preference and word-order; systematic bug: hallucinated contrast modifiers (조영제 사용/미사용 with no source contrast mention) — reproduces deterministically, needs a source-conditional detector, not a surface hard rule.\n\nEnd goal: optimised prompt (GEPA seeded from v6, Opus reflection, SME-gold splits, hard rules frozen, calibrated metric, promotion gated on held-out SME gold) → production run over the 5,796 imaging pool (11 inactive concepts filtered/annotated), with audit detectors ranking terms for the SME's next sampling pass.",
+  "parent": "exploiting-sme-terminologist-feedback",
+  "created": "2026-08-09T22:12:12",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "Provenance (established 2026-08-09): the batch the SME reviewed = run ddbe48e77705 (flow sme-batch2-diverse-gemma-translate, 2026-07-14, seed 20260714) — NOT batch2_balanced_100.csv (seed 20260712; only 17/100 sctids overlap). Sent file preserved at data/sme_review/2026-07-14/batch2_diverse_sent_100.csv (source sme_batch2_diverse_sent). Reproduction after the Qdrant exemplar-collection rebuild: run 778105649302, 86% exact / 95.2 chrF vs the sent file; residual diffs are minor lexical/word-order flips from translate-stage changes merged mid-July→Aug. SME review files: data/second_sme_review/ (xlsx with ratings/corrections/notes + docx Q&A answers). Distilled in conclusions 25 & 26.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "778105649302",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-09T22:12:31"
+    },
+    {
+      "id": "note-2",
+      "body": "Phase 0–1 artifacts built (2026-08-09), awaiting human sign-off on the v6 diff and split design before GEPA:\n\nSTYLE GUIDE v6.0 (style_guide/style_guide_ko_v6_0.md) — v5.1 revised per the SME Q&A. Major reversals: native-Korean anatomy now preferred register (Sino kept as synonyms; overrides v5.1's extension-following default and supersedes the 2026-04-20 prescriptive-resources ablation caveat, since the SME ruling is direct evidence); X-ray = 단순 촬영 (was 방사선 영상 촬영); -gram images end 영상 never 조영상 (was 조영상); fluoroscopy exam (투시 검사/투시술) vs guidance (투시 유도하) split; angiography 혈관 조영 with named vessel / 동맥 조영 without; approaches table (피부 경유/경피, 도관·카테터 경유, 혈관 vs 내강 경유, 심첨 경유); contrast-fidelity rule (never invent 조영제 사용/미사용 — top SME Wrong class); lexical rulings (transcranial=경두개, localization=위치 파악, specific=특수, serialography=연속촬영술). Editorial judgement calls to flag: SME wrote 방사선 핵종 in the Q&A but used 방사성 핵종 in their own corrections — v6 keeps 방사성 핵종 (standard form); SME's 심청 경유 for transapical treated as typo for 심첨 경유.\n\nHARD RULES (configs/ko/hard_rules/ko.yaml): + images-end-yeongsang (forbid 조영상, enforce+freeze), + fluoroscopy-guidance-form (forbid 투시 검사 유도, enforce+freeze). The disabled example-native-body-site rule stays disabled: SME accepts both registers, so it is a style-guide preference, not a forbidden form.\n\nSME GOLD (scripts/sme_review/build_sme_gold.py → data/evals/korean/sme_gold_splits/, audit.json): 200 gold rows (batch1 100 + batch2 100), multi-reference (ko_all, '|'-sep; reviewed translation kept as alternate only when rated Correct/Acceptable; SME note synonyms mined), reviewed_ko retained for metric calibration. Stratified splits by (batch, rating), seed 20260809: train 132 / dev 29 / test 39 — TEST is permanently held out from optimisation. Sources: sme_gold_train/dev/test/all.\n\nINVESTIGATIONS: sme_gold_assets_v1, sme_metric_calibration_v2, style_guide_v6_baseline_v1, gepa_sme_gold_v1 (reflection = claude-opus, user-approved). Plan tasks 34–40 proposed.",
+      "attached_to": "",
+      "links": [],
+      "author": "",
+      "ts": "2026-08-09T22:19:04"
+    },
+    {
+      "id": "note-3",
+      "body": "PRODUCTION DELIVERABLE COMPLETE (2026-08-09, run 3d3e52a58fa4): all 5,012 active untranslated imaging concepts translated with the promoted recipe (style guide v6.0 + SME-augmented exemplar pool exemplars_pooled_legacy_ko_f07bd8e5, which folds the 200 SME gold pairs in as retrievable exemplars with per-concept self-exclusion — 177 self-hits correctly stripped at translate time). Zero translation errors. Audit pass: contrast-fidelity 8/5012 hallucinated (~0.16%, vs ~5% under v5.1 — the v6.0 fidelity rule holds at scale), transliteration echo 2/5012, Gemma acceptability judge A/P/W = 3345/1466/192 (33.1% flagged; headline judge_review_rate_pct).\n\nPool provenance: 5,796-concept pool filtered against INT_20260101 → 784 (13.5%) inactive concepts dropped (list in production_imaging_pool.audit.json) — retroactively vindicating the SME's \"most source terms are inactive\" complaint beyond what the batch-2 sample (11/100) suggested.\n\nDeliverable files (data/languages/ko/sme_review/2026-08-09/): production_imaging_deliverable.csv + .xlsx — per concept: EN preferred term, KO translation (SME-approved rendering overrides machine output for the 177 reviewed concepts, translation_source column), synonyms_ko (SME-accepted alternates), review_priority (done 177 / high 197 / medium 1,401 / low 3,237 — high = contrast issue, transliteration echo or judge WRONG), plus raw audit columns. Built by scripts/sme_review/package_production_deliverable.py from the run artifacts.\n\nAwaiting human review before anything is sent to the SME.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "3d3e52a58fa4",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c87a15413b",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-09T23:59:26"
+    },
+    {
+      "id": "note-4",
+      "body": "Overnight accuracy campaign (2026-08-10, user-authorised autonomous session) — interim results on the 200-row SME gold set (all tracked runs):\n\nE1 v6.0+gemma (run 7f6c8938085d): 30.0% exact / chrF 66.3 / composite 0.559, contrast 2/200. Same config inside E5 (run a9c14eb39e1e): 31.0% / 66.9 / 0.567 — note ±1-2 row jitter between identical temp-0 configs (vLLM batching nondeterminism); treat sub-2pt deltas as noise even at n=200.\nE2 v5.1+gemma (run a1826699c753): 26.0% / 65.2 / 0.540, contrast 10/200. → At n=200 v6.0 DOES beat v5.1 (+4-5pts exact, contrast 2 vs 10), restoring the direction conclusion 30 downgraded on the 39-row set.\nE5 correction round (run a9c14eb39e1e): NEGATIVE — judge-guided revision of 80 flagged rows dropped exact 31.0%→25.0%. The gemma acceptability judge over-triggers on acceptable rows and revisions break more matches than they fix; do not enable a blanket correction round; if retried, restrict to judge-WRONG + detector flags only.\nE3 Sonnet probe (run d4b20ff2599c): aborted — Claude subscription 5-hour window exhausted (overage rejected); relaunch after reset.\nInfra findings: (a) prompt capture added to the translate stage — every run now writes prompts_<tag>.jsonl (rendered system prompt + per-term user prompts) into artifacts, verified on run a9c14eb39e1e (temp 0.0, topn 5, v6.0 verbatim in system); (b) editing watched code dirs restarts the MCP server via uvicorn --reload and KILLS QUEUED RUNS (two casualties) — freeze code while runs are queued; (c) prompt capture exposed exemplar-pool noise: 5,542 EDI rows with literal ', NA' tails + 39,056 exact duplicate pairs crowding top-5 slots — pool cleaned (475,887 rows, collection exemplars_pooled_legacy_ko_d3f5c159) via scripts/sme_review/clean_bilingual_pool.py; E6 (pool-cleaning A/B) running.\nQueued after quota reset: Sonnet/Opus model-ceiling probes, GEPA round 2 (seed = GEPA-v1 guide, cleaned gold).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "7f6c8938085d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a1826699c753",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a9c14eb39e1e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "127cf3fcdac1",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-10T01:54:30"
+    },
+    {
+      "id": "note-5",
+      "body": "Overnight campaign FINAL (2026-08-10 ~03:30). Full standings on the 200-row SME gold (v6.0 recipe, cleaned pool, temp 0) — exact / chrF / composite / contrast flags:\n- Claude Opus: 37.5 / 72.1 / 0.622 / 0 (run 7690ac937254)\n- Qwen 3.8-Max: 35.0 / 71.1 / 0.608 / 0 (run 25c52bbaa6ac; new model qwen38-max-remote)\n- gemma4-26b-qat: 30.0 / 66.3–67.1 / 0.559–0.567 / 1–2 (runs 7f6c8938085d, 127cf3fcdac1, a9c14eb39e1e)\n- gemma + v5.1 (control): 26.0 / 65.2 / 0.540 / 10 (run a1826699c753)\n- Claude Sonnet: unmeasurable — subscription-window rejections both attempts (d4b20ff2599c, 2618db2c969e)\nNegative/neutral results: correction round 31.0→25.0 (a9c14eb39e1e); GEPA-2 gate fail 15.4% held-out (6398fbc86e96 → a8245d1c254d), GEPA-1 remains the only competitive optimised guide (23.1% test) but both rounds dev-overfit; pool cleaning neutral on exact, +0.8 chrF, kept.\nDistilled into conclusions 32 & 33. Decision left for the human: production model for the 5,012-term deliverable re-run (gemma local/free 30% vs Qwen 3.8-Max paid API 35% (~4–5h at observed 0.3 req/s) vs Opus 37.5% subscription-throttled) — the shipped deliverable currently carries gemma+v6.0 output.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "7690ac937254",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c52bbaa6ac",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a8245d1c254d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6398fbc86e96",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-10T03:29:26"
+    },
+    {
+      "id": "note-6",
+      "body": "PRODUCTION DELIVERABLE v2 SHIPPED-READY (2026-08-10, run 6ba05d4eca9a): all 5,012 active imaging concepts re-translated on Qwen 3.8-Max (thinking disabled) + style guide v6.0 + cleaned exemplar pool d3f5c159. Translate stage 528s (9.3 req/s vs 0.3 with thinking on), 0 errors.\n\nAudit deltas vs the gemma run (3d3e52a58fa4):\n- contrast fidelity: 1/5012 flagged (a DROPPED modifier, not a hallucination) vs gemma's 8 hallucinated — the hallucination class is now absent from production output.\n- transliteration echo: 1/5012 (was 2).\n- acceptability judge A/P/W = 3348/1490/162 (review rate 32.96%) vs 3345/1466/192 — judge-WRONG down 16% (192→162); note the gemma judge grading Qwen output is an imperfect cross-model proxy, and its 200-row correlation with SME verdicts is weak (conclusion 33).\n- SME review priorities: high 156 (was 197) / medium 1,422 / low 3,257 / done 177.\n\nDeliverable re-packaged from this run: data/languages/ko/sme_review/2026-08-09/production_imaging_deliverable.{csv,xlsx} — 5,012 rows, 0 empty/error, SME-approved renderings still overriding machine output for the 177 reviewed concepts, synonyms + audit columns + review_priority intact. Expected accuracy uplift vs the gemma deliverable: +5pts exact on the 200-row SME gold bake-off (35.0% vs 30.0%). Still awaiting human review before sending to the SME.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "6ba05d4eca9a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3d3e52a58fa4",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a5f541f9f484",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-10T09:27:00"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

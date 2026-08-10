@@ -1,0 +1,71 @@
+{
+  "id": "sme-batch2-repro-translate",
+  "name": "sme_batch2_repro_translate",
+  "description": "Reproduce the batch-2 SME translations (the 100 terms actually sent for review = run ddbe48e77705 of sme-batch2-diverse-gemma-translate, 2026-07-14) with the same recipe: local Gemma 4 26B QAT + style guide v5.1 + pooled leak-excluded exemplars. Evaluate against the sent translations to measure reproduction fidelity after the Qdrant exemplar collection was rebuilt (2026-08-09).",
+  "project": "sme_batch_selection_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 60.0},
+      "params": {"source": "sme_batch2_diverse_sent"},
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 240.0},
+      "params": {"source": "pooled_legacy"},
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {"x": 40.0, "y": 380.0},
+      "params": {
+        "path": "style_guide/style_guide_ko_v5_1.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {"x": 300.0, "y": 60.0},
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "sme_batch2_repro_gemma_v5_1",
+        "resume": false,
+        "request_timeout_seconds": 180,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {"x": 540.0, "y": 60.0},
+      "params": {"function": "evaluate"},
+      "inputs": {
+        "translations": "translate",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {"x": 760.0, "y": 60.0},
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "repro_exact_match_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {"metrics": "evaluate:metrics"}
+    }
+  ]
+}

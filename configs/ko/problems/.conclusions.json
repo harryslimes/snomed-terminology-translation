@@ -686,6 +686,584 @@
       "proposed_by": "",
       "author": "",
       "ts": "2026-07-15"
+    },
+    {
+      "id": "conclusion-25",
+      "statement": "SME batch-2 provenance: the 100 terms the SME reviewed (returned 2026-08-09) are the output of run ddbe48e77705 (flow sme-batch2-diverse-gemma-translate, 2026-07-14, diverse selection seed 20260714, fresh gemma4-26b-qat translate) — NOT data/sme_review/2026-07-12/batch2_balanced_100.csv (balanced seed 20260712, pool translations), which shares only 17/100 sctids.",
+      "detail": "Confirmed by exact join against the returned xlsx: 100/100 sctid overlap with the ddbe48e77705 artifact and 99/100 identical translations (the one difference is a spacing variant). The sent CSV is preserved at data/sme_review/2026-07-14/batch2_diverse_sent_100.csv and registered as source sme_batch2_diverse_sent.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "778105649302",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-26",
+      "statement": "The batch-2 SME translations reproduce at 86% exact match (chrF 95.2) after full loss and deterministic rebuild of the exemplar vector collection; residual diffs are minor synonym/word-order/spacing flips at temperature 0.",
+      "detail": "The live Qdrant had lost exemplars_pooled_legacy_ko_8d5bcc2e (container remounted to a fresh dir on 2026-08-05 during the Spanish test). Collection rebuilt deterministically from data/EN-KO/all_bilingual_pairs.csv (514,756 points, BGE-M3); reproduction run 778105649302 (flow sme-batch2-repro-translate, gemma4-26b-qat + style guide v5.1, temp 0, exemplars served from the per-collection lookup cache) reproduced the sent file at 86% exact / 95.2 chrF. The 14-15 differing rows show only minor lexical/word-order/spacing drift, consistent with translate-stage code changes merged between 2026-07-14 and 2026-08-06 (unified render/provider, retry/timeout).",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "778105649302",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-27",
+      "statement": "Style guide v6.0 (hand-encoded SME Q&A rulings) beats v5.1 on the held-out SME gold test split: 23.1% vs 17.9% exact (chrF 61.4 vs 59.4, composite 0.504 vs 0.475), and eliminates contrast hallucinations (2 flagged → 0) — the deterministic encoding banked a real win before any optimisation.",
+      "detail": "39-term held-out multi-reference split (seed 20260809), gemma4-26b-qat + pooled leak-excluded exemplars, temp 0. v6.0 is now the GEPA seed. Small n — confidence medium; the direction is consistent with the error profile (word-preference dominated).",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "7127b3b8bd51",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-28",
+      "statement": "Surface metrics cannot grade the SME acceptability margin: on non-identical pairs (9 acceptable-variation vs 120 partial/wrong), AUC is chance for exact (0.50), chrF (0.51) and BGE-M3 cosine (0.45) — a preferred-synonym swap is indistinguishable from a wrong-preference swap by string or embedding similarity. GEPA's reward must therefore be multi-reference spacing-normalised exact (synonyms as references) plus enforced hard-rule/contrast penalties; cosine partial-credit thresholds would optimise noise.",
+      "detail": "The multi-ref view is trivially separable (AUC 1.0) because every acceptable candidate is itself a reference — identity leakage, not signal. Only 9 informative positives exist, so this is directional; it matches the earlier error-class-detector finding that embeddings miss SME-WRONG cases. A calibrated LLM judge remains the future path to partial credit on the margin.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "4c7196e94248",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4027ce566552",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "752d62843042",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-29",
+      "statement": "The clean GEPA re-opt (seed v6.0, SME-gold in-domain splits, Opus 5 reflection, hard-rule + contrast penalties) improved dev (0.397→0.498) but did NOT transfer to held-out: 20.5% exact / chrF 55.5 vs v6.0's 23.1% / 61.4 — the promotion gate fails and v6.0 remains the production prompt. This replicates the earlier leak-free finding that the hand style guide beats GEPA, now under the most favourable GEPA setup available.",
+      "detail": "n=39 test so 9-vs-8 exact terms is noise-level, but the chrF gap (61.4→55.5) is consistent across rows and the gate is one-directional. Likely cause: 29-row dev overfit — GEPA's prompt (11.7k chars) compressed away v6.0 detail that matters on unseen terms. Both prompts produce zero contrast-fidelity flags (the penalty + hard rules held). Future GEPA attempts should wait for a larger SME-labelled dev pool (batch-3+) or use cross-validation over the 161 train+dev rows. Artifact preserved at style_guide/style_guide_ko_gepa_sme_gold_v1.md.",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c87a15413b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-30",
+      "statement": "CORRECTED (supersedes conclusion 27): after fixing the gold data (8/200 batch-1 cells carried unparsed 'or'-alternates, 'preferred term:' prefixes or trailing commas; X-ray rows predate the SME's 단순 촬영 ruling), v5.1 and v6.0 are statistically indistinguishable on the 39-row held-out split — both 17.9% exact like-for-like. v6.0 remains the production prompt on compliance grounds, not exact-match: it deterministically encodes the SME's explicit rulings and holds contrast fidelity at 0 flags (0.16% at 5,012-term production scale vs ~5% under v5.1).",
+      "detail": "The original 23.1% vs 17.9% gap was partly measurement artifact: cleaning the gold moved v6.0's old translations to 28.2%, and re-running under the augmented exemplar pool moved it back to 17.9% while v5.1 stayed at 17.9%. Every pairwise difference is 1-2 terms out of 39 (binomial sigma ~6pts) and the exemplar-pool era flips rankings, so this test set cannot rank prompts at this granularity. Exact-vs-gold remains a lower bound on SME acceptability: of 3 matches 'lost' to exemplar augmentation, 2 were SME-blessed synonym variants (조영/조영술, 하지/다리) the metric cannot credit.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1794565006da",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3727f6d08bd5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7127b3b8bd51",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-31",
+      "statement": "CORRECTED (supersedes conclusion 29): under like-for-like corrected conditions the GEPA-optimised guide actually scores highest on the held-out split (23.1% exact / composite 0.512 vs v6.0's 17.9% / 0.496, 0 contrast flags) — the earlier gate rejection reflected dirty gold plus a different exemplar-pool era, not a stable ranking. However the difference is 2 terms out of 39 (within noise), so the honest verdict is: GEPA-v1 is competitive with the hand guides, and a 39-row test cannot decide promotion. Decision: keep v6.0 in production (deterministic ruling compliance), treat the GEPA guide as a live candidate, and settle promotion with SME judgement (e.g. batch-3 A/B) or a materially larger labelled set.",
+      "detail": "Corrected triple (cleaned gold, augmented exemplars, temp 0): GEPA 23.1%/chrF 62.4/composite 0.512; v6.0 17.9%/62.3/0.496; v5.1 17.9%/64.2/0.510 (v5.1 had 1 contrast hallucination; the other two 0). Under the original conditions the ordering was v6.0 > GEPA > v5.1 — ranking instability across an orthogonal condition change is itself evidence the eval lacks power. Reinforces conclusion 28.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "0ccd35da00ee",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "1794565006da",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c87a15413b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-32",
+      "statement": "Translation model choice is the dominant accuracy lever, dwarfing prompt optimisation: on the 200-row SME gold set with the identical v6.0 recipe (cleaned exemplar pool, temp 0), Claude Opus scores 37.5% exact / chrF 72.1, Qwen 3.8-Max 35.0% / 71.1, and gemma4-26b-qat 30.0% / 66.3-67.1 — all with zero contrast-fidelity flags. The +5 to +7.5pt model gaps are 3-5x larger than any prompt-side effect measured tonight.",
+      "detail": "Qwen 3.8-Max added as qwen38-max-remote (DashScope, same endpoint/key as 3.7-Max; DASHSCOPE_API_KEY now provided to the MCP service via systemd EnvironmentFile). Claude Sonnet could not be measured — two attempts hit subscription-window rejections (156/200 errors). Production trade-off to decide: gemma is local/free at 30%, Qwen 3.8-Max is paid API at 35% (200 terms ≈ 11 min at 0.3 req/s), Opus is subscription-throttled (concurrency 2) at 37.5%. Exact-vs-gold remains a lower bound on SME acceptability throughout.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "7690ac937254",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c52bbaa6ac",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "127cf3fcdac1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7f6c8938085d",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-33",
+      "statement": "GEPA prompt optimisation consistently fails to transfer from dev to held-out on this task: round 2 (seeded from the GEPA-1 guide, cleaned gold, Opus reflection) improved dev to 0.501 but scored 15.4% exact / chrF 59.5 on the held-out 39 — below both GEPA-1 (23.1%) and v6.0 (17.9%). Two rounds, two dev-overfits with a 29-row val set; stop GEPA iterations until the labelled pool grows materially (batch-3+) and spend optimisation effort on model choice and gold/exemplar hygiene instead.",
+      "detail": "Guide artifacts preserved (style_guide_ko_gepa_sme_gold_v1/v2.md). Complementary negative: a judge-guided correction round HURT (31.0%→25.0%, run a9c14eb39e1e) because the gemma acceptability judge over-triggers on acceptable rows. Neutral-positive: exemplar-pool cleaning (39k exact dupes + 5.5k ', NA' EDI artifacts removed — found via the new per-run prompt capture, prompts_<tag>.jsonl) left exact unchanged (30.0%) with chrF +0.8 and fewer contrast flags — kept for hygiene.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "6398fbc86e96",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a8245d1c254d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "0ccd35da00ee",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-34",
+      "statement": "Qwen 3.8-Max's reasoning mode is pure waste on this task: disabling it (enable_thinking=false) cut the 200-row translate wall-clock from 987.9s to 41.8s (23.6x faster; 2,853 -> 13 output tokens per call) with NO accuracy cost — 35.0% exact both, chrF 71.9 vs 71.1, composite 0.614 vs 0.608, 0 contrast flags both. The 5,012-term production deliverable therefore costs ~18 minutes on Qwen 3.8-Max, not the ~4-5 hours implied by the thinking-on rate.",
+      "detail": "Root cause: the enable_thinking=false switch lives in the model catalogue's per-model llm_params bundle (gemma4-26b-qat has one; both Qwen-Max entries never did — qwen37-max-remote's notes only TOLD a human to set it). Fixed by pinning llm_params on qwen38-max-remote (DashScope accepts top-level enable_thinking and chat_template_kwargs.enable_thinking; both verified). ACTION: qwen37-max-remote still carries the same latent defect. Separately confirmed: DashScope exposes the OpenAI-compatible Batch API (/v1/files upload with purpose=batch + /v1/batches both return 200) for ~50% cost at a 24h window — but at ~18 minutes synchronous for the full pool, batch is not needed at this scale.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "a5f541f9f484",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c52bbaa6ac",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-35",
+      "statement": "MEASUREMENT BUG (now fixed): multi-reference scoring was silently inert for every datasource-backed eval. `_eval_set_from_datasource` hard-wired `all_references` to the single target column in BOTH copies of the graph compiler (pipelines/graph.py and the plugin's snomed_translation/graph.py), so `evaluation.multi_ref=true` had no effect and every SME-accepted synonym scored as a miss. With it fixed, Qwen 3.8-Max + v6.0 scores 39.5% exact / chrF 73.7 on the 200-row SME gold (was 35.0% / 71.6); 28 of 200 rows now score against a non-canonical accepted reference. All earlier tonight's numbers were single-reference lower bounds — rankings hold (all models measured identically), absolute levels were understated.",
+      "detail": "Found by checking performance on the SME samples: the same translations scored 70/200 in-run but 79/200 offline against ko_all. Two independent copies of the compiler had to be patched — the app-level fix alone changed nothing because the plugin's copy shadows it for these runs. Gold also gained SME-declared acceptability: 조영상→영상 ruling-updated variants for pre-ruling batch-1 rows (batch-2 gold contains ZERO 조영상, confirming the ruling holds) and the SME's explicit either-form equivalences 조영↔조영술 and 투시 검사↔투시술. Corrected head-to-head: Qwen 3.8-Max 39.5% / chrF 73.7 vs gemma4-26b-qat 33.5% / 68.7 — the +6pt model gap is unchanged in direction and slightly wider.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9abf971be1df",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6daf5036f3ba",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a5f541f9f484",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-36",
+      "statement": "Performance on the SME-reviewed samples is even across batches and shows real recovery on previously-rejected terms: Qwen 3.8-Max + v6.0 scores 39% on batch-1 and 40% on batch-2 (no recency overfit), and on the 120 terms the SME rated Partial/Wrong it now produces the SME's own correction for ~30% while still emitting the exact rejected rendering for only 8%.",
+      "detail": "Breakdown by the SME's original verdict: batch2/CORRECT 57%, batch2/PARTIAL 29%, batch1/ACCEPTABLE 45%, batch1/PARTIAL 33%. The production run itself (6ba05d4eca9a) scores 38.4% on the 177 reviewed concepts inside the active pool vs gemma's 35.6%, consistent with the eval. Leakage check clean: 0/177 reviewed concepts had an SME gold rendering surviving into their shown exemplars (self-exclusion works). Residual 8% repeat-offenders are mostly cases where our output complies with an SME-stated rule but the gold picked the other blessed variant — diminishing returns without new SME input.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "exploiting-sme-terminologist-feedback"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9abf971be1df",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6ba05d4eca9a",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-37",
+      "statement": "Exemplar-pool changes must be DECLARATIVE AND TRACKED, not in-place edits. The raw pool is now treated as immutable (regenerable via build_en_ko_pairs.py --combine-only); curation is expressed as versioned rules (configs/ko/pool_rules/ko.yaml, each rule carrying rationale + evidence links) applied by a curate_exemplar_pool node that writes a SEPARATE csv, reports per-rule match counts and the rules content hash as run metrics, and registers as its own source (pooled_curated) so raw-vs-curated is a flow edit rather than a file mutation.",
+      "detail": "Prompted by two undocumented in-place pool mutations made earlier in this session, one of which was actively WRONG: a (en,ko) dedup removed 39,056 rows that the builder keeps ON PURPOSE (its dedup key includes `source`, so the same pair from EDI and SNOMED coexists with distinct provenance shown to the model). Both edits are now reverted — the raw pool is byte-restored to its documented 514,756 rows. v1 rules drop 222 pairs teaching SME-overruled forms (X선/방사선 영상 촬영 for X-ray, 조영상 for images) and append SME gold with post-ruling rewrites applied, fixing self-inflicted contamination (발목 x선 had been retrieved as an exemplar tagged SME_gold_v1). A third rule (EDI bracketed billing qualifiers) is documented but DISABLED: it matches 59% of the pool, so the observed noise is a retrieval-ranking problem, not a content problem.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ef444c26b7f6",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4b3938026c96",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "99aa8e4a9549",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-38",
+      "statement": "The 200-row SME gold eval has a test-retest noise floor of roughly +/-1-2 points: three byte-identical temp-0 runs scored 75/74/76 of 200 (37.5%/37.0%/38.0%) with 18-25 translations differing and 4-5 exact-match flips between any pair. Any difference below ~3 points on this set is not interpretable, and a 0.04% exemplar-pool change flipped 28 of 200 rows — mostly unrelated register coin-flips (절구/비구, 허리근/요근, 종골/발꿈치븀) — so retrieval perturbation, not just sampling, drives the variance.",
+      "detail": "Consequences for tonight's claims: the curated-vs-raw comparison (35.5% vs 37.5%) is INDISTINGUISHABLE FROM NOISE — curation is retained on correctness grounds (it stops the prompt contradicting our own enforced hard rules) but has NO demonstrated accuracy benefit. The targeted subpopulation (11 X-ray/-gram/-graphy terms) scored 4/11 in both arms. Model-choice gaps (Qwen 3.8-Max vs gemma, ~+6pts) survive this noise floor; style-guide gaps of 4-5pts are marginal and should be re-tested with repeats. Deterministic decoding is NOT reproducible here: vLLM/API batching changes token choices run to run. Future comparisons on this set should report a mean of >=3 repeats, or move to a larger labelled pool.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "99aa8e4a9549",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "860702b5c74e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "5c590d4cc7be",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4b3938026c96",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-39",
+      "statement": "Reasoning/thinking mode is now an explicit per-node switch (translate node `thinking` param) rather than an inherited model-catalogue default, and it is backend-aware: Claude's `thinking` key vs vLLM/DashScope's `enable_thinking` + chat_template_kwargs. The effective state is logged and captured in the run's prompts artifact. This was a genuine measurement defect: Opus had been compared against Qwen while running with thinking ON and Qwen with it OFF.",
+      "detail": "Two bugs found while building it: (1) the graph compiler never forwarded the param at all (a `if params.get(...)` style test would also have silently dropped `false`) so the first 'no-think' run silently ran with thinking ON; (2) setting all conventions at once leaked Claude's `thinking` key into the DashScope payload and 400'd every request. Both fixed; the effective regime is now printed as e.g. `thinking=False (node override)`.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8e335dfda2a4",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-40",
+      "statement": "Opus's lead does NOT come from its reasoning budget: with thinking explicitly DISABLED it scores 42.0% exact / chrF 74.4, inside the 40.5-43.0 spread of its own thinking-ON runs. Conversely Qwen 3.8-Max gains slightly WITH thinking (40.5% vs 38.0-39.5% without) at 23x the wall-clock. Under one frozen, thinking-matched condition the model gap narrows to roughly 2-3 points (Opus ~42%, Qwen ~39-40.5%) — at the edge of the +/-1-2 point noise floor, and much smaller than the 5-point gap claimed from the unmatched comparison.",
+      "detail": "Frozen condition: patched gold (SME 'original translation can be used as a synonym' alternates recovered), raw pool 8d5bcc2e with NO SME gold in retrieval (no sibling-gold leakage), multi-ref live. Opus thinking-ON 43.0/40.5/42.0 (mean 41.8, spread 2.5pt); Opus thinking-OFF 42.0 (n=1); Qwen thinking-OFF 38.0/39.0/39.5/39.0 (mean 38.9, spread 1.5pt); Qwen thinking-ON 40.5 (n=1, 966s vs 22s). Practical read: thinking buys Qwen ~1.5pt for 40x the time, and buys Opus nothing measurable. Cost/throughput therefore dominates the production choice, since Opus is subscription-throttled at concurrency 2 (~9.5 min per 200 rows vs Qwen's 22s).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "2f31a4a3fccd",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "cd7f7e1190f5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ab5cc428150c",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-41",
+      "statement": "DeepSeek-V4-Flash added as a model (official DeepSeek API, OpenAI-compatible at https://api.deepseek.com/v1, DEEPSEEK_API_KEY) and benchmarked: 34.0% exact / chrF 69.7 on the 200-row SME gold under the frozen condition — below Qwen 3.8-Max (~39%) and Opus (~42%), and comparable to local gemma4-26b-qat (33.5%). Fast and cheap (200 rows in 16s, 17 output tokens/call) but not competitive on quality for this task.",
+      "detail": "n=1 at a +/-1-2pt noise floor, so treat the gap to Qwen (~5pt) as probable and the gap to gemma (~0.5pt) as unresolved. Frozen condition: v6.0, patched gold, raw pool 8d5bcc2e, multi-ref live, reasoning off.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-42",
+      "statement": "Reasoning-mode control needs a PER-MODEL declared convention, not a shared guess: DeepSeek SILENTLY IGNORES `enable_thinking` (kept emitting 123-180 reasoning tokens with it set to false) and honours only `reasoning_effort: none` / `thinking: {type: disabled}`, while DashScope 400s on Claude's `thinking` key and the Claude Agent SDK accepts only that key. The model catalogue now carries `thinking_style` (sdk | enable_thinking | reasoning_effort) and the translate stage dispatches on it.",
+      "detail": "The silent-ignore failure is the dangerous one: without checking output tokens per call there is no sign the setting did nothing, and a whole benchmark would silently compare a reasoning model against a non-reasoning one. Cheap standing check: output tokens/call in usage.json (~13-17 = reasoning off; 130+ = reasoning on). Verified on the DeepSeek run: 17 tokens/call.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8e335dfda2a4",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
     }
   ]
 }
