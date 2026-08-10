@@ -575,6 +575,9 @@ translate_spec = FunctionSpec(
     outputs=[PortSpec(name="translations", kinds=["dataset"],
                       roles=["sctid", "en", "target"])],
     params=[
+        # Force reasoning on/off per node across backends (Claude `thinking`,
+        # vLLM/DashScope `enable_thinking`); unset inherits the model default.
+        ParamSpec(name="thinking", label="Reasoning/thinking mode", kind="bool"),
         ParamSpec(name="model_key", label="Model", kind="model", required=True),
         ParamSpec(name="output_tag", label="Output tag", kind="text"),
         ParamSpec(name="limit", label="Row limit", kind="number"),
@@ -1393,6 +1396,87 @@ semantic_partial_credit_calibration_spec = FunctionSpec(
     runner="snomed_translation.evidence_analysis:semantic_partial_credit_calibration",
 )
 
+curate_exemplar_pool_spec = FunctionSpec(
+    name="curate_exemplar_pool", label="Curate exemplar pool",
+    category="data",
+    description="Apply declarative, versioned curation rules to the raw "
+                "bilingual pool and emit a NEW csv (the raw pool is never "
+                "mutated). Each rule carries a rationale + evidence links; "
+                "per-rule match counts and the rules-file content hash are "
+                "reported as run metrics, so what changed and why is visible "
+                "in the ledger. Register the output as its own source to A/B "
+                "raw vs curated by editing a flow instead of a file.",
+    inputs=[
+        PortSpec(name="pool", label="Raw bilingual pool", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="pool", label="Curated pool", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="rules_file", label="Curation rules YAML", kind="text",
+                  required=True),
+        ParamSpec(name="output_csv", label="Curated output CSV", kind="text",
+                  required=True),
+    ],
+    runner="snomed_translation.pool_curation:curate_exemplar_pool",
+)
+
+contrast_fidelity_detect_spec = FunctionSpec(
+    name="contrast_fidelity_detect", label="Contrast fidelity detect",
+    category="detect",
+    description="Deterministic source-conditional detector for contrast-phrase "
+                "mismatches: 조영제 사용/미사용 hallucinated when the source has "
+                "no contrast mention, wrong polarity, or a source contrast "
+                "modifier dropped. Top SME batch-2 'Wrong' class. Ambiguous "
+                "constructions ('contrast procedure') are skipped for precision.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="flags", label="Contrast fidelity flags", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="en_col", label="English column", kind="text", default=""),
+        ParamSpec(name="ko_col", label="Korean column", kind="text", default=""),
+        ParamSpec(name="label_col", label="SME label column (optional)",
+                  kind="text", default="sme_rating"),
+    ],
+    runner="snomed_translation.sme_feedback:contrast_fidelity_detect",
+)
+
+sme_metric_separation_spec = FunctionSpec(
+    name="sme_metric_separation", label="SME metric separation",
+    category="evaluate",
+    description="Score SME-reviewed translations against the multi-reference "
+                "SME gold with candidate metrics (spacing-normalised exact, "
+                "chrF, BGE-M3 cosine) and measure how well each separates "
+                "Correct/Acceptable from Partial/Wrong (AUC, class means, best "
+                "cosine threshold). Picks the metric GEPA should optimise.",
+    inputs=[
+        PortSpec(name="labels", label="SME gold labels", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="audit", label="Per-row metric audit", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="candidate_col", label="Candidate column", kind="text",
+                  default="reviewed_ko"),
+        ParamSpec(name="reference_col", label="Canonical reference column",
+                  kind="text", default="ko_reference"),
+        ParamSpec(name="allrefs_col", label="All-references column",
+                  kind="text", default="ko_all"),
+        ParamSpec(name="label_col", label="Rating column", kind="text",
+                  default="sme_rating"),
+    ],
+    runner="snomed_translation.sme_feedback:sme_metric_separation",
+)
+
 register_feedback_analysis_spec = FunctionSpec(
     name="register_feedback_analysis",
     label="SME register feedback analysis",
@@ -1444,6 +1528,9 @@ def specs() -> list[FunctionSpec]:
         select_sme_batch_spec, package_sme_batch_spec,
         translation_evaluation_summary_spec,
         semantic_partial_credit_calibration_spec,
+        curate_exemplar_pool_spec,
+        contrast_fidelity_detect_spec,
+        sme_metric_separation_spec,
         register_feedback_analysis_spec,
         transliteration_recall_calibration_spec,
     ]

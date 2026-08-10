@@ -8,6 +8,7 @@ that drives the same internals from a PipelineConfig.
 from __future__ import annotations
 
 import csv
+import json
 import logging
 import os
 import sys
@@ -119,9 +120,54 @@ def _load_eval_rows(cfg: PipelineConfig, limit: int | None) -> list[dict]:
     return rows
 
 
+def _apply_thinking(llm_params: dict, thinking: bool | None,
+                    use_sdk: bool = False, style: str | None = None) -> dict:
+    """Force reasoning/thinking mode on or off, using the API's own convention.
+
+    Providers disagree, and getting it wrong fails in two different ways:
+      * ``sdk``              -> ``thinking: bool``          (Claude Agent SDK)
+      * ``enable_thinking``  -> ``enable_thinking`` + ``chat_template_kwargs``
+                                (vLLM, DashScope/Qwen)
+      * ``reasoning_effort`` -> ``reasoning_effort: none``  (DeepSeek)
+
+    Sending Claude's ``thinking`` key to DashScope returns 400; sending
+    ``enable_thinking`` to DeepSeek is SILENTLY IGNORED (verified 2026-08-10:
+    reasoning tokens kept flowing), which is the more dangerous failure. So the
+    convention is declared per model (``thinking_style`` in the catalogue)
+    rather than guessed. ``thinking=None`` inherits the model's own default.
+    """
+    if thinking is None:
+        return llm_params
+    out = dict(llm_params)
+    on = bool(thinking)
+    style = style or ("sdk" if use_sdk else "enable_thinking")
+    # Clear every convention first so a stale key can't re-enable reasoning.
+    for key in ("thinking", "enable_thinking", "reasoning_effort"):
+        out.pop(key, None)
+    ctk = {k: v for k, v in (out.get("chat_template_kwargs") or {}).items()
+           if k != "enable_thinking"}
+    if style == "sdk":
+        out["thinking"] = on
+    elif style == "reasoning_effort":
+        out["reasoning_effort"] = "medium" if on else "none"
+    else:
+        out["enable_thinking"] = on
+        ctk["enable_thinking"] = on
+    if ctk:
+        out["chat_template_kwargs"] = ctk
+    else:
+        out.pop("chat_template_kwargs", None)
+    if not on:
+        # An effort/budget left behind would re-enable reasoning on some backends.
+        out.pop("effort", None)
+        out.pop("max_thinking_tokens", None)
+    return out
+
+
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         limit: int | None = None, resume: bool = False,
         temperature: float | None = None,
+        thinking: bool | None = None,
         request_timeout_seconds: float = 120.0,
         max_attempts: int = 3, **_) -> StageResult:
     """Translate every concept in the eval set; write a CSV of results."""
@@ -150,9 +196,22 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     llm_params = dict(candidate.llm_params)
     if temperature is not None:
         llm_params["temperature"] = temperature
+    llm_params = _apply_thinking(llm_params, thinking, use_sdk=use_sdk,
+                                 style=getattr(model, 'thinking_style', None))
+    # Effective reasoning state, resolved across the three backend conventions —
+    # logged so a run never leaves it ambiguous which regime was compared.
+    _effort = llm_params.get("reasoning_effort")
+    effective_thinking = bool(
+        llm_params.get("thinking",
+                       llm_params.get("enable_thinking",
+                                      (llm_params.get("chat_template_kwargs") or {})
+                                      .get("enable_thinking",
+                                           _effort not in (None, "none")))))
     log.info("Translating with candidate model=%s concurrency=%s temperature=%s "
-             "llm_param_keys=%s", model_key, concurrency,
-             llm_params.get("temperature"), list(llm_params.keys()))
+             "thinking=%s (%s) llm_param_keys=%s", model_key, concurrency,
+             llm_params.get("temperature"), effective_thinking,
+             "node override" if thinking is not None else "model default",
+             list(llm_params.keys()))
 
     # Auth env propagation (existing translate_one's _auth_headers reads OPENAI_API_KEY /
     # DASHSCOPE_API_KEY / VLLM_API_KEY from env). We just need the right env var set.
@@ -267,6 +326,22 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     if mode == "w":
         writer.writeheader()
 
+    # Prompt capture: persist exactly what the model saw so a run is fully
+    # reconstructable — one meta line (rendered system prompt + the user
+    # template + call params), then one line per concept with the fully
+    # rendered user turn (exemplars table filled in).
+    prompts_path = out_path.with_name(
+        f"prompts_{cfg.translation.output_tag or 'run'}.jsonl")
+    promptf = prompts_path.open(mode, encoding="utf-8")
+    if mode == "w":
+        promptf.write(json.dumps({
+            "kind": "meta", "model_key": model_key, "llm_params": llm_params,
+            "thinking": effective_thinking,
+            "style_guide_path": str(cfg.translation.style_guide_path),
+            "lookup_topn": cfg.translation.lookup_topn,
+            "system": system_prompt, "user_template": user_template,
+        }, ensure_ascii=False) + "\n")
+
     def process_row(row: dict) -> dict:
         english = row["preferred_term"]
         pairs = lookup_cache.get(row["sctid"], [])[: cfg.translation.lookup_topn]
@@ -287,6 +362,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "preferred_term": english,
             "ko_reference": row["reference"],
             "translation": t,
+            "_user_prompt": user_prompt,
         }
 
     with vllm_cache_scope(ctx, base_url=base_url, model_id=model_id,
@@ -298,9 +374,13 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                 log.warning("Cancelled — aborting remaining work")
                 break
             result = fut.result()
+            user_prompt = result.pop("_user_prompt", "")
             with write_lock:
                 writer.writerow(result)
                 outf.flush()
+                promptf.write(json.dumps(
+                    {"kind": "row", "sctid": result["sctid"],
+                     "user": user_prompt}, ensure_ascii=False) + "\n")
                 completed[0] += 1
                 if result["translation"].startswith("ERROR"):
                     errors[0] += 1
@@ -313,13 +393,15 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                              100 * completed[0] / len(remaining), rate, eta, errors[0])
 
     outf.close()
+    promptf.close()
     elapsed = time.monotonic() - t0
 
     return StageResult(
         stage="translate",
         ok=errors[0] == 0,
-        outputs={"output_csv": out_path},
-        output_paths=[out_path] + ([excl_path] if excl_rows else []),
+        outputs={"output_csv": out_path, "prompts": prompts_path},
+        output_paths=[out_path, prompts_path]
+        + ([excl_path] if excl_rows else []),
         metrics={
             "n_translated": float(completed[0]),
             "n_errors": float(errors[0]),
