@@ -19,6 +19,7 @@ Two function nodes:
 from __future__ import annotations
 
 import csv
+import os
 import re
 import time
 from pathlib import Path
@@ -453,4 +454,199 @@ def self_review(ctx: RunContext, inputs: dict[str, Any],
               f"damage {metrics.get('damage_rate_pct')}% "
               f"net {int(metrics.get('net_rows_gained', 0)):+d} rows" if scored else ""))
     return FunctionResult(ok=True, outputs={"reviews": str(out)},
+                          metrics=metrics, message=msg)
+
+
+# ---------------------------------------------------------------------------
+# escalate_uncertain — confidence-routed two-model cascade
+# ---------------------------------------------------------------------------
+
+ESCALATE_SUFFIX = """
+A smaller model produced these candidate translations for this term (with how
+many of its samples gave each). It was NOT confident — the samples disagreed.
+Use them as evidence of where the difficulty lies, not as options to pick from:
+you may output one of them, a modification, or something different.
+
+{candidates}
+
+Output ONLY your final Korean translation."""
+
+
+def escalate_uncertain(ctx: RunContext, inputs: dict[str, Any],
+                       params: dict[str, Any]) -> FunctionResult:
+    """Keep the confident model's answer; re-translate the uncertain rows.
+
+    Routing uses sampling disagreement (``n_distinct``), the strongest
+    confidence signal measured on this task (AUC 0.755 for predicting
+    incorrectness). Rows below the threshold keep the sampler's unanimous
+    answer; rows at or above it are re-translated by a second, stronger model
+    which REPLAYS THE ORIGINAL PROMPT (same style guide, same retrieved
+    exemplars) and — when ``show_candidates`` — additionally sees what the
+    first model produced. It generates rather than selects, because selection
+    among the first model's samples was measured to gain nothing.
+    """
+    import json as _json
+    import urllib.request
+    from concurrent.futures import ThreadPoolExecutor
+
+    cpath = _dataset_path(inputs.get("candidates"))
+    if not cpath or not Path(cpath).exists():
+        return FunctionResult(ok=False, message="escalate_uncertain: no `candidates` wired")
+    side = Path(str(cpath).replace(".csv", ".prompts.json"))
+    if not side.exists():
+        return FunctionResult(
+            ok=False, message=f"escalate_uncertain: prompt sidecar missing at {side}")
+    sidecar = _json.loads(side.read_text(encoding="utf-8"))
+    system = sidecar.get("system_prompt") or sidecar.get("system") or ""
+    user_prompts = sidecar.get("user_prompts") or sidecar.get("prompts") or {}
+
+    model = str(params.get("model") or "")
+    base_url = str(params.get("base_url") or "")
+    if not model or not base_url:
+        return FunctionResult(
+            ok=False, message="escalate_uncertain: `model` and `base_url` required")
+    api_key = os.environ.get(str(params.get("api_key_env") or ""), "")
+    min_distinct = int(params.get("min_distinct") or 2)
+    show_candidates = bool(params.get("show_candidates", True))
+    max_escalate = int(params.get("max_escalate") or 0)
+    concurrency = int(params.get("concurrency") or 8)
+    llm = dict(params.get("llm_params") or
+               {"temperature": 0.0, "max_tokens": 256, "enable_thinking": False})
+
+    with Path(cpath).open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    normalize_spacing = bool(params.get("normalize_spacing", True))
+
+    def n_distinct(r) -> int:
+        """Distinct-candidate count driving the routing decision.
+
+        With ``normalize_spacing`` (default) the vote ignores 띄어쓰기, which
+        the SME has ruled is never itself an error. Otherwise spacing-only
+        variation escalates rows that need no escalation: 5 of 40 assessed
+        escalations were byte-identical no-ops, and some churn came from
+        re-translating an answer that was already gold modulo spacing.
+        """
+        if normalize_spacing:
+            try:
+                cands = _json.loads(r.get("candidates") or "[]")
+            except Exception:
+                cands = []
+            forms = {norm_text(c.get("text", "")) for c in cands
+                     if (c.get("text") or "").strip()}
+            if forms:
+                return len(forms)
+        try:
+            return int(r.get("n_distinct") or 1)
+        except ValueError:
+            return 1
+
+    uncertain = sorted([r for r in rows if n_distinct(r) >= min_distinct],
+                       key=lambda r: -n_distinct(r))
+    if max_escalate:
+        uncertain = uncertain[:max_escalate]
+    esc_ids = {r["sctid"] for r in uncertain}
+
+    def call(r: dict) -> tuple[str, str]:
+        sid = r["sctid"]
+        user = user_prompts.get(sid, "")
+        if show_candidates:
+            try:
+                cands = _json.loads(r.get("candidates") or "[]")
+            except Exception:
+                cands = []
+            block = "\n".join(
+                f"- {c.get('text','')}  ({c.get('count',1)} of "
+                f"{r.get('n_samples','?')} samples)" for c in cands)
+            user = user.rstrip() + "\n" + ESCALATE_SUFFIX.format(candidates=block)
+        body = _json.dumps({"model": model, "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}], **llm}).encode()
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        # Retry: a failed escalation silently falls back to the LOW-CONFIDENCE
+        # kept answer (a 15-18%-correct stratum), so a transient network blip
+        # costs real accuracy. 1/103 failed in a 200-row run; at ~2,500
+        # production calls that is ~25 rows.
+        attempts = int(params.get("max_attempts") or 3)
+        last = ""
+        for attempt in range(1, attempts + 1):
+            try:
+                req = urllib.request.Request(
+                    base_url.rstrip("/") + "/v1/chat/completions", data=body,
+                    headers=headers)
+                resp = _json.loads(urllib.request.urlopen(req, timeout=180).read())
+                from pipelines.llm_accounting import record_completion
+                record_completion(ctx, model=model, usage=resp.get("usage"))
+                return sid, resp["choices"][0]["message"]["content"].strip()
+            except Exception as exc:
+                last = str(exc)
+                if attempt < attempts:
+                    time.sleep(min(2 ** attempt, 8))
+        return sid, f"ERROR: {last}"
+
+    escalated: dict[str, str] = {}
+    if uncertain:
+        with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
+            escalated = dict(ex.map(call, uncertain))
+
+    # Contrast gate: reject a revision that INTRODUCES a contrast-fidelity
+    # fault the kept answer did not have. Inventing 조영제 사용 is the error
+    # class the SME flagged most, and an escalation was observed doing exactly
+    # that (241183005). The detector has zero measured false positives, so
+    # this is a safe veto — the row simply keeps the first model's answer.
+    gate_contrast = bool(params.get("gate_contrast", True))
+    n_gated = 0
+    if gate_contrast:
+        by_id = {r["sctid"]: r for r in rows}
+        for sid, text in list(escalated.items()):
+            if text.startswith("ERROR"):
+                continue
+            src = by_id.get(sid, {})
+            en = src.get("preferred_term", "")
+            kept_text = src.get("top_candidate", "")
+            new_issue = contrast_issue(en, text)
+            if new_issue in ("hallucinated", "wrong_polarity") and \
+                    contrast_issue(en, kept_text) != new_issue:
+                escalated.pop(sid)
+                esc_ids.discard(sid)
+                n_gated += 1
+
+    out = Path(ctx.artifacts_dir() or ctx.log_dir) / (
+        f"cascade_{params.get('output_tag') or 'run'}.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    n_err = 0
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=[
+            "sctid", "preferred_term", "ko_reference", "translation",
+            "n_distinct", "routed"])
+        w.writeheader()
+        for r in rows:
+            sid = r["sctid"]
+            if sid in escalated and not escalated[sid].startswith("ERROR"):
+                text, routed = escalated[sid], "escalated"
+            elif sid in escalated:
+                text, routed, n_err = r.get("top_candidate", ""), "escalation_failed", n_err + 1
+            else:
+                text, routed = r.get("top_candidate", ""), "kept"
+            w.writerow({"sctid": sid, "preferred_term": r.get("preferred_term", ""),
+                        "ko_reference": r.get("ko_reference", ""),
+                        "translation": text, "n_distinct": n_distinct(r),
+                        "routed": routed})
+
+    metrics = {"n_rows": float(len(rows)), "n_escalated": float(len(esc_ids)),
+               "n_gated_contrast": float(n_gated),
+               "normalize_spacing": float(bool(normalize_spacing)),
+               "n_kept": float(len(rows) - len(esc_ids)),
+               "escalation_rate_pct": round(100.0 * len(esc_ids) / len(rows), 2),
+               "n_escalation_errors": float(n_err),
+               "min_distinct": float(min_distinct),
+               "show_candidates": float(bool(show_candidates))}
+    msg = (f"kept {len(rows)-len(esc_ids)}, escalated {len(esc_ids)} "
+           f"(n_distinct>={min_distinct}) to {model}"
+           + (" WITH candidates shown" if show_candidates else " blind")
+           + (f"; {n_gated} revisions vetoed by the contrast gate" if n_gated else "")
+           + (f"; {n_err} escalation errors" if n_err else ""))
+    return FunctionResult(ok=True, outputs={"translations": str(out)},
                           metrics=metrics, message=msg)

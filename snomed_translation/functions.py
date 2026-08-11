@@ -1418,12 +1418,54 @@ curate_exemplar_pool_spec = FunctionSpec(
         PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
     ],
     params=[
+        # false -> skip `additions` (e.g. SME gold), for an eval-safe pool.
+        ParamSpec(name="include_additions", label="Include additions",
+                  kind="bool", default=True),
         ParamSpec(name="rules_file", label="Curation rules YAML", kind="text",
                   required=True),
         ParamSpec(name="output_csv", label="Curated output CSV", kind="text",
                   required=True),
     ],
     runner="snomed_translation.pool_curation:curate_exemplar_pool",
+)
+
+escalate_uncertain_spec = FunctionSpec(
+    name="escalate_uncertain", label="Escalate uncertain (cascade)",
+    category="translate",
+    description="Confidence-routed two-model cascade: keep the sampler's "
+                "answer where its samples agreed, and re-translate the "
+                "disagreeing rows with a stronger model that replays the "
+                "ORIGINAL prompt and optionally sees the first model's "
+                "candidates. Routes on n_distinct (AUC 0.755 for predicting "
+                "incorrectness) and generates rather than selects.",
+    inputs=[PortSpec(name="candidates", label="Candidates (translate_consistency)",
+                     kinds=["candidates"], required=True)],
+    outputs=[PortSpec(name="translations", label="Cascade translations",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="model", label="Escalation model id", kind="text", required=True),
+        ParamSpec(name="base_url", label="Base URL", kind="text", required=True),
+        ParamSpec(name="api_key_env", label="API key env var", kind="text"),
+        ParamSpec(name="min_distinct", label="Escalate when n_distinct >=",
+                  kind="number", default=2),
+        ParamSpec(name="show_candidates", label="Show the first model's candidates",
+                  kind="bool", default=True),
+        ParamSpec(name="max_escalate", label="Max rows to escalate (0 = all)",
+                  kind="number", default=0),
+        # Ignore 띄어쓰기 in the agreement vote (the SME rules spacing is never
+        # itself an error), so spacing-only variation never escalates.
+        ParamSpec(name="normalize_spacing", label="Spacing-normalised vote",
+                  kind="bool", default=True),
+        # Veto a revision that introduces a contrast-fidelity fault.
+        ParamSpec(name="gate_contrast", label="Contrast-fidelity gate",
+                  kind="bool", default=True),
+        ParamSpec(name="max_attempts", label="Escalation retries", kind="number",
+                  default=3),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number", default=8),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:escalate_uncertain",
 )
 
 self_review_spec = FunctionSpec(
@@ -1564,6 +1606,7 @@ def specs() -> list[FunctionSpec]:
         semantic_partial_credit_calibration_spec,
         curate_exemplar_pool_spec,
         self_review_spec,
+        escalate_uncertain_spec,
         contrast_fidelity_detect_spec,
         sme_metric_separation_spec,
         register_feedback_analysis_spec,

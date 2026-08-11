@@ -144,9 +144,14 @@ def curate_exemplar_pool(ctx: RunContext, inputs: dict[str, Any],
     # be removed by the same rules that justified updating it.
     added = 0
     add_ids: list[str] = []
+    # An EVAL-safe variant of the same rules: additions (notably SME gold) must
+    # NOT enter a pool used to evaluate on those very concepts — self-exclusion
+    # only removes a concept's OWN sctid, so sibling gold still leaks (measured:
+    # ~50% of eval concepts saw an SME_gold exemplar). Production keeps them.
+    include_additions = params.get("include_additions", True)
     seen = {(r.get("EN", "").strip().lower(), r.get("KO", "").strip(),
              r.get("source", ""), r.get("sctid", "")) for r in kept}
-    for add in (spec.get("additions") or []):
+    for add in (spec.get("additions") or []) if include_additions else []:
         if not add.get("enabled", True):
             continue
         csv_path = Path(add["csv"])
@@ -194,6 +199,7 @@ def curate_exemplar_pool(ctx: RunContext, inputs: dict[str, Any],
     for rid, n in counts.items():
         metrics[f"matched_{rid}".replace("-", "_")] = float(n)
 
+    metrics["additions_included"] = float(bool(include_additions))
     msg = (f"{n_raw:,} -> {len(kept):,} rows "
            f"(dropped {int(metrics['rows_dropped']):,}, added {added:,}) "
            f"via {len(active)} active rule(s)"

@@ -256,6 +256,14 @@ def _pool_source(cfg: PipelineConfig) -> DataSourceSpec:
     return picked[0]
 
 
+# Bumped whenever the cached rows' SHAPE or the retrieval semantics change, so
+# a stale cache is ignored instead of silently serving degraded prompts. v1 ->
+# v2: rows gained (source, sctid) provenance and retrieval now deduplicates on
+# the Korean string. A 2026-07 cache survived the provenance change and fed 94%
+# of exemplar rows to the model with no Source column for weeks.
+CACHE_VERSION = 2
+
+
 def _cache_paths(cfg: PipelineConfig, collection: str) -> tuple[Path, Path]:
     base = Path(cfg.paths.lookup_cache)
     cache = base.with_name(f"{base.stem}.{collection}.json")
@@ -293,7 +301,8 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]
         except Exception:
             meta = {}
         if meta.get("collection") == collection and \
-                int(meta.get("topn") or 0) >= topn:
+                int(meta.get("topn") or 0) >= topn and \
+                int(meta.get("cache_version") or 1) >= CACHE_VERSION:
             cache = json.loads(cache_path.read_text(encoding="utf-8"))
             if excl_path.exists():
                 try:
@@ -365,7 +374,8 @@ def ensure_exemplars(cfg: PipelineConfig, rows: list[dict]
     cache_path.write_text(json.dumps(cache, ensure_ascii=False),
                           encoding="utf-8")
     meta_path.write_text(
-        json.dumps({"collection": collection, "topn": topn}),
+        json.dumps({"collection": collection, "topn": topn,
+                    "cache_version": CACHE_VERSION}),
         encoding="utf-8")
     excl_path.write_text(json.dumps(exclusions, ensure_ascii=False),
                          encoding="utf-8")

@@ -110,6 +110,22 @@ rules:
       source_in: ["EDI"]
       target_regex: '[\[\(][^\]\)]{2,}[\]\)]'
 
+  - id: ablation-drop-all-edi
+    description: >-
+      ABLATION ONLY — drop every EDI (HIRA billing) pair from the pool.
+    rationale: >-
+      Tests whether billing strings help at all. EDI is 75% of pool ROWS but
+      only 14% of the exemplar SLOTS actually shown, and in 200 prompts an EDI
+      exemplar never once equalled the gold answer or the model's output.
+      Observationally, rows shown an EDI exemplar scored HIGHER (42.9% vs
+      31.0%) but that is confounded: EDI matches cluster on common procedures,
+      which are easier. This rule exists to break the confound.
+    evidence: ["run:e7d290ec3d1f"]
+    action: drop
+    enabled: true
+    match:
+      source_in: ["EDI"]
+
 # --- Additions -------------------------------------------------------------
 # Extra pairs appended after filtering. `ruling_updated_only` applies the same
 # post-ruling rewrites used when building the SME gold (X선 -> 단순 촬영,
