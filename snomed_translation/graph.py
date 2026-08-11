@@ -361,6 +361,9 @@ def build_translate_consistency(node: FlowNode, base_cfg: PipelineConfig,
     kwargs["samples"] = int(node.params.get("samples", 5))
     if "temperature" in node.params:
         kwargs["temperature"] = float(node.params["temperature"])
+    if "request_timeout_seconds" in node.params:
+        kwargs["request_timeout_seconds"] = float(
+            node.params["request_timeout_seconds"])
     return cfg, kwargs
 
 

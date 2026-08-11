@@ -34,6 +34,8 @@ from scripts.translation.translate_korean_with_lookup import (
 
 log = logging.getLogger(__name__)
 
+from snomed_translation.watchdog import progress_watchdog
+
 
 def _template_body(template_id: str | None, default_body: str) -> str:
     """The prompt body from the version-controlled store (WIZARD_PROMPTS_DIR/<id>)
@@ -406,7 +408,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             # complete() (the unified provider) records this call's token usage
             # into ctx — vLLM input/output/cached OR Agent-SDK usage.
             t = complete(model, model_key, system_prompt, user_prompt, llm_params,
-                         ctx=ctx)
+                         timeout=(10, request_timeout_seconds), ctx=ctx)
         except Exception as exc:
             log.error("%s -> ERROR %s", english[:40], exc)
             t = f"ERROR: {exc}"
@@ -420,6 +422,8 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     with vllm_cache_scope(ctx, base_url=base_url, model_id=model_id,
                           model_key=model_key), \
+         progress_watchdog("translate", stall_seconds=120.0,
+                           base_url=None if use_sdk else base_url) as _tick, \
          ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {pool.submit(process_row, row): row for row in remaining}
         for fut in as_completed(futures):
@@ -435,6 +439,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                     {"kind": "row", "sctid": result["sctid"],
                      "user": user_prompt}, ensure_ascii=False) + "\n")
                 completed[0] += 1
+                _tick()
                 if result["translation"].startswith("ERROR"):
                     errors[0] += 1
                 if completed[0] % 50 == 0:
