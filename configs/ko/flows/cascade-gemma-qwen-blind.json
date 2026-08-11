@@ -1,8 +1,8 @@
 {
-  "id": "eval200-v6-opus",
-  "name": "eval200_v6_opus",
-  "description": "200-row SME gold eval: v6.0 + Claude Opus via Agent-SDK provider (model-ceiling probe, user-approved allowance).",
-  "project": "style_guide_v6_baseline_v1",
+  "id": "cascade-gemma-qwen-blind",
+  "name": "cascade_gemma_qwen_blind",
+  "description": "Cascade arm B (BLIND escalation): identical routing, but Qwen re-translates the uncertain rows from the original prompt ALONE, without seeing gemma's candidates. Isolates whether showing the weaker model's attempts helps (extra evidence) or hurts (anchoring on wrong answers). Arm A with candidates scored 40.0%.",
+  "project": "translation_prompt_context_v1",
   "nodes": [
     {
       "id": "terms",
@@ -42,19 +42,18 @@
       "inputs": {}
     },
     {
-      "id": "translate",
+      "id": "sample",
       "type": "function",
       "pos": {
-        "x": 320.0,
+        "x": 340.0,
         "y": 60.0
       },
       "params": {
-        "model_key": "claude-opus",
-        "output_tag": "eval200_v6_opus",
-        "resume": false,
-        "request_timeout_seconds": 300,
-        "max_attempts": 3,
-        "function": "translate"
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "cascade_gemma_qwen_blind",
+        "function": "translate_consistency"
       },
       "inputs": {
         "terms": "terms",
@@ -63,46 +62,51 @@
       }
     },
     {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "concurrency": 8,
+        "output_tag": "gemma_qwen_blind",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
       "id": "evaluate",
       "type": "function",
       "pos": {
-        "x": 600.0,
+        "x": 940.0,
         "y": 60.0
       },
       "params": {
         "function": "evaluate"
       },
       "inputs": {
-        "translations": "translate",
+        "translations": "cascade:translations",
         "reference": "terms"
-      }
-    },
-    {
-      "id": "contrast_audit",
-      "type": "function",
-      "pos": {
-        "x": 600.0,
-        "y": 200.0
-      },
-      "params": {
-        "en_col": "preferred_term",
-        "ko_col": "translation",
-        "function": "contrast_fidelity_detect"
-      },
-      "inputs": {
-        "translations": "translate:translations"
       }
     },
     {
       "id": "headline",
       "type": "function",
       "pos": {
-        "x": 860.0,
+        "x": 1240.0,
         "y": 60.0
       },
       "params": {
         "expression": "exact_match_pct",
-        "output_name": "sme200_exact_pct",
+        "output_name": "cascade_exact_pct",
         "function": "evaluate_formula"
       },
       "inputs": {

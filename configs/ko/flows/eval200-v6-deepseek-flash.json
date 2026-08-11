@@ -1,7 +1,7 @@
 {
   "id": "eval200-v6-deepseek-flash",
   "name": "eval200_v6_deepseek_flash",
-  "description": "200-row SME gold eval: v6.0 + DeepSeek-V4-Flash (official DeepSeek API, OpenAI-compatible). Reasoning explicitly disabled via reasoning_effort=none — this API silently ignores enable_thinking. Same frozen condition as the Opus/Qwen matrix: patched gold, raw pool 8d5bcc2e (no SME gold in retrieval), multi-ref live.",
+  "description": "200-row SME gold eval: v6.0 + DeepSeek-V4-Flash (official DeepSeek API, OpenAI-compatible). Reasoning explicitly disabled via reasoning_effort=none — this API silently ignores enable_thinking. Same frozen condition as the Opus/Qwen matrix: patched gold, eval-safe curated pool (no SME gold in retrieval), multi-ref live.",
   "project": "style_guide_v6_baseline_v1",
   "nodes": [
     {
@@ -24,7 +24,7 @@
         "y": 200.0
       },
       "params": {
-        "source": "pooled_legacy"
+        "source": "pooled_curated_eval"
       },
       "inputs": {}
     },

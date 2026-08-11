@@ -143,6 +143,30 @@
       ],
       "author": "",
       "ts": "2026-08-10T09:27:00"
+    },
+    {
+      "id": "note-7",
+      "body": "PRODUCTION CASCADE DELIVERABLE COMPLETE (run 65e53f071b45, 2026-08-11). All 5,012 active imaging concepts, in the exact configuration measured on the 200-row SME gold.\n\nRun: sampling 25,060 calls in 1,382s (18.2 req/s, 0 errors, 2,335 concepts with disagreement); escalation 2,335 concepts to Qwen 3.8-Max blind in 560s with ZERO escalation failures (the new retry never needed); audits contrast 4/5012 (3 hallucinated, 1 dropped) and transliteration 1/5012. Escalation rate 46.59% — close to the 48-53% seen on the SME gold set, so the routing economics hold on the production distribution (an open question flagged by the pre-flight audit). Roughly 2,677 concepts (53%) never left the free local model.\n\nDeliverable: data/languages/ko/sme_review/2026-08-09/production_imaging_deliverable.{csv,xlsx} — 5,012 rows, 0 empty/ERROR, SME-approved renderings still overriding machine output on the 177 reviewed concepts, and review_priority now driven by SAMPLING DISAGREEMENT rather than the poorly-correlated Gemma acceptability judge: high 965 / medium 1,286 / low 2,584 / done 177. New columns n_distinct and routed make the basis of the ranking visible to the SME.\n\nHonest framing for anyone reading this later: ship rationale is COST + TRIAGE, not a proven accuracy gain. The concept-level test (p=0.15, conclusion 62) does not establish the cascade beats Qwen alone; what it does deliver is Qwen-parity worst case with half the corpus local, plus a review ranking measured at AUC 0.755 versus a judge that correlates poorly with SME verdicts. Expert assessment (conclusion 58) puts true acceptability around 55-58% against ~27-41% exact match, so the metric understates quality roughly 2x for every arm.\n\nPrerequisite fixed en route: the infinite HTTP read timeout (conclusion 64) that silently killed two earlier 25k-call attempts. This run is the first to complete the full sampling volume.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "65e53f071b45",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6971a3101a3a",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-11T21:41:37"
     }
   ],
   "plan": {

@@ -1,7 +1,7 @@
 {
-  "id": "eval200-v6-qwen38max-attrs",
-  "name": "eval200_v6_qwen38max_attrs",
-  "description": "Attribute-injection arm for Qwen 3.8-Max (see eval200-v6-gemma-attrs).",
+  "id": "cascade-gemma-qwen-v2",
+  "name": "cascade_gemma_qwen_v2",
+  "description": "Cascade v2: blind escalation plus two fixes from the terminologist assessment of v1 — (a) the agreement vote is spacing-normalised, so spacing-only variation never escalates (5 of 40 assessed escalations were byte-identical no-ops); (b) a contrast-fidelity gate vetoes any revision that INVENTS a 조영제 phrase the source lacks, falling back to the kept answer (an escalation was observed doing exactly that on 241183005). Baseline v1 blind: 41.0% exact / chrF 73.1.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -42,20 +42,18 @@
       "inputs": {}
     },
     {
-      "id": "translate",
+      "id": "sample",
       "type": "function",
       "pos": {
-        "x": 320.0,
+        "x": 340.0,
         "y": 60.0
       },
       "params": {
-        "model_key": "qwen38-max-remote",
-        "output_tag": "eval200_v6_qwen38max_attrs",
-        "resume": false,
-        "request_timeout_seconds": 300,
-        "max_attempts": 3,
-        "function": "translate",
-        "attributes_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/sme_review/2026-04-24/untranslated_imaging_attributes.json"
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "cascade_v2",
+        "function": "translate_consistency"
       },
       "inputs": {
         "terms": "terms",
@@ -64,46 +62,53 @@
       }
     },
     {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "concurrency": 8,
+        "output_tag": "gemma_qwen_v2",
+        "function": "escalate_uncertain",
+        "normalize_spacing": true,
+        "gate_contrast": true
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
       "id": "evaluate",
       "type": "function",
       "pos": {
-        "x": 600.0,
+        "x": 940.0,
         "y": 60.0
       },
       "params": {
         "function": "evaluate"
       },
       "inputs": {
-        "translations": "translate",
+        "translations": "cascade:translations",
         "reference": "terms"
-      }
-    },
-    {
-      "id": "contrast_audit",
-      "type": "function",
-      "pos": {
-        "x": 600.0,
-        "y": 200.0
-      },
-      "params": {
-        "en_col": "preferred_term",
-        "ko_col": "translation",
-        "function": "contrast_fidelity_detect"
-      },
-      "inputs": {
-        "translations": "translate:translations"
       }
     },
     {
       "id": "headline",
       "type": "function",
       "pos": {
-        "x": 860.0,
+        "x": 1240.0,
         "y": 60.0
       },
       "params": {
         "expression": "exact_match_pct",
-        "output_name": "sme200_exact_pct",
+        "output_name": "cascade_exact_pct",
         "function": "evaluate_formula"
       },
       "inputs": {

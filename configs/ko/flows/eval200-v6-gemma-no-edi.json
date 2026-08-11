@@ -1,7 +1,7 @@
 {
-  "id": "eval200-v6-opus",
-  "name": "eval200_v6_opus",
-  "description": "200-row SME gold eval: v6.0 + Claude Opus via Agent-SDK provider (model-ceiling probe, user-approved allowance).",
+  "id": "eval200-v6-gemma-no-edi",
+  "name": "eval200_v6_gemma_no_edi",
+  "description": "EDI ablation arm: identical to eval200-v6-gemma but retrieving from a pool with all EDI billing pairs removed.",
   "project": "style_guide_v6_baseline_v1",
   "nodes": [
     {
@@ -24,7 +24,7 @@
         "y": 200.0
       },
       "params": {
-        "source": "pooled_curated_eval"
+        "source": "pooled_no_edi"
       },
       "inputs": {}
     },
@@ -49,8 +49,8 @@
         "y": 60.0
       },
       "params": {
-        "model_key": "claude-opus",
-        "output_tag": "eval200_v6_opus",
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "eval200_v6_gemma_no_edi",
         "resume": false,
         "request_timeout_seconds": 300,
         "max_attempts": 3,

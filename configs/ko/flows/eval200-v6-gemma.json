@@ -24,7 +24,7 @@
         "y": 200.0
       },
       "params": {
-        "source": "pooled_legacy"
+        "source": "pooled_curated_eval"
       },
       "inputs": {}
     },

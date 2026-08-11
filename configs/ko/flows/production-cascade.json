@@ -1,0 +1,153 @@
+{
+  "id": "production-cascade",
+  "name": "production_cascade",
+  "description": "PRODUCTION cascade over the 5,012 active imaging concepts, in exactly the configuration measured on the 200-row SME gold (mean 40.25% vs Qwen 37.75%, gemma 35.75%). gemma4-26b-qat samples 5 per concept at temp 0.7 under style guide v6.0 and the eval-safe curated pool; concepts whose samples agree keep gemma's answer; the rest are re-translated BLIND by Qwen 3.8-Max replaying the original prompt. Shipped for COST and TRIAGE, not for a proven accuracy gain: the edge lives in the kept half and the escalated half is Qwen-parity, so worst case is Qwen quality with ~half the corpus on free local GPU plus an n_distinct review-priority signal (AUC 0.755) replacing the poorly-correlated acceptability judge. Deterministic detectors run on the final output as an audit.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "production_imaging_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated_eval"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 480.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "production_cascade",
+        "function": "translate_consistency",
+        "request_timeout_seconds": 300
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": true,
+        "max_attempts": 3,
+        "concurrency": 8,
+        "output_tag": "production",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "translit_audit",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 220.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "cascade:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "escalation_rate_pct",
+        "output_name": "escalation_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "cascade:metrics"
+      }
+    }
+  ]
+}
