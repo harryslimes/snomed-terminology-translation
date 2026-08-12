@@ -1,0 +1,49 @@
+{
+  "id": "apply-collision-fixes",
+  "name": "apply_collision_fixes",
+  "description": "Apply the HIGH-confidence disambiguations for concepts that shared a Korean rendering. Each is a minimal edit to the existing string, so nothing else in the row can drift — the lesson from a repair that satisfied its rule while dropping 방출 from a SPECT term. Runs through the same gates as every other patch: the SME lock refuses adjudicated rows, the blocker gate refuses any change that introduces a violation, and the duplicate detector re-runs afterwards to confirm the collisions actually cleared rather than moved. MEDIUM/LOW proposals are excluded on purpose and go to the reviewer as questions; replacing one unverified string with another is not progress unless the fix is dictionary-level.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "deliverable", "type": "datasource", "pos": {"x": 40.0, "y": 120.0},
+     "params": {"data_object": "ko_imaging_deliverable"}, "inputs": {}},
+    {"id": "patch", "type": "datasource", "pos": {"x": 40.0, "y": 260.0},
+     "params": {"source": "collision_fix_patch"}, "inputs": {}},
+    {"id": "sme_labels", "type": "datasource", "pos": {"x": 40.0, "y": 400.0},
+     "params": {"source": "sme_adjudicated"}, "inputs": {}},
+
+    {"id": "before", "type": "function", "pos": {"x": 360.0, "y": 400.0},
+     "params": {"ko_col": "translation", "en_col": "preferred_term",
+                "output_tag": "before", "function": "duplicate_translation"},
+     "inputs": {"translations": "deliverable"}},
+
+    {"id": "apply", "type": "function", "pos": {"x": 360.0, "y": 120.0},
+     "params": {"ko_col": "translation", "output_tag": "collision_fixed",
+                "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+                "function": "splice_translations"},
+     "inputs": {"base": "deliverable", "patch": "patch", "sme_labels": "sme_labels"}},
+
+    {"id": "after", "type": "function", "pos": {"x": 700.0, "y": 120.0},
+     "params": {"ko_col": "translation", "en_col": "preferred_term",
+                "output_tag": "after", "function": "duplicate_translation"},
+     "inputs": {"translations": "apply:translations"}},
+    {"id": "validate", "type": "function", "pos": {"x": 700.0, "y": 260.0},
+     "params": {"rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+                "fail_on_blocker": false, "en_col": "preferred_term",
+                "ko_col": "translation", "output_tag": "collision_fixed",
+                "function": "validate_translations"},
+     "inputs": {"translations": "apply:translations"}},
+    {"id": "hierarchy", "type": "function", "pos": {"x": 700.0, "y": 400.0},
+     "params": {"rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+                "max_depth": 4, "en_col": "preferred_term", "ko_col": "translation",
+                "output_tag": "collision_fixed", "function": "hierarchy_consistency"},
+     "inputs": {"translations": "apply:translations"}},
+
+    {"id": "headline", "type": "function", "pos": {"x": 1040.0, "y": 120.0},
+     "params": {"expression": "n_collisions", "output_name": "collisions_after",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "after:metrics"}},
+    {"id": "promote", "type": "promote", "pos": {"x": 1040.0, "y": 260.0},
+     "params": {"name": "ko_imaging_deliverable", "type": "dataset"},
+     "inputs": {"value": "apply:translations"}}
+  ]
+}
