@@ -452,6 +452,30 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
                  f"experiment; {len(fields)} columns"))
 
 
+# Detector ids are internal vocabulary. A clinician filtering `flagged_checks`
+# should not meet the word "hallucinated" — it reads as an accusation about a
+# term they may have written, and it invites them to audit our detectors rather
+# than the translations. Anything unmapped degrades to a neutral phrase.
+CHECK_LABELS = {
+    "hierarchy-inconsistency": "differs from parent concept",
+    "hallucinated": "contrast wording may be added",
+    "dropped": "contrast wording may be missing",
+    "transliteration": "may be transliterated rather than translated",
+    "no-rf2-markup": "source formatting may have carried over",
+    "upper-limb-not-upper-arm": "body-site term to confirm",
+    "repeated-token": "wording repeats",
+}
+
+
+def _label_checks(value: str) -> str:
+    out = []
+    for tok in (value or "").split(";"):
+        tok = tok.strip()
+        if tok:
+            out.append(CHECK_LABELS.get(tok, "flagged for checking"))
+    return "; ".join(dict.fromkeys(out))
+
+
 def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> dict:
     """Render the review pack as a workbook a reviewer can actually work in.
 
@@ -491,7 +515,8 @@ def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> di
     }
     prio_idx = fields.index("review_priority") + 1 if "review_priority" in fields else None
     for r in rows:
-        ws.append([r.get(k, "") for k in fields])
+        ws.append([_label_checks(r.get(k, "")) if k == "flagged_checks"
+                   else r.get(k, "") for k in fields])
         if prio_idx:
             cell = ws.cell(row=ws.max_row, column=prio_idx)
             fill = prio_fill.get((r.get("review_priority") or "").strip())
@@ -505,9 +530,60 @@ def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> di
               "sme_error_category": 20, "sme_notes": 40}
     for i, name in enumerate(fields, 1):
         ws.column_dimensions[get_column_letter(i)].width = widths.get(name, 18)
-    ws.freeze_panes = "C2"          # keep sctid + English in view while scrolling
+    # D2, not C2: the reviewer types in the last four columns, and with C2 the
+    # Korean they are correcting scrolls off-screen exactly when they need it.
+    ws.freeze_panes = "D2"
     ws.auto_filter.ref = ws.dimensions
     ws.row_dimensions[1].height = 30
+
+    # Constrain the rating so the returned file needs no repair. Free text has
+    # previously come back as CORRECT, blanks, and mixed case, which the gold
+    # builder then has to reconcile heuristically.
+    from openpyxl.worksheet.datavalidation import DataValidation
+    if "sme_rating" in fields:
+        dv = DataValidation(type="list",
+                            formula1='"ACCEPTABLE,PARTIAL,WRONG"', allow_blank=True)
+        ws.add_data_validation(dv)
+        col = get_column_letter(fields.index("sme_rating") + 1)
+        dv.add(f"{col}2:{col}{ws.max_row}")
+
+    # BLINDED SAMPLE SHEET. The 120 rows exist to test whether review_priority
+    # predicts errors — and on the Review sheet each one displays its own
+    # priority, n_distinct and flags while being rated. A row labelled `high`
+    # invites scrutiny and `low` invites a wave-through, which would manufacture
+    # exactly the result we are trying to test. This sheet shows the same rows
+    # with those cues removed, in an order that does not group by tier, so the
+    # rating is formed from the translation alone. Merged back by sctid.
+    sample = [r for r in rows if (r.get("review_sample") or "").strip() == "yes"]
+    if sample:
+        blind_fields = ["sctid", "preferred_term", "translation_ko", "synonyms_ko",
+                        "sme_rating", "sme_corrected_ko", "sme_error_category",
+                        "sme_notes"]
+        blind_fields = [f for f in blind_fields if f in fields]
+        # Deterministic shuffle: order by a hash of the sctid so tiers interleave
+        # reproducibly rather than appearing in blocks.
+        sample = sorted(sample, key=lambda r: hashlib.sha256(
+            f"blind:{r.get('sctid','')}".encode()).hexdigest())
+        sh = wb.create_sheet("Sample - please do these first", 1)
+        sh.append(blind_fields)
+        for i, name in enumerate(blind_fields, 1):
+            c = sh.cell(row=1, column=i)
+            c.fill = response_fill if name in response_cols else header_fill
+            c.font = Font(color="FFFFFF", bold=True)
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+        for r in sample:
+            sh.append([r.get(k, "") for k in blind_fields])
+        for i, name in enumerate(blind_fields, 1):
+            sh.column_dimensions[get_column_letter(i)].width = widths.get(name, 18)
+        sh.freeze_panes = "D2"
+        sh.auto_filter.ref = sh.dimensions
+        sh.row_dimensions[1].height = 30
+        if "sme_rating" in blind_fields:
+            dv2 = DataValidation(type="list",
+                                 formula1='"ACCEPTABLE,PARTIAL,WRONG"', allow_blank=True)
+            sh.add_data_validation(dv2)
+            col = get_column_letter(blind_fields.index("sme_rating") + 1)
+            dv2.add(f"{col}2:{col}{sh.max_row}")
 
     # A second sheet so the column semantics travel WITH the file. A legend in
     # a covering email is lost the moment the file is forwarded.
@@ -520,6 +596,8 @@ def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> di
         ["review_priority", "Where our automated checks think the risk is: high, medium, low. done = previously accepted, no action needed."],
         ["flagged_checks", "Which check fired, when one did. hierarchy-inconsistency = rendered differently from its own parent concept."],
         ["n_distinct", "How many different answers the model gave across 5 attempts. 1 = it was consistent; 4-5 = it was unsure."],
+        ["review_sample", "yes = one of the 120 rows we would most like done. They are laid out on the 'Sample - please do these first' sheet."],
+        ["routed", "Which model produced the row. Internal bookkeeping; nothing for you to act on."],
         ["", ""],
         ["Please fill in", ""],
         ["sme_rating", "ACCEPTABLE / PARTIAL / WRONG"],

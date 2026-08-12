@@ -174,6 +174,11 @@ def transliteration_detect(ctx: RunContext, inputs: dict[str, Any],
                    "korean": ko, "romanized": romanize(ko),
                    "echo": round(echo, 3),
                    "dict_cov": ("" if cov is None else round(cov, 3)),
+                   # Name the check, per the findings contract, so aggregators
+                   # can attribute the row instead of falling back to whatever
+                   # port they received it on — qa_gate was labelling these
+                   # "findings4", and that string reached a reviewer-facing file.
+                   "check": "transliteration" if flag else "",
                    "flag": int(flag)}
             if has_label:
                 row["sme_rating"] = (r.get(label_col) or "").strip().upper()
