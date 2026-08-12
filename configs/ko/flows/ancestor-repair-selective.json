@@ -1,7 +1,7 @@
 {
   "id": "ancestor-repair-selective",
   "name": "ancestor_repair_selective",
-  "description": "Adopt only the ancestor-repair changes that demonstrably help. Pass 1 splices all 342 repaired rows over the shipped 5,012 and re-detects hierarchy consistency; diff_findings then isolates the rows whose flag actually cleared; pass 2 re-splices ONLY those, and the detectors run again on that deliverable. Motivated by the row-level diff of the full splice: 233 rows changed but only 138 cleared a flag, so 95 edits carried the intervention's regression risk (3 of 16 worsened on SME gold, e.g. 후복막 -> 후복강) with no measured upside. Baseline to beat: 580 rows flagged, 12 blockers, 4 contrast issues.",
+  "description": "Adopt only the ancestor-repair changes that demonstrably help. Pass 1 splices all 342 repaired rows over the shipped 5,012 and re-detects hierarchy consistency; diff_findings then isolates the rows whose flag actually cleared; pass 2 re-splices ONLY those, and the detectors run again on that deliverable. Motivated by the row-level diff of the full splice: 233 rows changed but only 138 cleared a flag, so 95 edits carried the intervention's regression risk (3 of 16 worsened on SME gold, e.g. 후복막 -> 후복강) with no measured upside. Baseline to beat: 580 rows flagged, 12 blockers, 4 contrast issues. Reads and re-promotes ko_imaging_deliverable, so the deliverable has an IDENTITY: a named, content-addressed object with a sha, rather than 'whichever selective splice ran most recently'. When SME feedback returns we can say which sha they reviewed.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -12,7 +12,7 @@
         "y": 60.0
       },
       "params": {
-        "source": "production_cascade_output"
+        "data_object": "ko_imaging_deliverable"
       },
       "inputs": {}
     },
@@ -24,7 +24,7 @@
         "y": 200.0
       },
       "params": {
-        "source": "ancestor_repair_output"
+        "data_object": "ancestor_repair_patch"
       },
       "inputs": {}
     },
@@ -187,6 +187,21 @@
       },
       "inputs": {
         "metrics": "detect_sel:metrics"
+      }
+    },
+    {
+      "id": "promote_deliverable",
+      "type": "promote",
+      "pos": {
+        "x": 1720.0,
+        "y": 220.0
+      },
+      "params": {
+        "name": "ko_imaging_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "splice_sel:translations"
       }
     }
   ]

@@ -59,6 +59,25 @@ class HardRule:
     forbidden: list[str] = field(default_factory=list)
     # Regex patterns that must never match the output.
     forbidden_regex: list[str] = field(default_factory=list)
+    # Regex on the SOURCE term. When set, the rule only fires for concepts
+    # whose English matches — making the rule a statement about a MAPPING
+    # rather than about the target string alone.
+    #
+    # The most valuable defect class we have is source-conditional and cannot
+    # be expressed without this. 위팔 (upper arm) is correct Korean for "upper
+    # arm", for 위팔뼈 (humerus) and for 위팔동맥 (brachial artery); it is wrong
+    # only where the source says "upper limb". Banning the substring outright
+    # flagged 64 rows of which 40 were correct — 63% false positives — and
+    # would have refused correct translations forever after.
+    when_source: str = ""
+    # Worked examples: {"flag": [{source, target}, ...], "pass": [...]}.
+    # `flag` must violate the rule, `pass` must not. Checked by
+    # check_rule_examples and by the test suite, so a rule that stops firing —
+    # or starts over-firing — fails loudly instead of silently changing what
+    # ships. These rules gate both GEPA scoring and the deliverable, and the
+    # first version of upper-limb-not-upper-arm was 63% false positives, so
+    # "the regex looks right" is not good enough.
+    examples: dict = field(default_factory=dict)
     enforce: bool = True
     freeze: bool = True
     # Master off switch. A rule kept in the file for documentation, or parked
@@ -98,6 +117,8 @@ class HardRule:
             canonical=_as_list(d.get("canonical")),
             forbidden=_as_list(d.get("forbidden")),
             forbidden_regex=_as_list(d.get("forbidden_regex")),
+            when_source=str(d.get("when_source", "")),
+            examples=dict(d.get("examples") or {}),
             enforce=bool(d.get("enforce", True)),
             freeze=bool(d.get("freeze", True)),
             enabled=bool(d.get("enabled", True)),
@@ -165,7 +186,8 @@ def frozen_block(rules: list[HardRule]) -> str:
 
 
 def find_violations(
-    candidate: str, rules: list[HardRule], *, require_enforce: bool = True
+    candidate: str, rules: list[HardRule], *, require_enforce: bool = True,
+    source: str = ""
 ) -> list[tuple[HardRule, str]]:
     """Return (rule, message) for every rule the candidate breaks.
 
@@ -190,6 +212,12 @@ def find_violations(
     for r in rules:
         if require_enforce and not r.enforce:
             continue
+        if r.when_source:
+            # A source-conditional rule is INERT without a source term rather
+            # than firing blindly: callers that score a bare candidate (the
+            # GEPA metric) must not be handed violations they cannot evaluate.
+            if not source or not re.search(r.when_source, source, re.I):
+                continue
         for tok in r.forbidden:
             if tok and tok in candidate:
                 out.append((r, f"[{r.id}] forbidden form '{tok}' present"))
@@ -208,3 +236,36 @@ def penalty_for(violations: list[tuple[HardRule, str]]) -> float:
     for rule, _ in violations:
         seen[rule.id] = rule.penalty
     return sum(seen.values())
+
+
+def check_rule_examples(rules: list[HardRule]) -> list[str]:
+    """Verify each rule's worked examples. Returns a list of failure messages.
+
+    A rule file gates both GEPA scoring and what ships to a reviewer, so a
+    regex that quietly stops matching — or starts matching correct output — is
+    an expensive silent failure. The first version of upper-limb-not-upper-arm
+    banned the substring 위팔 outright and flagged 40 correct rows (위팔뼈 is
+    humerus, 위팔동맥 is the brachial artery); nothing caught it because a rule
+    that fires looks identical to a rule that fires *correctly*.
+
+    Rules without examples are skipped, not failed: backfilling every existing
+    rule is a separate job, and refusing to load them would take the
+    deliverable down.
+    """
+    failures: list[str] = []
+    for rule in rules:
+        for kind in ("flag", "pass"):
+            for ex in rule.examples.get(kind) or []:
+                target = str(ex.get("target", ""))
+                source = str(ex.get("source", ""))
+                hit = bool(find_violations(target, [rule], require_enforce=False,
+                                           source=source))
+                if kind == "flag" and not hit:
+                    failures.append(
+                        f"[{rule.id}] should FLAG but did not: "
+                        f"{source!r} -> {target!r}")
+                elif kind == "pass" and hit:
+                    failures.append(
+                        f"[{rule.id}] should PASS but was flagged: "
+                        f"{source!r} -> {target!r}")
+    return failures

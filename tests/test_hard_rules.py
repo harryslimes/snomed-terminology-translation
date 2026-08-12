@@ -117,7 +117,43 @@ def test_disabled_rules_are_dropped_for_every_consumer():
     assert find_violations("왼쪽 하지 촬영", rules, require_enforce=False) == []
 
 
+def test_shipped_rule_examples_all_hold():
+    """Every worked example in the live ko.yaml behaves as documented.
+
+    This is the guard that was missing when upper-limb-not-upper-arm shipped as
+    a bare `위팔` ban: it flagged 64 production rows of which 40 were correct,
+    and the count was quoted as a finding before anyone checked the flagged
+    rows against their source terms.
+    """
+    from snomed_translation.hard_rules import check_rule_examples
+
+    rules = load_hard_rules(ROOT / "configs" / "hard_rules" / "ko.yaml")
+    assert check_rule_examples(rules) == []
+
+
+def test_source_conditional_rule_only_fires_for_matching_sources():
+    rules = load_hard_rules({"rules": [
+        {"id": "upper-limb", "when_source": r"upper (limb|extremit)",
+         "forbidden_regex": [r"위팔(?!뼈|두갈래)"], "severity": "blocker"},
+    ]})
+    fire = lambda tgt, src: [r.id for r, _ in find_violations(
+        tgt, rules, require_enforce=False, source=src)]
+
+    # Wrong: 위팔 is the upper arm specifically, too narrow for "upper limb".
+    assert fire("투시 유도하 위팔 배액", "Drainage of upper limb") == ["upper-limb"]
+    # Right, and the reason a bare substring ban was unusable: each of these
+    # contains 위팔 legitimately.
+    assert fire("위팔 컴퓨터 단층 촬영", "CT of upper arm") == []
+    assert fire("왼쪽 위팔뼈 단순 촬영", "Plain X-ray of left humerus") == []
+    assert fire("왼쪽 위팔 동맥 혈관 조영", "Angiography of left brachial artery") == []
+    # Inert without a source rather than firing blindly — the GEPA metric
+    # scores bare candidates and must not be handed unevaluable violations.
+    assert fire("투시 유도하 위팔 배액", "") == []
+
+
 if __name__ == "__main__":
+    # Kept last on purpose: it collects test_* from globals(), so any test
+    # defined below this block would be silently skipped in script mode.
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
         fn()

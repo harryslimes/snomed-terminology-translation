@@ -103,7 +103,8 @@ def validate_translations(ctx: RunContext, inputs: dict[str, Any],
             # require_enforce=False: the validator checks every rule. `enforce`
             # is the optimiser's switch (does GEPA pay a penalty), `severity`
             # is ours (does this block shipping) — see find_violations.
-            for rule, msg in find_violations(ko, rules, require_enforce=False):
+            for rule, msg in find_violations(ko, rules, require_enforce=False,
+                                             source=en):
                 findings.append({"sctid": sid, "english": en, "korean": ko,
                                  "check": rule.id, "severity": rule.severity,
                                  "message": msg})
@@ -533,7 +534,8 @@ def splice_translations(ctx: RunContext, inputs: dict[str, Any],
         # stay legitimate. Passing "" here would condemn every one of them.
         def _blockers(text: str, en: str) -> set[str]:
             found = {r.id for r, _ in find_violations(text, blocker_rules,
-                                                      require_enforce=False)}
+                                                      require_enforce=False,
+                                                      source=en)}
             return found | {cid for cid, sev, _ in _hygiene(en, text)
                             if sev == "blocker"}
 
@@ -648,3 +650,131 @@ def diff_findings(ctx: RunContext, inputs: dict[str, Any],
         message=(f"{len(before)} -> {len(after)} flagged: {len(fixed)} fixed, "
                  f"{len(regressed)} newly broken "
                  f"(net {len(after) - len(before):+d})"))
+
+
+# Severity order for aggregation: higher wins when a row trips several checks.
+_SEVERITY_RANK = {"blocker": 2, "warning": 1}
+
+
+def qa_gate(ctx: RunContext, inputs: dict[str, Any],
+            params: dict[str, Any]) -> FunctionResult:
+    """Aggregate every detector's findings into one verdict + one worklist.
+
+    Replaces "run four detectors and eyeball four CSVs". Two outputs:
+
+    ``verdict``  — metrics, chiefly ``n_blockers`` and ``shippable`` (1.0/0.0),
+                   suitable for wiring to the research app's project gate.
+    ``worklist`` — one row per defective concept, most severe first, carrying
+                   every check that fired. This is what a human triages and
+                   what packaging sorts by, so review effort goes to the worst
+                   rows rather than to whatever a CSV happened to list first.
+
+    Findings arrive on numbered ports (``findings1``..``findings6``) because a
+    flow graph has no variadic input. Any findings dataset works as long as it
+    carries ``sctid`` and ``check``; ``severity`` defaults to warning so a
+    detector that predates the severity field still aggregates sensibly.
+
+    This node is also the reason the repair loop is trustworthy. A repair is
+    optimised against ONE detector, so accepting it on that detector's own
+    evidence is circular — the ancestor repair improved every consistency
+    metric while reversing two translations the SME had explicitly ruled on.
+    Running the whole family here makes acceptance Pareto: a change must clear
+    its target defect AND introduce nothing new on any other axis.
+    """
+    rows: dict[str, dict] = {}
+    per_check: dict[str, int] = {}
+    n_sources = 0
+
+    for port in sorted(k for k in inputs if k.startswith("findings")):
+        path = _dataset_path(inputs.get(port))
+        if not path or not Path(path).exists():
+            continue
+        n_sources += 1
+        with Path(path).open(encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                sid = (r.get("sctid") or "").strip()
+                if not sid:
+                    continue
+                # THE FINDINGS CONTRACT. Two shapes exist in the detector
+                # family and both are legitimate:
+                #   subset  — one row per finding (validate_translations,
+                #             hierarchy_consistency)
+                #   scored  — every row, with a `flag` column (contrast_
+                #             fidelity_detect, transliteration_detect)
+                # Reading the second shape as the first counts a clean batch
+                # as wholly defective: the gate's first run reported "5012
+                # defective rows, 4977 warnings" from 4 real contrast flags
+                # and 1 transliteration flag. Honour `flag` when present.
+                if "flag" in r:
+                    val = (r.get("flag") or "").strip().lower()
+                    if val in ("", "0", "false", "no", "n"):
+                        continue
+                # `issue` is the scored shape's reason column; fall back to the
+                # port name so an unlabelled detector is still attributable.
+                check = (r.get("check") or r.get("issue") or port).strip() or port
+                sev = (r.get("severity") or "warning").strip().lower()
+                per_check[check] = per_check.get(check, 0) + 1
+                row = rows.setdefault(sid, {
+                    "sctid": sid,
+                    "english": r.get("english") or r.get("preferred_term") or "",
+                    "korean": r.get("korean") or r.get("translation") or "",
+                    "checks": [], "max_severity": "warning", "n_checks": 0,
+                })
+                if check not in row["checks"]:
+                    row["checks"].append(check)
+                row["n_checks"] = len(row["checks"])
+                if _SEVERITY_RANK.get(sev, 1) > _SEVERITY_RANK.get(row["max_severity"], 1):
+                    row["max_severity"] = sev
+                # Backfill text from whichever detector carries it.
+                for key, src in (("english", ("english", "preferred_term")),
+                                 ("korean", ("korean", "translation"))):
+                    if not row[key]:
+                        for c in src:
+                            if r.get(c):
+                                row[key] = r[c]
+                                break
+
+    ordered = sorted(
+        rows.values(),
+        key=lambda r: (-_SEVERITY_RANK.get(r["max_severity"], 1),
+                       -r["n_checks"], r["sctid"]))
+    for i, r in enumerate(ordered, 1):
+        r["review_priority"] = i
+        r["checks"] = ";".join(r["checks"])
+
+    tag = str(params.get("output_tag") or "qa").strip()
+    out = Path(ctx.artifacts_dir() or ctx.log_dir) / f"qa_worklist_{tag}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fields = ["review_priority", "sctid", "english", "korean",
+              "max_severity", "n_checks", "checks"]
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        for r in ordered:
+            w.writerow({k: r[k] for k in fields})
+
+    n_blockers = sum(1 for r in ordered if r["max_severity"] == "blocker")
+    n_warnings = len(ordered) - n_blockers
+    max_blockers = int(params.get("max_blockers") or 0)
+    shippable = n_blockers <= max_blockers
+    fail_if_not = bool(params.get("fail_if_not_shippable", False))
+
+    metrics = {
+        "n_defective_rows": float(len(ordered)),
+        "n_blocker_rows": float(n_blockers),
+        "n_warning_rows": float(n_warnings),
+        "n_detectors": float(n_sources),
+        "shippable": 1.0 if shippable else 0.0,
+    }
+    metrics.update({f"check_{k.replace('-', '_')}": float(v)
+                    for k, v in per_check.items()})
+
+    verdict = ("SHIPPABLE" if shippable else
+               f"NOT SHIPPABLE — {n_blockers} blocker row(s) > {max_blockers} allowed")
+    return FunctionResult(
+        ok=(shippable or not fail_if_not),
+        outputs={"worklist": str(out), "dataset": str(out)},
+        metrics=metrics,
+        message=(f"{verdict}; {len(ordered)} defective row(s) over "
+                 f"{n_sources} detector(s): {n_blockers} blocker, "
+                 f"{n_warnings} warning"))

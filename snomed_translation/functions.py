@@ -1583,6 +1583,30 @@ diff_findings_spec = FunctionSpec(
     runner="snomed_translation.validation:diff_findings",
 )
 
+qa_gate_spec = FunctionSpec(
+    name="qa_gate", label="QA gate (aggregate findings)", category="detect",
+    description="Aggregate every detector's findings into one ship/no-ship "
+                "verdict and one prioritised defect worklist. Replaces "
+                "eyeballing four CSVs, feeds packaging its sort order, and "
+                "makes repair acceptance Pareto: a repair optimised against "
+                "one detector cannot be accepted on that detector's own "
+                "evidence.",
+    inputs=[PortSpec(name=f"findings{i}", label=f"Findings {i}",
+                     kinds=["dataset"], required=(i == 1))
+            for i in range(1, 7)],
+    outputs=[PortSpec(name="worklist", label="Prioritised defect worklist",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="max_blockers", label="Blocker rows tolerated",
+                  kind="number", default=0),
+        ParamSpec(name="fail_if_not_shippable", label="Fail the run if not shippable",
+                  kind="bool", default=False),
+        ParamSpec(name="output_tag", label="Output tag", kind="text", default="qa"),
+    ],
+    runner="snomed_translation.validation:qa_gate",
+)
+
 escalate_uncertain_spec = FunctionSpec(
     name="escalate_uncertain", label="Escalate uncertain (cascade)",
     category="translate",
@@ -1765,6 +1789,7 @@ def specs() -> list[FunctionSpec]:
         build_ancestor_context_spec,
         splice_translations_spec,
         diff_findings_spec,
+        qa_gate_spec,
         self_review_spec,
         escalate_uncertain_spec,
         contrast_fidelity_detect_spec,

@@ -123,31 +123,58 @@ rules:
 
   # --- SME batch-2 rulings (Q&A received 2026-08-09). ----------------------
 
-  - id: sme-rejected-body-site
-    description: >-
-      Body-site terms the SME rejected in batch 2: 위팔 (upper arm, used where
-      the source says only "arm") and 엉덩이 (buttock, used for the hip).
-    rationale: >-
-      OUTPUT-VALIDATION ONLY — deliberately not frozen into the prompt and not
-      enforced in the GEPA metric. A prior ablation found that *prescribing*
-      native body sites hurt translation quality
-      (docs/imaging_resources_ablation_findings_2026-04-20.md), which is why
-      the example-native-body-site rule above stays disabled; that finding is
-      about the prompt, not about checking what shipped, and the two switches
-      are independent.
+  # SOURCE-CONDITIONAL. These are statements about a MAPPING, not about the
+  # target string: each Korean term below is correct in general and wrong only
+  # for these source terms. The first attempt banned the substrings outright
+  # and flagged 64 rows of which 40 were correct (위팔뼈 = humerus, 위팔동맥 =
+  # brachial artery, 위팔 = upper arm are all right) — 63% false positives on a
+  # blocker. `when_source` is what makes the rule say what we actually mean.
+  #
+  # OUTPUT-VALIDATION ONLY — not frozen into the prompt, not enforced in the
+  # GEPA metric. A prior ablation found that *prescribing* native body sites
+  # hurt quality (docs/imaging_resources_ablation_findings_2026-04-20.md);
+  # that finding is about the prompt, not about checking what shipped.
+  #
+  # Blocker severity also makes these self-correcting during repair:
+  # build_ancestor_context refuses a blocker-violating ancestor as teaching
+  # context, so the ancestor-repair pass cannot propagate them. It did exactly
+  # that before these existed, reversing two correct renderings, because
+  # hierarchy consistency rewards copying an ancestor whether or not the
+  # ancestor is right.
 
-      Blocker severity is what makes this self-correcting. build_ancestor_context
-      refuses to let a blocker-violating ancestor teach its descendants, so
-      marking these terms here stops the ancestor-repair pass propagating them:
-      without it the repair REVERSED two correct 팔 renderings into 위팔 and
-      introduced 엉덩이 on a hip CT, because hierarchy consistency rewards
-      copying an ancestor whether or not the ancestor is right. The strict
-      ancestor filter could not catch these — unlike the malformed
-      439101006 case, these ancestors are fluent, unanimous and clean.
-    evidence: ["run:77ad3633b851", "run:bc4dde661d72"]
+  - id: upper-limb-not-upper-arm
+    description: >-
+      "Upper limb" / "upper extremity" is the whole arm (팔); 위팔 is
+      specifically the upper arm and is too specific for these sources.
+    evidence: ["run:65e53f071b45", "run:77ad3633b851"]
+    when_source: 'upper (limb|extremit)'
+    forbidden_regex:
+      - '위팔(?!뼈|두갈래)'
+    examples:
+      flag:
+        - {source: "Drainage of upper limb using fluoroscopic guidance", target: "투시 유도하 위팔 배액"}
+      pass:
+        - {source: "Computed tomography of upper arm", target: "위팔 컴퓨터 단층 촬영"}
+        - {source: "Plain X-ray of left humerus", target: "왼쪽 위팔뼈 단순 촬영"}
+        - {source: "Angiography of left brachial artery", target: "왼쪽 위팔 동맥 혈관 조영"}
+    enforce: false
+    freeze: false
+    severity: blocker
+    penalty: 0.25
+
+  - id: hip-not-buttock
+    description: >-
+      엉덩이 is the buttock; imaging of the hip refers to the joint or region
+      (엉덩관절 / 고관절). SME ruling from batch 2.
+    evidence: ["run:65e53f071b45"]
+    when_source: '\bhips?\b'
     forbidden:
-      - 위팔
       - 엉덩이
+    examples:
+      flag:
+        - {source: "Computed tomography of left hip", target: "왼쪽 엉덩이 컴퓨터 단층 촬영"}
+      pass:
+        - {source: "Computed tomography of pelvis", target: "골반 컴퓨터 단층 촬영"}
     enforce: false
     freeze: false
     severity: blocker
