@@ -19,16 +19,20 @@ Two function nodes:
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import re
 import time
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import sacrebleu
 
 from pipelines.context import RunContext
 from pipelines.functions import FunctionResult
+
+log = logging.getLogger(__name__)
 
 from snomed_translation.evidence_analysis import (  # shared helpers
     _auc,
@@ -547,6 +551,11 @@ def escalate_uncertain(ctx: RunContext, inputs: dict[str, Any],
         uncertain = uncertain[:max_escalate]
     esc_ids = {r["sctid"] for r in uncertain}
 
+    n_total = len(uncertain)
+    n_done = [0]
+    t0 = time.monotonic()
+    progress_lock = Lock()
+
     def call(r: dict) -> tuple[str, str]:
         sid = r["sctid"]
         user = user_prompts.get(sid, "")
@@ -579,16 +588,35 @@ def escalate_uncertain(ctx: RunContext, inputs: dict[str, Any],
                 resp = _json.loads(urllib.request.urlopen(req, timeout=180).read())
                 from pipelines.llm_accounting import record_completion
                 record_completion(ctx, model=model, usage=resp.get("usage"))
-                return sid, resp["choices"][0]["message"]["content"].strip()
+                text = resp["choices"][0]["message"]["content"].strip()
+                _progress()
+                return sid, text
             except Exception as exc:
                 last = str(exc)
                 if attempt < attempts:
                     time.sleep(min(2 ** attempt, 8))
+        _progress()
         return sid, f"ERROR: {last}"
+
+    def _progress() -> None:
+        with progress_lock:
+            n_done[0] += 1
+            done = n_done[0]
+        if done % 100 == 0 or done == n_total:
+            elapsed = time.monotonic() - t0
+            rate = done / elapsed if elapsed else 0.0
+            eta = (n_total - done) / rate if rate else 0.0
+            log.info("[escalate_uncertain] %d/%d escalations (%.1f req/s, "
+                     "ETA %.0fs)", done, n_total, rate, eta)
 
     escalated: dict[str, str] = {}
     if uncertain:
-        with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
+        log.info("[escalate_uncertain] escalating %d/%d rows (n_distinct>=%d) "
+                 "to %s, concurrency=%d", n_total, len(rows), min_distinct,
+                 model, concurrency)
+        from snomed_translation.watchdog import progress_watchdog
+        with progress_watchdog("escalate_uncertain", stall_seconds=180.0), \
+             ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
             escalated = dict(ex.map(call, uncertain))
 
     # Contrast gate: reject a revision that INTRODUCES a contrast-fidelity
