@@ -107,15 +107,29 @@ rules:
 
   - id: no-deprecated-xray-lowercase
     description: >-
-      The pre-ruling X-ray forms (X선 / x선 / 일반 x선) must not appear; the
-      SME ruling is 단순 촬영.
+      PLAIN radiography is 단순 촬영; the pre-ruling forms (X선 / x선 /
+      일반 x선) must not appear for those concepts.
     rationale: >-
       4 rows shipped as 일반 x선 despite the ruling being in the style guide
       and in the exemplar-pool curation rules — an output check was the
       missing link.
-    evidence: ["run:65e53f071b45"]
+
+      SOURCE-CONDITIONAL, and it has to be. The SME ruling is about plain
+      radiography, not about the string X선, which is correct in other
+      contexts: 이중 에너지 X선 흡수 계측법 is the standard rendering of dual
+      energy X-ray absorptiometry, and 정위적 X선 유도하 of stereotactic X-ray
+      guidance. The unconditional version flagged 6 rows and every one was
+      correct — the same over-generalisation as the first upper-limb rule.
+    evidence: ["run:65e53f071b45", "run:5745daec288b"]
+    when_source: 'plain (x-?ray|radiograph|film)'
     forbidden_regex:
       - '(?i)(일반\s*)?x\s*선'
+    examples:
+      flag:
+        - {source: "Plain X-ray of chest", target: "가슴 일반 x선"}
+      pass:
+        - {source: "Dual energy X-ray absorptiometry of heel", target: "발뒤꿈치 이중 에너지 X선 흡수 계측법"}
+        - {source: "Prone core needle biopsy of breast using stereotactic X-ray guidance", target: "복와위 정위적 X선 유도하 유방 중심부 바늘 생검"}
     enforce: true
     freeze: true
     severity: blocker
@@ -148,6 +162,9 @@ rules:
       specifically the upper arm and is too specific for these sources.
     evidence: ["run:65e53f071b45", "run:77ad3633b851"]
     when_source: 'upper (limb|extremit)'
+    # In-batch majority for "upper limb": 팔 154 rows, vs 위팔 11 and 상지 4.
+    canonical:
+      - 팔
     forbidden_regex:
       - '위팔(?!뼈|두갈래)'
     examples:
@@ -168,6 +185,15 @@ rules:
       (엉덩관절 / 고관절). SME ruling from batch 2.
     evidence: ["run:65e53f071b45"]
     when_source: '\bhips?\b'
+    # In-batch majority for "hip": 고관절 42 rows, vs 엉덩관절 5 and 엉덩이 13.
+    # 고관절 is chosen for CONSISTENCY with what already shipped, not as a
+    # register ruling — 고관절 is Sino-Korean and the register oracle found the
+    # SME and the KR authorities lean native (엉덩관절) where the extension
+    # leans Sino. That choice is the SME's to make and is raised as an explicit
+    # question in the review pack; what is not in doubt is that 엉덩이 is the
+    # buttock and wrong for all 13.
+    canonical:
+      - 고관절
     forbidden:
       - 엉덩이
     examples:

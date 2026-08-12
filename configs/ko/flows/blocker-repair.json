@@ -1,0 +1,377 @@
+{
+  "id": "blocker-repair",
+  "name": "blocker_repair",
+  "description": "Repair the deliverable's blocker rows, cheapest-and-safest first. Pass 1 substitutes each rule's forbidden form with its canonical one, touching only the offending span. Pass 2 re-translates ONLY what substitution cannot fix — structural defects such as a repeated token, where the objection is word order rather than a term. The order matters: free re-translation takes the licence it is given, and when it repaired all 30 rows at once it cleared every rule while dropping 방출 from a SPECT term and swapping a DEXA term for an unrelated one, neither of which any detector watches. Substitution cannot do that. Adoption is still gated: only rows whose blocker actually clears are kept, and the patch-safety gate independently refuses any change introducing a new blocker. Re-promotes ko_imaging_deliverable.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "data_object": "ko_imaging_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "source": "pooled_curated_eval"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 460.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "before",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 200.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "before",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "substitute",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "ko_col": "translation",
+        "output_tag": "blocker",
+        "function": "rule_substitute",
+        "substitutions": {
+          "no-rf2-markup": [
+            "\\^([^^]*)\\^",
+            "-\\1"
+          ]
+        }
+      },
+      "inputs": {
+        "translations": "deliverable",
+        "findings": "before:findings"
+      }
+    },
+    {
+      "id": "splice_sub",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "after_substitution",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {
+        "base": "deliverable",
+        "patch": "substitute:translations"
+      }
+    },
+    {
+      "id": "mid",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "mid",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "splice_sub:translations"
+      }
+    },
+    {
+      "id": "guidance",
+      "type": "function",
+      "pos": {
+        "x": 1540.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "severities": "blocker",
+        "output_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/rule_repair_context.json",
+        "output_terms_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/rule_repair_terms.csv",
+        "function": "build_rule_repair_context"
+      },
+      "inputs": {
+        "findings": "mid:findings",
+        "translations": "splice_sub:translations"
+      }
+    },
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 1540.0,
+        "y": 300.0
+      },
+      "params": {
+        "source": "rule_repair_terms"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 200.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "blocker_repair",
+        "request_timeout_seconds": 300,
+        "ancestor_context_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/rule_repair_context.json",
+        "function": "translate_consistency"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 200.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": true,
+        "max_attempts": 3,
+        "concurrency": 8,
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "splice_llm",
+      "type": "function",
+      "pos": {
+        "x": 2140.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "after_llm",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {
+        "base": "splice_sub:translations",
+        "patch": "cascade:translations"
+      }
+    },
+    {
+      "id": "after",
+      "type": "function",
+      "pos": {
+        "x": 2440.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "after",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "splice_llm:translations"
+      }
+    },
+    {
+      "id": "diff",
+      "type": "function",
+      "pos": {
+        "x": 2740.0,
+        "y": 120.0
+      },
+      "params": {
+        "output_tag": "blocker",
+        "function": "diff_findings"
+      },
+      "inputs": {
+        "before": "mid:findings",
+        "after": "after:findings"
+      }
+    },
+    {
+      "id": "adopt",
+      "type": "function",
+      "pos": {
+        "x": 3040.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "blocker_repair_final",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {
+        "base": "splice_sub:translations",
+        "patch": "cascade:translations",
+        "restrict": "diff:fixed"
+      }
+    },
+    {
+      "id": "final",
+      "type": "function",
+      "pos": {
+        "x": 3340.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "final",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "adopt:translations"
+      }
+    },
+    {
+      "id": "hierarchy_final",
+      "type": "function",
+      "pos": {
+        "x": 3340.0,
+        "y": 300.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "final",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "adopt:translations"
+      }
+    },
+    {
+      "id": "contrast_final",
+      "type": "function",
+      "pos": {
+        "x": 3340.0,
+        "y": 440.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "adopt:translations"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "function",
+      "pos": {
+        "x": 3640.0,
+        "y": 200.0
+      },
+      "params": {
+        "max_blockers": 0,
+        "fail_if_not_shippable": false,
+        "output_tag": "post_repair",
+        "function": "qa_gate"
+      },
+      "inputs": {
+        "findings1": "final:findings",
+        "findings2": "hierarchy_final:findings",
+        "findings3": "contrast_final:flags"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 3940.0,
+        "y": 200.0
+      },
+      "params": {
+        "expression": "n_blocker_rows",
+        "output_name": "blocker_rows_after",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "gate:metrics"
+      }
+    },
+    {
+      "id": "promote_deliverable",
+      "type": "promote",
+      "pos": {
+        "x": 3940.0,
+        "y": 360.0
+      },
+      "params": {
+        "name": "ko_imaging_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "adopt:translations"
+      }
+    }
+  ]
+}

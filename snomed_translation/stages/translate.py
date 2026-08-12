@@ -209,6 +209,12 @@ def render_ancestor_context(rec: dict) -> str:
     already-correct KOREAN for a concept the source term restates, and asks the
     model to extend it rather than re-derive it.
     """
+    # A repair context supplies finished guidance rather than an ancestor pair
+    # (see build_rule_repair_context). One injection path serves both, so any
+    # defect class reaches the translator the same way.
+    guidance = (rec.get("guidance") or "").strip()
+    if guidance:
+        return guidance
     en = (rec.get("ancestor_english") or "").strip()
     ko = (rec.get("ancestor_korean") or "").strip()
     if not en or not ko:

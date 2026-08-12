@@ -621,12 +621,26 @@ def diff_findings(ctx: RunContext, inputs: dict[str, Any],
     if not apath or not Path(apath).exists():
         return FunctionResult(ok=False, message="diff_findings: no `after`")
 
-    def ids(p: str) -> set[str]:
+    # Key on (sctid, check), not sctid alone. A row that swaps blocker A for
+    # blocker B is neither fixed nor regressed under a bare sctid key — it is
+    # invisible churn, and for validate_translations findings (several checks
+    # per row) that is the common case, not a corner case.
+    def keys(p: str) -> set[tuple[str, str]]:
         with Path(p).open(encoding="utf-8") as f:
-            return {(r.get("sctid") or "").strip() for r in csv.DictReader(f)}
+            return {((r.get("sctid") or "").strip(),
+                     (r.get("check") or r.get("issue") or "").strip())
+                    for r in csv.DictReader(f)}
 
-    before, after = ids(bpath), ids(apath)
-    fixed, regressed = sorted(before - after), sorted(after - before)
+    before_k, after_k = keys(bpath), keys(apath)
+    # Row-level: a row counts as fixed only when ALL its findings cleared, so
+    # the allow-list never adopts a change that merely traded one defect for
+    # another.
+    before_rows = {s for s, _ in before_k}
+    after_rows = {s for s, _ in after_k}
+    fixed, regressed = sorted(before_rows - after_rows), sorted(after_rows - before_rows)
+    before, after = before_rows, after_rows
+    n_traded = len({s for s, _ in (before_k - after_k)} &
+                   {s for s, _ in (after_k - before_k)})
 
     tag = str(params.get("output_tag") or "diff")
     out_dir = Path(ctx.artifacts_dir() or ".")
@@ -646,10 +660,13 @@ def diff_findings(ctx: RunContext, inputs: dict[str, Any],
                  "dataset": str(fixed_path)},
         metrics={"n_before": float(len(before)), "n_after": float(len(after)),
                  "n_fixed": float(len(fixed)), "n_regressed": float(len(regressed)),
+                 "n_traded": float(n_traded),
+                 "n_findings_before": float(len(before_k)),
+                 "n_findings_after": float(len(after_k)),
                  "n_net": float(len(after) - len(before))},
-        message=(f"{len(before)} -> {len(after)} flagged: {len(fixed)} fixed, "
-                 f"{len(regressed)} newly broken "
-                 f"(net {len(after) - len(before):+d})"))
+        message=(f"{len(before)} -> {len(after)} flagged rows: {len(fixed)} fixed, "
+                 f"{len(regressed)} newly broken, {n_traded} traded one finding "
+                 f"for another (net {len(after) - len(before):+d})"))
 
 
 # Severity order for aggregation: higher wins when a row trips several checks.
@@ -778,3 +795,204 @@ def qa_gate(ctx: RunContext, inputs: dict[str, Any],
         message=(f"{verdict}; {len(ordered)} defective row(s) over "
                  f"{n_sources} detector(s): {n_blockers} blocker, "
                  f"{n_warnings} warning"))
+
+
+def build_rule_repair_context(ctx: RunContext, inputs: dict[str, Any],
+                              params: dict[str, Any]) -> FunctionResult:
+    """Turn rule violations into per-concept repair guidance + a work-list.
+
+    The counterpart to ``build_ancestor_context``, and the reason the repair
+    loop is general rather than ancestor-specific: it emits the SAME context
+    map shape the translate stage already injects, so a rules-based defect is
+    repaired by the existing cascade, verified by the existing splice/diff, and
+    accepted by the existing gate. No new repair machinery.
+
+    Guidance names what is wrong and, where the rule declares a ``canonical``
+    form, what to use instead. It deliberately does NOT hand over a finished
+    string: deterministic whole-phrase substitution was measured and lost
+    (7/22 -> 1/22), and two of these defects are word-order faults that a
+    term swap cannot fix (유방 유방 촬영술 유도하 생검).
+
+    Only blocker-severity findings are repaired by default. Warnings are review
+    priorities, not errors, and re-translating on a warning would churn rows
+    that are probably fine.
+    """
+    fpath = _dataset_path(inputs.get("findings"))
+    tpath = _dataset_path(inputs.get("translations"))
+    if not fpath or not Path(fpath).exists():
+        return FunctionResult(ok=False, message="build_rule_repair_context: no `findings`")
+
+    rules = {r.id: r for r in load_hard_rules(params.get("rules_file"))}
+    severities = {s.strip().lower() for s in
+                  str(params.get("severities") or "blocker").split(",") if s.strip()}
+
+    per_row: dict[str, list[str]] = defaultdict(list)
+    english: dict[str, str] = {}
+    with Path(fpath).open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if (r.get("severity") or "warning").strip().lower() not in severities:
+                continue
+            sid = (r.get("sctid") or "").strip()
+            if not sid:
+                continue
+            english.setdefault(sid, (r.get("english") or "").strip())
+            check = (r.get("check") or "").strip()
+            rule = rules.get(check)
+            if rule is not None and rule.description:
+                line = " ".join(rule.description.split())
+            else:
+                line = (r.get("message") or check or "").strip()
+            if rule is not None and rule.canonical:
+                line += f" Use {' or '.join(rule.canonical)} instead."
+            if line and line not in per_row[sid]:
+                per_row[sid].append(line)
+
+    ctx_map = {
+        sid: {"guidance": (
+            "A previous translation of this term was REJECTED in review. "
+            + " ".join(lines)
+            + " Produce a corrected translation of the term below; keep "
+              "everything that was already right and change only what the "
+              "objection requires.")}
+        for sid, lines in per_row.items()
+    }
+
+    out_json = params.get("output_json") or str(
+        Path(ctx.artifacts_dir() or ctx.log_dir) / "rule_repair_context.json")
+    Path(out_json).parent.mkdir(parents=True, exist_ok=True)
+    Path(out_json).write_text(
+        __import__("json").dumps(ctx_map, ensure_ascii=False, indent=1),
+        encoding="utf-8")
+
+    # Work-list in the shape the translate datasource expects. Prefer the
+    # English from the translations dataset when wired, since a findings row
+    # only carries whatever its detector happened to record.
+    if tpath and Path(tpath).exists():
+        with Path(tpath).open(encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                sid = (r.get("sctid") or "").strip()
+                if sid in ctx_map and (r.get("preferred_term") or "").strip():
+                    english[sid] = r["preferred_term"].strip()
+
+    terms_csv = params.get("output_terms_csv")
+    if terms_csv:
+        Path(terms_csv).parent.mkdir(parents=True, exist_ok=True)
+        with Path(terms_csv).open("w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["sctid", "preferred_term"])
+            w.writeheader()
+            for sid in ctx_map:
+                w.writerow({"sctid": sid, "preferred_term": english.get(sid, "")})
+
+    by_check: dict[str, int] = defaultdict(int)
+    for lines in per_row.values():
+        by_check[str(len(lines))] += 1
+    return FunctionResult(
+        ok=True,
+        outputs={"context": str(out_json),
+                 "terms": str(terms_csv) if terms_csv else str(out_json)},
+        metrics={"n_rows_to_repair": float(len(ctx_map)),
+                 "n_multi_objection": float(sum(
+                     1 for v in per_row.values() if len(v) > 1))},
+        message=(f"{len(ctx_map)} row(s) need repair "
+                 f"({sum(1 for v in per_row.values() if len(v) > 1)} with more "
+                 f"than one objection)"))
+
+
+def rule_substitute(ctx: RunContext, inputs: dict[str, Any],
+                    params: dict[str, Any]) -> FunctionResult:
+    """Repair rule violations by MINIMAL substitution: forbidden -> canonical.
+
+    The conservative counterpart to re-translation, and the right tool whenever
+    a rule's objection is a term choice rather than a structure. Re-translating
+    hands the model licence to rewrite the whole string, and it takes it: asked
+    to fix 엉덩이 in a DEXA term it returned 고관절 양방사선 골밀도검사, silently
+    replacing 이중 에너지 X선 흡수 계측법 and breaking consistency with four
+    sibling rows; asked to fix caret markup in a SPECT term it dropped 방출, so
+    "single photon EMISSION CT" stopped saying emission. Both cleared the rule
+    that prompted them, because no detector watches the rest of the string.
+
+    A substitution cannot do that. It touches exactly the offending span, so
+    the diff is auditable and everything else is preserved by construction.
+    Rows whose rule has no ``canonical`` form, or whose defect is structural
+    (word order, a repeated token), are left untouched and reported in
+    ``n_unfixable`` — they are what re-translation is FOR.
+    """
+    tpath = _dataset_path(inputs.get("translations"))
+    fpath = _dataset_path(inputs.get("findings"))
+    if not tpath or not Path(tpath).exists():
+        return FunctionResult(ok=False, message="rule_substitute: no `translations`")
+    if not fpath or not Path(fpath).exists():
+        return FunctionResult(ok=False, message="rule_substitute: no `findings`")
+
+    rules = {r.id: r for r in load_hard_rules(params.get("rules_file"))}
+    extra = params.get("substitutions") or {}
+    ko_col = str(params.get("ko_col") or "translation")
+
+    targets: dict[str, set[str]] = defaultdict(set)
+    with Path(fpath).open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if (r.get("severity") or "").strip().lower() != "blocker":
+                continue
+            sid = (r.get("sctid") or "").strip()
+            if sid:
+                targets[sid].add((r.get("check") or "").strip())
+
+    def substitute(text: str, checks: set[str]) -> tuple[str, list[str]]:
+        applied: list[str] = []
+        for check in sorted(checks):
+            # Explicit regex substitutions first: they express transforms a
+            # forbidden/canonical pair cannot, such as unwrapping RF2 carets.
+            if check in extra:
+                pat, repl = extra[check]
+                new = re.sub(pat, repl, text)
+                if new != text:
+                    text, _ = new, applied.append(check)
+                continue
+            rule = rules.get(check)
+            if rule is None or not rule.canonical:
+                continue
+            target = rule.canonical[0]
+            new = text
+            for bad in rule.forbidden:
+                new = new.replace(bad, target)
+            for pat in rule.forbidden_regex:
+                new = re.sub(pat, target, new)
+            if new != text:
+                text, _ = new, applied.append(check)
+        return text, applied
+
+    out_path = Path(ctx.artifacts_dir() or ctx.log_dir) / (
+        f"substituted_{params.get('output_tag') or 'patch'}.csv")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    n_fixed = 0
+    unfixable: list[str] = []
+    rows_out: list[dict] = []
+    with Path(tpath).open(encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fields = list(reader.fieldnames or [])
+        for row in reader:
+            sid = (row.get("sctid") or "").strip()
+            if sid not in targets:
+                continue
+            new, applied = substitute(row.get(ko_col) or "", targets[sid])
+            if applied:
+                row[ko_col] = new
+                n_fixed += 1
+                rows_out.append(row)
+            else:
+                unfixable.append(sid)
+
+    with out_path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows_out)
+
+    return FunctionResult(
+        ok=True,
+        outputs={"translations": str(out_path), "dataset": str(out_path)},
+        metrics={"n_targets": float(len(targets)), "n_fixed": float(n_fixed),
+                 "n_unfixable": float(len(unfixable))},
+        message=(f"{n_fixed}/{len(targets)} blocker row(s) repaired by minimal "
+                 f"substitution; {len(unfixable)} need re-translation "
+                 f"(structural, or no canonical form)"))

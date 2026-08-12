@@ -1,0 +1,9 @@
+{
+  "id": "deliverable_pre_blocker_repair",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "Pinned CAS blob: ko_imaging_deliverable as at run faa40fd3d5b5 (after the ancestor repair, before any blocker repair). Exists to roll the named object back to a known-good sha after run 8f1042ee69e2 promoted an LLM repair that cleared every rule while dropping 방출 from a SPECT term and swapping a DEXA term. Pinning by digest is the point: a rollback that pointed at 'the previous run' would be another moving target.",
+  "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/artifacts/sha256/dd/dd3d68a2f086edb38813a1017ab9fb7d9fae9dddb65557c66425e80d77738360.csv",
+  "csv_path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/artifacts/sha256/dd/dd3d68a2f086edb38813a1017ab9fb7d9fae9dddb65557c66425e80d77738360.csv",
+  "csv_columns": {"sctid": "sctid", "en": "preferred_term", "target": "translation"}
+}

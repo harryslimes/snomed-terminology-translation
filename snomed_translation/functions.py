@@ -1607,6 +1607,63 @@ qa_gate_spec = FunctionSpec(
     runner="snomed_translation.validation:qa_gate",
 )
 
+rule_substitute_spec = FunctionSpec(
+    name="rule_substitute", label="Repair by minimal substitution",
+    category="translate",
+    description="Repair blocker rows by substituting a rule's forbidden form "
+                "with its canonical one, touching only the offending span. The "
+                "conservative alternative to re-translation, which takes the "
+                "licence it is given: asked to fix one term it has rewritten "
+                "whole phrases and dropped meaning (SPECT losing 방출). Rows "
+                "with a structural defect or no canonical form are left for "
+                "re-translation and reported as n_unfixable.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="findings", label="validate_translations findings",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[PortSpec(name="translations", label="Substituted patch",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text",
+                  default="patch"),
+    ],
+    runner="snomed_translation.validation:rule_substitute",
+)
+
+build_rule_repair_context_spec = FunctionSpec(
+    name="build_rule_repair_context", label="Build rule repair context",
+    category="data",
+    description="Turn rule violations into per-concept repair guidance in the "
+                "same context-map shape the translate node injects, plus the "
+                "work-list of rows to re-translate. The counterpart to "
+                "build_ancestor_context: it is what makes the repair loop "
+                "general, since a rules-based defect then reuses the existing "
+                "cascade, splice, diff and gate with no new machinery.",
+    inputs=[
+        PortSpec(name="findings", label="validate_translations findings",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="translations", label="Translations (for source terms)",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="context", label="Repair context JSON", kinds=["dataset"]),
+             PortSpec(name="terms", label="Rows to re-translate", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="severities", label="Severities to repair", kind="text",
+                  default="blocker"),
+        ParamSpec(name="output_json", label="Context JSON path", kind="text"),
+        ParamSpec(name="output_terms_csv", label="Work-list CSV path", kind="text"),
+    ],
+    runner="snomed_translation.validation:build_rule_repair_context",
+)
+
 escalate_uncertain_spec = FunctionSpec(
     name="escalate_uncertain", label="Escalate uncertain (cascade)",
     category="translate",
@@ -1790,6 +1847,8 @@ def specs() -> list[FunctionSpec]:
         splice_translations_spec,
         diff_findings_spec,
         qa_gate_spec,
+        build_rule_repair_context_spec,
+        rule_substitute_spec,
         self_review_spec,
         escalate_uncertain_spec,
         contrast_fidelity_detect_spec,

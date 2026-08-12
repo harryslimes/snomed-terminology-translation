@@ -1,0 +1,11 @@
+{
+  "id": "rule_repair_terms",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/ko/derived/rule_repair_terms.csv",
+  "csv_path": "data/languages/ko/derived/rule_repair_terms.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term"
+  }
+}

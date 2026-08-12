@@ -155,10 +155,25 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     remaining = [r for r in rows if r["sctid"] not in done_sctids]
     if not remaining:
+        # Still write the declared outputs, even empty. A stage that reports
+        # ok=True without producing its output makes every downstream node fail
+        # with a misleading "nothing wired" — which is how a repair flow with
+        # nothing left to repair failed as if it were misconfigured.
+        if not out_path.exists():
+            with out_path.open("w", encoding="utf-8", newline="") as f:
+                csv.DictWriter(f, fieldnames=[
+                    "sctid", "preferred_term", "ko_reference", "n_samples",
+                    "n_distinct", "candidates", "top_candidate"]).writeheader()
+        if not prompts_path.exists():
+            prompts_path.write_text(
+                json.dumps({"system_prompt": "", "model_key": model_key,
+                            "samples": samples, "user_prompts": {}},
+                           ensure_ascii=False), encoding="utf-8")
         return StageResult(stage=stage, ok=True,
                            outputs={"candidates_csv": out_path,
                                     "prompts_json": prompts_path},
                            output_paths=[out_path],
+                           metrics={"n_concepts": 0.0, "n_calls": 0.0},
                            message=f"Nothing to do ({len(rows)} already complete)")
 
     try:
