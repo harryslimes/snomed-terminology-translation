@@ -1024,3 +1024,77 @@ def rule_substitute(ctx: RunContext, inputs: dict[str, Any],
         message=(f"{n_fixed}/{len(targets)} blocker row(s) repaired by minimal "
                  f"substitution; {len(unfixable)} need re-translation "
                  f"(structural, or no canonical form)"))
+
+
+def duplicate_translation(ctx: RunContext, inputs: dict[str, Any],
+                          params: dict[str, Any]) -> FunctionResult:
+    """Flag distinct concepts that were given the SAME target rendering.
+
+    A collision is a structural defect independent of translation quality: in a
+    terminology, two concepts sharing one preferred term cannot both be right,
+    and a reviewer who sorts by the translation column meets them stacked.
+
+    It is also a cheap, high-yield detector — no model call, one pass — and it
+    catches errors the others cannot see, because a collision is a property of
+    a PAIR while every other check here looks at one row. Found late and by
+    hand on the 5,012-row batch: 22 collisions, among them ureterography
+    rendered as urethrography, MR angiography as CT, and rib as bone. Those
+    three are clinically wrong and every single-row detector passed them.
+
+    Near-synonyms do legitimately collide, so this is a WARNING by default:
+    it earns a reviewer's attention, it does not gate the deliverable.
+    """
+    tpath = _dataset_path(inputs.get("translations"))
+    if not tpath or not Path(tpath).exists():
+        return FunctionResult(ok=False, message="duplicate_translation: no `translations`")
+
+    ko_col = str(params.get("ko_col") or "translation")
+    en_col = str(params.get("en_col") or "preferred_term")
+    severity = str(params.get("severity") or "warning").strip().lower()
+    normalise = bool(params.get("normalise", True))
+
+    groups: dict[str, list[dict]] = defaultdict(list)
+    n = 0
+    with Path(tpath).open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            ko = (r.get(ko_col) or "").strip()
+            if not ko:
+                continue
+            n += 1
+            groups[norm_text(ko) if normalise else ko].append(r)
+
+    findings = []
+    for key, members in groups.items():
+        if len(members) < 2:
+            continue
+        for m in members:
+            others = [x for x in members if x is not m]
+            findings.append({
+                "sctid": (m.get("sctid") or "").strip(),
+                "english": (m.get(en_col) or "").strip(),
+                "korean": (m.get(ko_col) or "").strip(),
+                "check": "duplicate-translation",
+                "severity": severity,
+                "message": ("shares this rendering with "
+                            + "; ".join(f"{(o.get('sctid') or '').strip()} "
+                                        f"({(o.get(en_col) or '').strip()})"
+                                        for o in others[:3])),
+            })
+
+    tag = str(params.get("output_tag") or "").strip()
+    out = Path(ctx.log_dir) / f"duplicate_translations{'_' + tag if tag else ''}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["sctid", "english", "korean", "check",
+                                          "severity", "message"])
+        w.writeheader()
+        w.writerows(findings)
+
+    n_groups = sum(1 for v in groups.values() if len(v) > 1)
+    return FunctionResult(
+        ok=True, outputs={"findings": str(out)},
+        metrics={"n_rows": float(n), "n_collisions": float(n_groups),
+                 "n_rows_affected": float(len(findings)),
+                 "collision_rate_pct": round(100.0 * len(findings) / n, 3) if n else 0.0},
+        message=(f"{n_groups} rendering(s) shared by more than one concept, "
+                 f"across {len(findings)} rows"))

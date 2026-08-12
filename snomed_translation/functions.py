@@ -1621,6 +1621,33 @@ diff_findings_spec = FunctionSpec(
     runner="snomed_translation.validation:diff_findings",
 )
 
+duplicate_translation_spec = FunctionSpec(
+    name="duplicate_translation", label="Duplicate translation detector",
+    category="detect",
+    description="Flag distinct concepts given the same target rendering. No "
+                "model call, one pass, and it catches what single-row checks "
+                "structurally cannot: a collision is a property of a PAIR. On "
+                "the 5,012-row batch it finds 22, including ureterography "
+                "rendered as urethrography and MR angiography as CT — "
+                "clinically wrong, and passed by every other detector. Warning "
+                "severity by default, since near-synonyms legitimately collide.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Collision findings", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="en_col", label="Source term column", kind="text",
+                  default="preferred_term"),
+        ParamSpec(name="severity", label="Severity", kind="text", default="warning"),
+        ParamSpec(name="normalise", label="Ignore whitespace differences",
+                  kind="bool", default=True),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.validation:duplicate_translation",
+)
+
 qa_gate_spec = FunctionSpec(
     name="qa_gate", label="QA gate (aggregate findings)", category="detect",
     description="Aggregate every detector's findings into one ship/no-ship "
@@ -1885,6 +1912,7 @@ def specs() -> list[FunctionSpec]:
         splice_translations_spec,
         diff_findings_spec,
         qa_gate_spec,
+        duplicate_translation_spec,
         build_rule_repair_context_spec,
         rule_substitute_spec,
         self_review_spec,

@@ -1,7 +1,7 @@
 {
   "id": "package-deliverable",
   "name": "package_deliverable",
-  "description": "Build the reviewer-facing pack from ko_imaging_deliverable. Runs the detector family, aggregates it into the qa_gate worklist, then packages: SME-adjudicated renderings and their synonyms overlaid over the machine output, review_priority driven by the worklist, adjudicated rows marked done, and the dead columns dropped (judge_label fired on 0 of 5,012; transliteration_echo fired once and it was a false positive). Re-runnable — everything resolves from the named deliverable object, so the pack can be rebuilt after any repair. Draws a deterministic stratified review sample (40 machine rows per priority tier, marked review_sample=yes) so the claim that review_priority predicts errors is actually testable: reviewing only the high tier would measure nothing, and the 93 sme_partial rows sitting in high would bias its error rate if not excluded.",
+  "description": "Build the reviewer-facing pack from ko_imaging_deliverable. Runs the detector family, aggregates it into the qa_gate worklist, then packages: SME-adjudicated renderings and their synonyms overlaid over the machine output, review_priority driven by the worklist, adjudicated rows marked done, and the dead columns dropped (judge_label fired on 0 of 5,012; transliteration_echo fired once and it was a false positive). Re-runnable — everything resolves from the named deliverable object, so the pack can be rebuilt after any repair. Draws a deterministic stratified review sample (40 machine rows per priority tier, marked review_sample=yes) so the claim that review_priority predicts errors is actually testable: reviewing only the high tier would measure nothing, and the 93 sme_partial rows sitting in high would bias its error rate if not excluded. Includes the duplicate-translation detector: a collision is a property of a PAIR, so no single-row check can see it, and the 22 in this batch include three clinical errors (ureterography as urethrography, MR angiography as CT, rib as bone) that every other detector passed. The duplicate check runs twice on purpose: once on the machine text (feeding priority) and once on the PACKED output, because the SME overlay changes 173 rows and therefore changes which concepts collide — 24 before the overlay, 22 after. The second number is the one that describes the file the reviewer receives.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -130,7 +130,8 @@
         "findings1": "rules:findings",
         "findings2": "hierarchy:findings",
         "findings3": "contrast:flags",
-        "findings4": "translit:flags"
+        "findings4": "translit:flags",
+        "findings5": "dupes:findings"
       }
     },
     {
@@ -205,6 +206,42 @@
       },
       "inputs": {
         "value": "pack:deliverable"
+      }
+    },
+    {
+      "id": "dupes",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 600.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "pack",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "dupes_final",
+      "type": "function",
+      "pos": {
+        "x": 1380.0,
+        "y": 420.0
+      },
+      "params": {
+        "ko_col": "translation_ko",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "packed",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "pack:deliverable"
       }
     }
   ]
