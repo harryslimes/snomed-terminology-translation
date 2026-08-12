@@ -53,6 +53,8 @@ from scripts.translation.translate_korean_with_lookup import (
 
 log = logging.getLogger(__name__)
 
+from snomed_translation.watchdog import progress_watchdog
+
 
 def _group_candidates(samples: list[str]) -> list[dict]:
     """Collapse N raw samples into distinct candidates with counts.
@@ -78,7 +80,8 @@ def _group_candidates(samples: list[str]) -> list[dict]:
 
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         samples: int = 5, temperature: float | None = None,
-        limit: int | None = None, resume: bool = False, **_) -> StageResult:
+        limit: int | None = None, resume: bool = False,
+        request_timeout_seconds: float = 300.0, **_) -> StageResult:
     """Translate every concept ``samples`` times; write a candidates CSV."""
     stage = "translate_consistency"
     samples = max(1, int(samples))
@@ -141,7 +144,9 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                            message=f"Nothing to do ({len(rows)} already complete)")
 
     try:
-        lookup_cache = ensure_exemplars(cfg, remaining)
+        # ensure_exemplars returns (cache, self_exclusions) — the second element
+        # is the per-concept gold dropped by self-exclusion, unused here.
+        lookup_cache, _exclusions = ensure_exemplars(cfg, remaining)
     except ExemplarError as exc:
         return StageResult(stage=stage, ok=False,
                            message=f"exemplars unavailable: {exc}")
@@ -166,12 +171,15 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     def call(sctid: str) -> str:
         try:
             return complete(model, model_key, system_prompt,
-                            user_prompts[sctid], llm_params)
+                            user_prompts[sctid], llm_params,
+                            timeout=(10, request_timeout_seconds))
         except Exception as exc:  # noqa: BLE001 — one bad sample mustn't kill the run
             log.error("%s sample -> ERROR %s", sctid[:12], exc)
             return f"ERROR: {exc}"
 
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+    with progress_watchdog(stage, stall_seconds=120.0,
+                           base_url=None if use_sdk else base_url) as _tick, \
+         ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {pool.submit(call, sctid): sctid for sctid, _ in tasks}
         for fut in as_completed(futures):
             if ctx.is_cancelled():
@@ -182,6 +190,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             with lock:
                 by_sctid[sctid].append(result)
                 completed[0] += 1
+                _tick()
                 if result.startswith("ERROR"):
                     errors[0] += 1
                 if completed[0] % 100 == 0:

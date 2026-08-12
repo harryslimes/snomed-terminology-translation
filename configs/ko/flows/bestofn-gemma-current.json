@@ -1,0 +1,25 @@
+{
+  "id": "bestofn-gemma-current",
+  "name": "bestofn_gemma_current",
+  "description": "Best-of-N with the CURRENT stack: gemma4-26b-qat samples 5 candidates per concept at temp 0.7 under style guide v6.0 and the eval-safe curated pool (dedup, provenance, no SME gold), then evaluate_consistency replays each concept's original prompt, appends the candidate list and asks the same model to pick the best. Reports the chosen accuracy plus judge-vs-oracle and majority-vs-oracle calibration, against greedy 36.0/35.5% and a previously measured oracle@5 of 43.5%.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "terms", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "sme_gold_all"}, "inputs": {}},
+    {"id": "exemplars", "type": "datasource", "pos": {"x": 40.0, "y": 200.0},
+     "params": {"source": "pooled_curated_eval"}, "inputs": {}},
+    {"id": "style", "type": "function", "pos": {"x": 40.0, "y": 340.0},
+     "params": {"path": "style_guide/style_guide_ko_v6_0.md", "function": "style_guide"}, "inputs": {}},
+    {"id": "translate_n", "type": "function", "pos": {"x": 340.0, "y": 60.0},
+     "params": {"model_key": "gemma4-26b-qat", "samples": 5, "temperature": 0.7,
+                "output_tag": "bestofn_gemma_current", "function": "translate_consistency"},
+     "inputs": {"terms": "terms", "exemplars": "exemplars", "style_guide": "style:style_guide"}},
+    {"id": "evaluate_n", "type": "function", "pos": {"x": 640.0, "y": 60.0},
+     "params": {"function": "evaluate_consistency"},
+     "inputs": {"candidates": "translate_n", "reference": "terms"}},
+    {"id": "headline", "type": "function", "pos": {"x": 940.0, "y": 60.0},
+     "params": {"expression": "exact_match_pct", "output_name": "bestofn_exact_pct",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "evaluate_n:metrics"}}
+  ]
+}

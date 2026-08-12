@@ -1,0 +1,113 @@
+{
+  "id": "eval200-v6-qwen38max-curated",
+  "name": "eval200_v6_qwen38max_curated",
+  "description": "200-row SME gold eval: v6.0 + Qwen 3.8-Max on the CURATED exemplar pool (rules v1: SME-overruled forms dropped, ruling-updated SME gold appended). A/B partner of eval200-v6-qwen38max on the raw pool.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_all"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "qwen38-max-remote",
+        "output_tag": "eval200_v6_qwen38max_curated",
+        "resume": false,
+        "request_timeout_seconds": 300,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "translate",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 200.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 860.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "sme200_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate:metrics"
+      }
+    }
+  ]
+}

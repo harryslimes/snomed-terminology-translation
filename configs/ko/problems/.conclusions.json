@@ -686,6 +686,1318 @@
       "proposed_by": "",
       "author": "",
       "ts": "2026-07-15"
+    },
+    {
+      "id": "conclusion-25",
+      "statement": "SME batch-2 provenance: the 100 terms the SME reviewed (returned 2026-08-09) are the output of run ddbe48e77705 (flow sme-batch2-diverse-gemma-translate, 2026-07-14, diverse selection seed 20260714, fresh gemma4-26b-qat translate) — NOT data/sme_review/2026-07-12/batch2_balanced_100.csv (balanced seed 20260712, pool translations), which shares only 17/100 sctids.",
+      "detail": "Confirmed by exact join against the returned xlsx: 100/100 sctid overlap with the ddbe48e77705 artifact and 99/100 identical translations (the one difference is a spacing variant). The sent CSV is preserved at data/sme_review/2026-07-14/batch2_diverse_sent_100.csv and registered as source sme_batch2_diverse_sent.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "778105649302",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-26",
+      "statement": "The batch-2 SME translations reproduce at 86% exact match (chrF 95.2) after full loss and deterministic rebuild of the exemplar vector collection; residual diffs are minor synonym/word-order/spacing flips at temperature 0.",
+      "detail": "The live Qdrant had lost exemplars_pooled_legacy_ko_8d5bcc2e (container remounted to a fresh dir on 2026-08-05 during the Spanish test). Collection rebuilt deterministically from data/EN-KO/all_bilingual_pairs.csv (514,756 points, BGE-M3); reproduction run 778105649302 (flow sme-batch2-repro-translate, gemma4-26b-qat + style guide v5.1, temp 0, exemplars served from the per-collection lookup cache) reproduced the sent file at 86% exact / 95.2 chrF. The 14-15 differing rows show only minor lexical/word-order/spacing drift, consistent with translate-stage code changes merged between 2026-07-14 and 2026-08-06 (unified render/provider, retry/timeout).",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "778105649302",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ddbe48e77705",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-27",
+      "statement": "Style guide v6.0 (hand-encoded SME Q&A rulings) beats v5.1 on the held-out SME gold test split: 23.1% vs 17.9% exact (chrF 61.4 vs 59.4, composite 0.504 vs 0.475), and eliminates contrast hallucinations (2 flagged → 0) — the deterministic encoding banked a real win before any optimisation.",
+      "detail": "39-term held-out multi-reference split (seed 20260809), gemma4-26b-qat + pooled leak-excluded exemplars, temp 0. v6.0 is now the GEPA seed. Small n — confidence medium; the direction is consistent with the error profile (word-preference dominated).",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "7127b3b8bd51",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-28",
+      "statement": "Surface metrics cannot grade the SME acceptability margin: on non-identical pairs (9 acceptable-variation vs 120 partial/wrong), AUC is chance for exact (0.50), chrF (0.51) and BGE-M3 cosine (0.45) — a preferred-synonym swap is indistinguishable from a wrong-preference swap by string or embedding similarity. GEPA's reward must therefore be multi-reference spacing-normalised exact (synonyms as references) plus enforced hard-rule/contrast penalties; cosine partial-credit thresholds would optimise noise.",
+      "detail": "The multi-ref view is trivially separable (AUC 1.0) because every acceptable candidate is itself a reference — identity leakage, not signal. Only 9 informative positives exist, so this is directional; it matches the earlier error-class-detector finding that embeddings miss SME-WRONG cases. A calibrated LLM judge remains the future path to partial credit on the margin.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "4c7196e94248",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4027ce566552",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "752d62843042",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-29",
+      "statement": "The clean GEPA re-opt (seed v6.0, SME-gold in-domain splits, Opus 5 reflection, hard-rule + contrast penalties) improved dev (0.397→0.498) but did NOT transfer to held-out: 20.5% exact / chrF 55.5 vs v6.0's 23.1% / 61.4 — the promotion gate fails and v6.0 remains the production prompt. This replicates the earlier leak-free finding that the hand style guide beats GEPA, now under the most favourable GEPA setup available.",
+      "detail": "n=39 test so 9-vs-8 exact terms is noise-level, but the chrF gap (61.4→55.5) is consistent across rows and the gate is one-directional. Likely cause: 29-row dev overfit — GEPA's prompt (11.7k chars) compressed away v6.0 detail that matters on unseen terms. Both prompts produce zero contrast-fidelity flags (the penalty + hard rules held). Future GEPA attempts should wait for a larger SME-labelled dev pool (batch-3+) or use cross-validation over the 161 train+dev rows. Artifact preserved at style_guide/style_guide_ko_gepa_sme_gold_v1.md.",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c87a15413b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-09"
+    },
+    {
+      "id": "conclusion-30",
+      "statement": "CORRECTED (supersedes conclusion 27): after fixing the gold data (8/200 batch-1 cells carried unparsed 'or'-alternates, 'preferred term:' prefixes or trailing commas; X-ray rows predate the SME's 단순 촬영 ruling), v5.1 and v6.0 are statistically indistinguishable on the 39-row held-out split — both 17.9% exact like-for-like. v6.0 remains the production prompt on compliance grounds, not exact-match: it deterministically encodes the SME's explicit rulings and holds contrast fidelity at 0 flags (0.16% at 5,012-term production scale vs ~5% under v5.1).",
+      "detail": "The original 23.1% vs 17.9% gap was partly measurement artifact: cleaning the gold moved v6.0's old translations to 28.2%, and re-running under the augmented exemplar pool moved it back to 17.9% while v5.1 stayed at 17.9%. Every pairwise difference is 1-2 terms out of 39 (binomial sigma ~6pts) and the exemplar-pool era flips rankings, so this test set cannot rank prompts at this granularity. Exact-vs-gold remains a lower bound on SME acceptability: of 3 matches 'lost' to exemplar augmentation, 2 were SME-blessed synonym variants (조영/조영술, 하지/다리) the metric cannot credit.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1794565006da",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3727f6d08bd5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "04fcaa5c0202",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7127b3b8bd51",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-31",
+      "statement": "CORRECTED (supersedes conclusion 29): under like-for-like corrected conditions the GEPA-optimised guide actually scores highest on the held-out split (23.1% exact / composite 0.512 vs v6.0's 17.9% / 0.496, 0 contrast flags) — the earlier gate rejection reflected dirty gold plus a different exemplar-pool era, not a stable ranking. However the difference is 2 terms out of 39 (within noise), so the honest verdict is: GEPA-v1 is competitive with the hand guides, and a 39-row test cannot decide promotion. Decision: keep v6.0 in production (deterministic ruling compliance), treat the GEPA guide as a live candidate, and settle promotion with SME judgement (e.g. batch-3 A/B) or a materially larger labelled set.",
+      "detail": "Corrected triple (cleaned gold, augmented exemplars, temp 0): GEPA 23.1%/chrF 62.4/composite 0.512; v6.0 17.9%/62.3/0.496; v5.1 17.9%/64.2/0.510 (v5.1 had 1 contrast hallucination; the other two 0). Under the original conditions the ordering was v6.0 > GEPA > v5.1 — ranking instability across an orthogonal condition change is itself evidence the eval lacks power. Reinforces conclusion 28.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "0ccd35da00ee",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "1794565006da",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c87a15413b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-32",
+      "statement": "Translation model choice is the dominant accuracy lever, dwarfing prompt optimisation: on the 200-row SME gold set with the identical v6.0 recipe (cleaned exemplar pool, temp 0), Claude Opus scores 37.5% exact / chrF 72.1, Qwen 3.8-Max 35.0% / 71.1, and gemma4-26b-qat 30.0% / 66.3-67.1 — all with zero contrast-fidelity flags. The +5 to +7.5pt model gaps are 3-5x larger than any prompt-side effect measured tonight.",
+      "detail": "Qwen 3.8-Max added as qwen38-max-remote (DashScope, same endpoint/key as 3.7-Max; DASHSCOPE_API_KEY now provided to the MCP service via systemd EnvironmentFile). Claude Sonnet could not be measured — two attempts hit subscription-window rejections (156/200 errors). Production trade-off to decide: gemma is local/free at 30%, Qwen 3.8-Max is paid API at 35% (200 terms ≈ 11 min at 0.3 req/s), Opus is subscription-throttled (concurrency 2) at 37.5%. Exact-vs-gold remains a lower bound on SME acceptability throughout.",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "high",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "7690ac937254",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c52bbaa6ac",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "127cf3fcdac1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "7f6c8938085d",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-33",
+      "statement": "GEPA prompt optimisation consistently fails to transfer from dev to held-out on this task: round 2 (seeded from the GEPA-1 guide, cleaned gold, Opus reflection) improved dev to 0.501 but scored 15.4% exact / chrF 59.5 on the held-out 39 — below both GEPA-1 (23.1%) and v6.0 (17.9%). Two rounds, two dev-overfits with a 29-row val set; stop GEPA iterations until the labelled pool grows materially (batch-3+) and spend optimisation effort on model choice and gold/exemplar hygiene instead.",
+      "detail": "Guide artifacts preserved (style_guide_ko_gepa_sme_gold_v1/v2.md). Complementary negative: a judge-guided correction round HURT (31.0%→25.0%, run a9c14eb39e1e) because the gemma acceptability judge over-triggers on acceptable rows. Neutral-positive: exemplar-pool cleaning (39k exact dupes + 5.5k ', NA' EDI artifacts removed — found via the new per-run prompt capture, prompts_<tag>.jsonl) left exact unchanged (30.0%) with chrF +0.8 and fewer contrast flags — kept for hygiene.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "6398fbc86e96",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a8245d1c254d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "62267a633c87",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "0ccd35da00ee",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-34",
+      "statement": "Qwen 3.8-Max's reasoning mode is pure waste on this task: disabling it (enable_thinking=false) cut the 200-row translate wall-clock from 987.9s to 41.8s (23.6x faster; 2,853 -> 13 output tokens per call) with NO accuracy cost — 35.0% exact both, chrF 71.9 vs 71.1, composite 0.614 vs 0.608, 0 contrast flags both. The 5,012-term production deliverable therefore costs ~18 minutes on Qwen 3.8-Max, not the ~4-5 hours implied by the thinking-on rate.",
+      "detail": "Root cause: the enable_thinking=false switch lives in the model catalogue's per-model llm_params bundle (gemma4-26b-qat has one; both Qwen-Max entries never did — qwen37-max-remote's notes only TOLD a human to set it). Fixed by pinning llm_params on qwen38-max-remote (DashScope accepts top-level enable_thinking and chat_template_kwargs.enable_thinking; both verified). ACTION: qwen37-max-remote still carries the same latent defect. Separately confirmed: DashScope exposes the OpenAI-compatible Batch API (/v1/files upload with purpose=batch + /v1/batches both return 200) for ~50% cost at a 24h window — but at ~18 minutes synchronous for the full pool, batch is not needed at this scale.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "a5f541f9f484",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "25c52bbaa6ac",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-35",
+      "statement": "MEASUREMENT BUG (now fixed): multi-reference scoring was silently inert for every datasource-backed eval. `_eval_set_from_datasource` hard-wired `all_references` to the single target column in BOTH copies of the graph compiler (pipelines/graph.py and the plugin's snomed_translation/graph.py), so `evaluation.multi_ref=true` had no effect and every SME-accepted synonym scored as a miss. With it fixed, Qwen 3.8-Max + v6.0 scores 39.5% exact / chrF 73.7 on the 200-row SME gold (was 35.0% / 71.6); 28 of 200 rows now score against a non-canonical accepted reference. All earlier tonight's numbers were single-reference lower bounds — rankings hold (all models measured identically), absolute levels were understated.",
+      "detail": "Found by checking performance on the SME samples: the same translations scored 70/200 in-run but 79/200 offline against ko_all. Two independent copies of the compiler had to be patched — the app-level fix alone changed nothing because the plugin's copy shadows it for these runs. Gold also gained SME-declared acceptability: 조영상→영상 ruling-updated variants for pre-ruling batch-1 rows (batch-2 gold contains ZERO 조영상, confirming the ruling holds) and the SME's explicit either-form equivalences 조영↔조영술 and 투시 검사↔투시술. Corrected head-to-head: Qwen 3.8-Max 39.5% / chrF 73.7 vs gemma4-26b-qat 33.5% / 68.7 — the +6pt model gap is unchanged in direction and slightly wider.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9abf971be1df",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6daf5036f3ba",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a5f541f9f484",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-36",
+      "statement": "Performance on the SME-reviewed samples is even across batches and shows real recovery on previously-rejected terms: Qwen 3.8-Max + v6.0 scores 39% on batch-1 and 40% on batch-2 (no recency overfit), and on the 120 terms the SME rated Partial/Wrong it now produces the SME's own correction for ~30% while still emitting the exact rejected rendering for only 8%.",
+      "detail": "Breakdown by the SME's original verdict: batch2/CORRECT 57%, batch2/PARTIAL 29%, batch1/ACCEPTABLE 45%, batch1/PARTIAL 33%. The production run itself (6ba05d4eca9a) scores 38.4% on the 177 reviewed concepts inside the active pool vs gemma's 35.6%, consistent with the eval. Leakage check clean: 0/177 reviewed concepts had an SME gold rendering surviving into their shown exemplars (self-exclusion works). Residual 8% repeat-offenders are mostly cases where our output complies with an SME-stated rule but the gold picked the other blessed variant — diminishing returns without new SME input.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "exploiting-sme-terminologist-feedback"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9abf971be1df",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6ba05d4eca9a",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-37",
+      "statement": "Exemplar-pool changes must be DECLARATIVE AND TRACKED, not in-place edits. The raw pool is now treated as immutable (regenerable via build_en_ko_pairs.py --combine-only); curation is expressed as versioned rules (configs/ko/pool_rules/ko.yaml, each rule carrying rationale + evidence links) applied by a curate_exemplar_pool node that writes a SEPARATE csv, reports per-rule match counts and the rules content hash as run metrics, and registers as its own source (pooled_curated) so raw-vs-curated is a flow edit rather than a file mutation.",
+      "detail": "Prompted by two undocumented in-place pool mutations made earlier in this session, one of which was actively WRONG: a (en,ko) dedup removed 39,056 rows that the builder keeps ON PURPOSE (its dedup key includes `source`, so the same pair from EDI and SNOMED coexists with distinct provenance shown to the model). Both edits are now reverted — the raw pool is byte-restored to its documented 514,756 rows. v1 rules drop 222 pairs teaching SME-overruled forms (X선/방사선 영상 촬영 for X-ray, 조영상 for images) and append SME gold with post-ruling rewrites applied, fixing self-inflicted contamination (발목 x선 had been retrieved as an exemplar tagged SME_gold_v1). A third rule (EDI bracketed billing qualifiers) is documented but DISABLED: it matches 59% of the pool, so the observed noise is a retrieval-ranking problem, not a content problem.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ef444c26b7f6",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4b3938026c96",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "99aa8e4a9549",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-38",
+      "statement": "The 200-row SME gold eval has a test-retest noise floor of roughly +/-1-2 points: three byte-identical temp-0 runs scored 75/74/76 of 200 (37.5%/37.0%/38.0%) with 18-25 translations differing and 4-5 exact-match flips between any pair. Any difference below ~3 points on this set is not interpretable, and a 0.04% exemplar-pool change flipped 28 of 200 rows — mostly unrelated register coin-flips (절구/비구, 허리근/요근, 종골/발꿈치븀) — so retrieval perturbation, not just sampling, drives the variance.",
+      "detail": "Consequences for tonight's claims: the curated-vs-raw comparison (35.5% vs 37.5%) is INDISTINGUISHABLE FROM NOISE — curation is retained on correctness grounds (it stops the prompt contradicting our own enforced hard rules) but has NO demonstrated accuracy benefit. The targeted subpopulation (11 X-ray/-gram/-graphy terms) scored 4/11 in both arms. Model-choice gaps (Qwen 3.8-Max vs gemma, ~+6pts) survive this noise floor; style-guide gaps of 4-5pts are marginal and should be re-tested with repeats. Deterministic decoding is NOT reproducible here: vLLM/API batching changes token choices run to run. Future comparisons on this set should report a mean of >=3 repeats, or move to a larger labelled pool.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "99aa8e4a9549",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "860702b5c74e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "5c590d4cc7be",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4b3938026c96",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-39",
+      "statement": "Reasoning/thinking mode is now an explicit per-node switch (translate node `thinking` param) rather than an inherited model-catalogue default, and it is backend-aware: Claude's `thinking` key vs vLLM/DashScope's `enable_thinking` + chat_template_kwargs. The effective state is logged and captured in the run's prompts artifact. This was a genuine measurement defect: Opus had been compared against Qwen while running with thinking ON and Qwen with it OFF.",
+      "detail": "Two bugs found while building it: (1) the graph compiler never forwarded the param at all (a `if params.get(...)` style test would also have silently dropped `false`) so the first 'no-think' run silently ran with thinking ON; (2) setting all conventions at once leaked Claude's `thinking` key into the DashScope payload and 400'd every request. Both fixed; the effective regime is now printed as e.g. `thinking=False (node override)`.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8e335dfda2a4",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-40",
+      "statement": "Opus's lead does NOT come from its reasoning budget: with thinking explicitly DISABLED it scores 42.0% exact / chrF 74.4, inside the 40.5-43.0 spread of its own thinking-ON runs. Conversely Qwen 3.8-Max gains slightly WITH thinking (40.5% vs 38.0-39.5% without) at 23x the wall-clock. Under one frozen, thinking-matched condition the model gap narrows to roughly 2-3 points (Opus ~42%, Qwen ~39-40.5%) — at the edge of the +/-1-2 point noise floor, and much smaller than the 5-point gap claimed from the unmatched comparison.",
+      "detail": "Frozen condition: patched gold (SME 'original translation can be used as a synonym' alternates recovered), raw pool 8d5bcc2e with NO SME gold in retrieval (no sibling-gold leakage), multi-ref live. Opus thinking-ON 43.0/40.5/42.0 (mean 41.8, spread 2.5pt); Opus thinking-OFF 42.0 (n=1); Qwen thinking-OFF 38.0/39.0/39.5/39.0 (mean 38.9, spread 1.5pt); Qwen thinking-ON 40.5 (n=1, 966s vs 22s). Practical read: thinking buys Qwen ~1.5pt for 40x the time, and buys Opus nothing measurable. Cost/throughput therefore dominates the production choice, since Opus is subscription-throttled at concurrency 2 (~9.5 min per 200 rows vs Qwen's 22s).",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "2f31a4a3fccd",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "cd7f7e1190f5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ab5cc428150c",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-41",
+      "statement": "DeepSeek-V4-Flash added as a model (official DeepSeek API, OpenAI-compatible at https://api.deepseek.com/v1, DEEPSEEK_API_KEY) and benchmarked: 34.0% exact / chrF 69.7 on the 200-row SME gold under the frozen condition — below Qwen 3.8-Max (~39%) and Opus (~42%), and comparable to local gemma4-26b-qat (33.5%). Fast and cheap (200 rows in 16s, 17 output tokens/call) but not competitive on quality for this task.",
+      "detail": "n=1 at a +/-1-2pt noise floor, so treat the gap to Qwen (~5pt) as probable and the gap to gemma (~0.5pt) as unresolved. Frozen condition: v6.0, patched gold, raw pool 8d5bcc2e, multi-ref live, reasoning off.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-42",
+      "statement": "Reasoning-mode control needs a PER-MODEL declared convention, not a shared guess: DeepSeek SILENTLY IGNORES `enable_thinking` (kept emitting 123-180 reasoning tokens with it set to false) and honours only `reasoning_effort: none` / `thinking: {type: disabled}`, while DashScope 400s on Claude's `thinking` key and the Claude Agent SDK accepts only that key. The model catalogue now carries `thinking_style` (sdk | enable_thinking | reasoning_effort) and the translate stage dispatches on it.",
+      "detail": "The silent-ignore failure is the dangerous one: without checking output tokens per call there is no sign the setting did nothing, and a whole benchmark would silently compare a reasoning model against a non-reasoning one. Cheap standing check: output tokens/call in usage.json (~13-17 = reasoning off; 130+ = reasoning on). Verified on the DeepSeek run: 17 tokens/call.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8e335dfda2a4",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c5216cb3e215",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-43",
+      "statement": "CORRECTED model comparison (supersedes conclusions 32 and 40): under one frozen condition (patched gold, leak-free raw pool 8d5bcc2e, multi-ref live) the models are far closer than previously reported — Opus ~42%, Qwen 3.8-Max 38.0-39.5%, gemma4-26b-qat 37.5%, DeepSeek-V4-Flash 34.0% exact on the 200-row SME gold. The 6-point gemma deficit reported earlier was measurement artifact: that number (33.5%) came from the contaminated pool with unpatched gold. The real gemma-vs-Qwen gap is ~1.5 points, inside the noise floor — the local free model is statistically level with the paid API.",
+      "detail": "KNOWN BIAS in this measurement: the gold patch credits the SME's 'original translation can be used as a synonym' rows, and that 'original' IS gemma's batch-2 output. On those 17 rows gemma scores 71% vs Qwen 59%; on the other 183 rows they are level (gemma 34%, Qwen 36%). The patch is legitimate (the SME did bless those renderings) but is NOT model-neutral — future comparisons must report flagged rows separately. Opus remains nominally top but at ~4pt over Qwen with a 2.5pt own-spread and no temperature control, and costs 9.5 min per 200 rows vs 22s.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "cd7f7e1190f5",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ab5cc428150c",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d4e31d119347",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "1a12eea9b408",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-44",
+      "statement": "The two leading models fail in qualitatively DIFFERENT ways, which matters more than their 1.5-point score difference: gemma drops content words (Radionuclide venography of lower limb -> 다리 정맥 조영, silently losing 방사성 핵종; Cementoplasty -> 비구 성형, losing 시멘트), while Qwen over-applies the native-register rule (큰창자 for large intestine where gold has 대장; 빗장밑정맥 where gold has 쇄골하). A dropped modality word is a safety-relevant omission an SME must catch; a register swap is a preference they mark Partial and accept as a synonym.",
+      "detail": "Miss profiles are otherwise near-identical (both ~124 misses, 60% structural, 5% spacing/word-order). Qwen's misses sit marginally closer to gold (mean chrF 56.4 vs 54.6; 49 rows below chrF 50 vs 57). Recommendation: prefer Qwen for the deliverable on error-KIND grounds rather than score, and put the register question (대장/큰창자, 쇄골하/빗장밑) to the SME in batch-3, since v6.0's native-preference rule may be stated more strongly than they practise it.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "217a39da0daf",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-45",
+      "statement": "gemma can PARTLY detect its own mistakes but cannot repair them, and reliably damages what was already right: reviewing its own 200 translations with a neutral prompt it flagged 51.6% of its genuine errors (some signal) but repaired only 7.7% of them, while changing 23% of its CORRECT answers and moving 100% of those away from gold. Net effect -12 of 200 rows, i.e. a self-correction pass would cost ~6 points of accuracy.",
+      "detail": "This is the MECHANISM behind the earlier correction-round failure (31.0%->25.0%, run a9c14eb39e1e): not judge over-triggering alone, but that the reviser's edits are net-negative. The neutral prompt named no error class and supplied no style guide, so a flag reflects the model's own judgement rather than a checklist.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a9c14eb39e1e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-46",
+      "statement": "The self-corrections revert precisely the SME's rulings, because the model's prior IS the old KR-extension register: unguided, gemma 'improved' 단순 촬영 -> 방사선 촬영 (undoing the SME's X-ray ruling), 다리 -> 하지 and 엉덩이 -> 고관절 (undoing the native-register preference) — each with a confident clinical-sounding rationale. Supplying style guide v6.0 at review time helps but does not fix it: detection 51.6->60.2%, false alarms 23->13.9%, damage 100->80%, net -12 -> -1 rows.",
+      "detail": "The model complies with the guide when TRANSLATING but reverts to its prior when REVIEWING, which is why the guided arm only reaches break-even (net -1) rather than a gain. Practical rules: (1) never run an unguided self-correction pass; (2) if a correction round is ever revived, it must be guide-carrying AND restricted to rows flagged by the deterministic detectors, never applied to unflagged rows; (3) the same prior is what makes deprecated-form exemplars dangerous — they reinforce the register the SME overruled.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "inducing-an-en-ko-translation-instruction-guide-from-curated-evidence"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-47",
+      "statement": "CLOSED, NEGATIVE: a model-authored review/self-correction step cannot work in this pipeline, and review-by-selection cannot either. Three independent measurements explain why. (1) Repair is broken: gemma detects 52-60% of its own errors but repairs only 8-9% and damages 80-100% of the correct rows it touches (net -12 rows unguided, -1 guided). (2) Detector-gating has no error mass left to gate: the contrast detector fires on 1 of 125 wrong rows, because style guide v6.0 already eliminated that class in generation — ceiling +0.5pt. (3) Selection has almost nothing to select: oracle any-of-5 at temp 0.7 is 43.5% vs greedy 37.5% (+6.0 ceiling), while free majority-vote self-consistency scores 35.0%, WORSE than greedy — the sampled mass sits on the wrong string, so a selector must repeatedly beat the model's own consensus, an ability three separate results show it lacks.",
+      "detail": "Written up explicitly so the line is not reopened. What survives: (a) the register-oracle + hard-rule regex veto, booked at ZERO gain and kept purely as damage insurance on any future edit path; (b) detection (60% at 14% false alarm) as a ROUTER for SME triage or a selective second translation pass, never as a judge or author. MBR with chrF is not expected to rescue selection: on 2-4 token clinical strings it is the same consensus-medoid estimator as majority vote, which is already negative here. Also fixed en route: translate_consistency had been broken since self-exclusion changed ensure_exemplars to return a tuple.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "df2b3b04e23d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-48",
+      "statement": "Concept-attribute injection into the TRANSLATOR prompt is the next bet and it is feasible: 100% of the 200 SME gold concepts (and all 125 of gemma's wrong rows) already have SNOMED defining attributes on file (method_fsn, procedure_site_direct/indirect_fsn), and the error profile is dominated by classes those attributes address — 35 low-overlap sense/structural rows and ~26 redundancy/duplication rows out of 125, comfortably above the ~15-20 needed to plausibly clear a 3-point bar. Unlike every review design, its upside is NOT capped by the oracle@5 ceiling, because it changes the generating distribution rather than re-picking from it.",
+      "detail": "Mechanism: the observed sense errors are referent-resolution failures (Gynecogram -> 부인과 'gynaecology department' rather than 여성생식기; 뇌 뇌실 조영 duplicating brain+ventricle) that no reviewer sharing the same English surface form can fix, but which the concept model disambiguates mechanically. CAVEAT on the sizing: the error-class buckets are crude heuristics and demonstrably mislabel — short strings like 쓸개/담낭 (gallbladder native vs Sino) land in 'sense' purely because chrF is low on 2-token strings, and one 'duplication' example is really a dropped modifier (입체적/stereotactic). Treat 35+26 as an upper bound; a manual pass over the low-overlap rows should precede building the injection plumbing.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-49",
+      "statement": "NEGATIVE: injecting SNOMED defining attributes (method / procedure site / substance / device, rendered as English facts) into the translator prompt does NOT help and is mildly harmful — gemma 35.0% and 35.0% vs 37.5% control; Qwen 3.8-Max 32.5% vs 38.0-39.5% control. Crucially it failed on its own target population: of the 11 low-overlap rows manually judged attribute-fixable, the control scored 0/11 and the attribute arm also scored 0/11. The mechanism did not fire even once.",
+      "detail": "Diagnostic on the flagship case: for Gynecogram the attributes explicitly state 'site: Female genital structure', and the model STILL produced 부인과 ('gynaecology department') — and additionally degraded 조영술 to 방사선 촬영, i.e. the injected 'method: Radiographic imaging' pulled it toward a literal method rendering and away from the SME's form. Same pattern on the basilic-vein row: the site fact ('Structure of basilic vein') did not displace the wrong vessel 빗장밑정맥, while the method fact flipped 정맥 조영 to 혈관 조영. So the English fact block acts as extra source text to translate rather than as disambiguating context — it adds surface tokens that compete with the term itself. Note also that attributes are sometimes WRONG for the concept: bilateral kidneys carried 'Left kidney structure', bilateral lower limbs carried 'right lower limb', and a transapical valve implantation carried method='Ultrasound imaging' (the guidance, not the action).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "3f70a638310a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d1471fcf722e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "f72ecd892568",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ff25324d9708",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-50",
+      "statement": "With review-as-correction, review-as-selection and attribute injection all closed as negatives, the remaining levers on this task are (a) SME-facing triage rather than accuracy — detection at 60%/14% FA to rank the 5,012-term deliverable for human review, and (b) a manual pass over the gold's own defects, which are now a material share of the measured error. Further prompt/architecture tinkering against a 200-row set with a +/-1-2pt noise floor is not expected to pay.",
+      "detail": "Evidence that gold defects are now material: the manual read of 43 low-overlap misses found at least one row (Ilium X-ray) where our output IS the gold's first alternate but the cell holds two comma-joined renderings ('엉덩벌 단순 촬영, 장골 단순 촬영') that the parser declines to split — the comma-split heuristic requires 4+ tokens per segment, and splitting more aggressively would wrongly break legitimate multi-site lists ('복강 동맥, 상장간막 동맥 및 ...'). Several other 'sense' misses are register variants inflated by chrF being unstable on 2-token strings (쓸개/담낭). A careful human pass over gold would likely recover more measured points than any further model-side change.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "3f70a638310a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "36251b1a1c15",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-51",
+      "statement": "PROMPT-CONTEXT DEFECTS FOUND AND FIXED, with no accuracy change. A stale lookup cache (dated 2026-07-13, predating provenance) was silently serving legacy 2-element rows, so 94% of exemplar rows reached the model with NO Source column and the model could not tell a canonical SNOMED term from an EDI billing match; retrieval also wasted ~2 of 5 slots on duplicates in 50% of prompts; the ', NA' EDI export artifact was still present; and benchmark pools still carried SME gold. All four are fixed (CACHE_VERSION invalidation, dedup on the Korean string at retrieval, a documented curation rule, and an eval-safe pool via include_additions=false). The repaired prompt measurably surfaces better exemplars — a freed slot now shows 'Adrenal Venography' for a suprarenal-vein query, previously crowded out by two copies of the forbidden 조영상 form — but the matrix is UNCHANGED within noise.",
+      "detail": "Matrix v2 on the repaired, eval-safe prompt (200-row SME gold, multi-ref): Opus 40.0%; Qwen 3.8-Max 38.0/37.5%; gemma 36.0/35.5%; DeepSeek-V4-Flash 33.5%. Versus the degraded-prompt matrix (Opus ~42, Qwen 38-39.5, gemma 37.5, DeepSeek 34.0) every arm moved by <=2pts, i.e. within the noise floor, and the ORDERING is identical. Two implications: (a) the earlier comparisons, though measured on a defective prompt, were not invalidated by it — the defect applied equally to all arms; (b) exemplar-context quality is NOT a binding constraint on this task, which is the third independent line (after review and attribute injection) pointing at the same conclusion.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "bc82fdcca7f0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "52ee9aa929ce",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3a33a517e0b2",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-52",
+      "statement": "Attribute injection remains negative on a REPAIRED prompt: gemma 34.0% vs 36.0/35.5% control. The earlier negative was not an artifact of the degraded context it was measured in, so the finding stands — SNOMED defining attributes injected as English facts act as extra source text rather than as disambiguating context.",
+      "detail": "Re-tested specifically because the first A/B (35.0/35.0 vs 37.5) ran on prompts missing provenance with half the exemplar slots duplicated, which was a fair objection to the result. Under the repaired prompt the gap is the same size and the same sign. Combined with the 0/11 result on the manually-identified attribute-fixable rows, this line is closed.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "0604966a761b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "bc82fdcca7f0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3f70a638310a",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-53",
+      "statement": "EDI (HIRA billing) pairs contribute nothing measurable as exemplars, but removing them is not free either — the honest answer is 'no measurable value, keep them'. Ablating all 385,425 EDI rows (75% of the pool) changed gemma from 36.0/35.5% to 37.0/36.5% overall: a +1pt shift inside the noise floor. On the 84 rows whose prompt actually contained an EDI exemplar, removal moved accuracy 42.9% -> 35.7%, i.e. slightly DOWN, so the observational correlation was not simply confounding — the billing rows appear to be mildly helpful where they appear, or at least harmless.",
+      "detail": "Mechanism: EDI is 75% of pool ROWS but only 14% of the exemplar SLOTS actually shown (SNOMED_synonyms 38%, SNOMED 27%, KCD7 16%, LOINC 4%) — retrieval already down-weights it, so the pool's size is not the prompt's composition. In 200 prompts an EDI exemplar NEVER equalled the gold answer or the model's output, so it is not supplying translations directly; any value is contextual (vocabulary priming for procedure terms). The two subpopulation numbers point in opposite directions from the aggregate, and both are within noise on n=84, so this should not be over-read. DECISION: keep EDI, keep the blanket-drop rule DISABLED, and treat targeted relevance filtering (not source-level deletion) as the only remaining retrieval lever worth exploring.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "2dd61fc8074b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e79af35c3780",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "bc82fdcca7f0",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-54",
+      "statement": "Best-of-N with LLM-judge selection gives no real gain on the current stack: gemma sampling 5 candidates and picking via the existing evaluate_consistency judge scores 37.0% exact / chrF 70.5, versus greedy 36.0/35.5% — a +1 to +1.5pt shift inside the +/-1-2pt noise floor, for 5x the generation cost plus a judging pass (149s vs 18s). The judge picks the oracle-best candidate on only 54.2% of the 96 multi-candidate concepts, EXACTLY matching free majority voting (54.2%), so the LLM judge adds nothing over counting.",
+      "detail": "Diagnostic from the same run: mean chrF on multi-candidate concepts is 60.27 for the judge's pick, 60.24 for majority, and 66.79 for the oracle — so ~6.5 chrF of headroom exists and neither selector captures any of it. Note the run only had 96/200 concepts with more than one distinct candidate at temp 0.7, which caps any best-of-N gain at roughly half the rows. This is consistent with the earlier standalone probe (oracle any-of-5 43.5% vs greedy 37.5%, majority 35.0%) and completes the picture: the sampling distribution's mass sits on the wrong string and no available selector beats consensus. Best-of-N is therefore NOT recommended for production at 5x cost; the technique is only worth revisiting if a selector materially better than majority vote appears.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "654d40eea4c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "bc82fdcca7f0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "84f968a03c5e",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-55",
+      "statement": "Sampling DISAGREEMENT is by far the strongest confidence signal found on this task: the number of distinct candidates from 5 samples predicts incorrectness with AUC 0.755, and the relationship is monotone — unanimous concepts (1 distinct, n=104) score 57.7% exact while disagreeing ones (n=96) score 14.6%, falling 23.5% -> 4.8% -> 7.1% -> 0.0% as distinct-candidate count rises 2->5. Not one of the 10 concepts with 5 distinct candidates was correct. A triage rule of 'n_distinct >= 3' flags 45/200 rows of which 96% are wrong, against a 63% base rate.",
+      "detail": "Validated against an INDEPENDENT greedy run (e7d290ec3d1f, different generation): the same buckets give 57.7 / 17.6 / 4.8 / 14.3 / 0.0%, so the signal is a property of the concept's difficulty, not an artifact of the sampled set it is computed from. This dwarfs every other confidence signal measured: self-review detection ran at 52-60% with 14-23% false alarms, the acceptability judge correlates poorly with SME verdicts, and BGE-M3 cosine was at chance on the acceptability margin (AUC 0.45). PRACTICAL USE: rank the 5,012-term deliverable for SME review by n_distinct — it costs 5 cheap local gemma samples per term (~4 min for the full pool at observed throughput) and needs no gold, no judge and no reference. This is the surviving, valuable half of best-of-N: the sampling is worth doing for the CONFIDENCE it yields, even though selecting among the samples gains nothing (conclusion 54).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "confidence-based-review-triage-policy",
+        "output-translations-confidence",
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "654d40eea4c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-10"
+    },
+    {
+      "id": "conclusion-56",
+      "statement": "A confidence-routed two-model cascade is the first technique this session to beat every single model: gemma samples 5 per concept, unanimous concepts keep gemma's answer, and disagreeing concepts are re-translated by Qwen 3.8-Max. Blind escalation scores 41.0% exact / chrF 73.1 and escalation-with-candidates 40.0% / 72.0, against gemma 36.0/35.5%, Qwen 38.0/37.5% and Opus 40.0%. The gain comes from the partition, not from either model being better overall: the kept half (gemma, unanimous) scores 54-55% while the escalated half scores 24-27%.",
+      "detail": "Cost profile is attractive: ~50% of terms never touch the paid API (all-local gemma), and the escalated half is a single Qwen call each. Caveats: +3pts over Qwen alone is only just outside the +/-1-2pt noise floor and each arm is n=1, so this needs repeats before it is load-bearing; and routing threshold n_distinct>=2 escalates ~half the corpus, so the economics depend on that ratio holding on the full 5,012. Predicted 42.5-43.5% from routing independent runs; delivered 40-41%, the shortfall presumably because a Qwen call that replays gemma's prompt is not identical to a standalone Qwen run.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "confidence-based-review-triage-policy"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6c43838b5206",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "52ee9aa929ce",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3a33a517e0b2",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-57",
+      "statement": "Showing the stronger model the weaker model's candidates HURTS slightly: blind escalation 41.0% vs 40.0% with candidates shown, and on the escalated rows specifically 27.3% vs 24.5%. The weaker model's attempts act as anchors rather than as evidence, consistent with every other result this session in which exposing a model to existing text (self-review, best-of-N selection, attribute injection) degraded rather than improved its output.",
+      "detail": "CONFIDENCE LOW deliberately: the two arms differ by 1pt overall and 2.8pts on the escalated subset (n=94 vs 99), both within noise, and the arms also drew different routing sets because sampling is nondeterministic (94 vs 99 escalated). The direction agrees with the session's broader pattern but a repeat is needed before treating it as established. Practical implication if it holds: escalate BLIND, which is also simpler and cheaper (no candidate block in the prompt).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "low",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6c43838b5206",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-58",
+      "statement": "Exact match UNDERSTATES the cascade's real quality by roughly 2x. A terminologist-style assessment of 40 escalated outputs that did NOT match the reference judged ~40% acceptable to the SME as-is or as a synonym, ~55% Partial and only ~5% Wrong. Combining with the rows that did match, true acceptability of the escalated half is approximately 55-58%, against a 27.3% exact-match figure. On the same 40, escalation was BETTER on 17, EQUIVALENT on 16 and WORSE on 7.",
+      "detail": "Assessment used the SME's own ratings and verbatim notes on 20 of the 40 terms as ground truth for what they accept. Several escalation fixes match the SME's written corrections exactly (게이트 -> 심전도 동기화, 휴식기 -> 안정기 on 431644007; 위팔 'upper arm' -> 팔 'upper limb' on 17281000087103 and 12081000087109), which is evidence of genuine clinical improvement rather than metric-chasing. Quantitative support: on escalated rows mean chrF rose 60.2 -> 66.4 and exact 17.2% -> 27.3%; but among rows where NEITHER model is exact, chrF barely moved (50.5 -> 51.8) with 38% improving >2pts and 30% degrading >2pts, so the headline gain comes mostly from rows flipping TO exact rather than near-misses converging.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "trustworthy-leakage-free-evaluation-of-translation-quality"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6c43838b5206",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-59",
+      "statement": "The cascade carries measurable self-harm that the +5pt headline hides: 8 of 99 escalated rows went from correct to incorrect, 4 of the assessed 40 destroyed answers that were already gold or gold-modulo-spacing, and 5 of 40 escalations were byte-identical no-ops. The two models also fail differently — gemma makes LEXICAL errors (dropped modifiers, hallucinated contrast, untranslated English, duplicated words) while Qwen introduces STRUCTURAL paraphrase errors gemma rarely makes (reordering conjoined procedures, which this SME explicitly disallows) plus 'synonym roulette' (담관->담도, 소작->지짐) that is lateral churn.",
+      "detail": "Worst single regression: 241183005, where the escalation INVENTED a 조영제 사용 contrast phrase — the error class the SME flagged most often and which style guide v6.0 plus the contrast detector were built to eliminate; it survived because the detector runs as an audit, not as a gate on escalation output. TWO CHEAP FIXES PROPOSED: (a) spacing-normalise before the agreement vote so spacing-only disagreement never triggers escalation (removes no-op escalations and some churn); (b) run contrast_fidelity_detect on the escalated output and reject a revision that introduces a contrast phrase the source lacks, reusing a detector already measured at zero false positives.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "targeted-error-class-detectors-what-similarity-misses"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-60",
+      "statement": "NEGATIVE (implementation verified, not inferred): both proposed cascade fixes are NO-OPS on this data. (a) Spacing-normalising the agreement vote changed the distinct-count on 0 of 200 rows — gemma's temperature-0.7 samples never differ by spacing alone, they differ lexically, so no row's routing decision moves. The 'no-op escalations' the assessment found were byte-identical ESCALATION OUTPUTS (Qwen returning gemma's string), a cost problem on the output side, not a vote-side problem. (b) The contrast gate fired 0 times and would NOT have caught the regression it was built for: on 241183005 'Genital system contrast procedure', contrast_issue() returns '' by design, because the source says 'contrast' without 'with/without contrast' and the detector deliberately treats that construction as ambiguous.",
+      "detail": "Cascade v2 scored 39.5% exact / chrF 73.3 vs v1 blind 41.0% / 73.1, but since neither fix altered any routing or output decision, that 1.5pt difference is PURE SAMPLING VARIANCE between two runs of the same configuration — further evidence for the +/-1-2pt noise floor, and a caution against reading v2-vs-v1 as an effect. The real defect 241183005 exposes is a distinct error class the detector does not model: mis-parsing the NOUN construction 'X contrast procedure' (a contrast study, 생식기 조영술) as 'procedure WITH contrast' (조영제 사용 ... 시술). Fixing it means extending contrast_fidelity_detect to that construction, not gating on the existing verdict.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "83467965fa01",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-61",
+      "statement": "The confidence-routed cascade's gain is REAL and reproducible: across 4 runs it averages 40.25% exact (sd 0.65, range 39.5-41.0) versus Qwen 3.8-Max alone at 37.75% (n=2) and gemma alone at 35.75% (n=2). Every cascade run exceeds every Qwen run, and the +2.5pt difference is roughly 6 standard errors. The cascade also matches Claude Opus (40.0%) while keeping ~half the corpus on a free local model. Its own run-to-run spread (sd 0.65pt) is TIGHTER than the noise floor estimated from single-model repeats, because routing removes variance on the confident half.",
+      "detail": "Configuration: gemma4-26b-qat samples 5 at temp 0.7 under style guide v6.0 and the eval-safe curated pool; concepts whose samples all agree keep gemma's answer; the rest (48-53% of rows across runs) are re-translated BLIND by Qwen 3.8-Max replaying the original prompt. Escalation rate varied 96-105 of 200 across runs without destabilising the score. Caveats that remain: the baselines are n=2 not n=4; the terminologist assessment found 8/99 escalated rows regressed from correct to incorrect, so the net gain hides two-way churn; and true acceptability (~55-58% by expert judgement) is roughly double the exact-match figure for both arms, so exact match understates the whole comparison rather than just the cascade.",
+      "kind": "empirical",
+      "status": "superseded",
+      "confidence": "high",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "confidence-based-review-triage-policy"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a6490e96795f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c81d66d09022",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "695e503323c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "52ee9aa929ce",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7dbfe42d0d0",
+          "label": ""
+        }
+      ],
+      "proposed_by": "",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-62",
+      "statement": "STATISTICAL CORRECTION (supersedes conclusion 61): the cascade's accuracy edge over Qwen alone is NOT established to generalise. Conclusion 61 computed '~6 standard errors' from the cascade's run-to-run sd (0.65pt), which measures reproducibility on a FIXED 200 rows, not uncertainty over concepts. The correct concept-level test on majority-vote outcomes gives 10 cascade-only wins vs 5 Qwen-only wins (15 discordant), one-sided sign test p = 0.15, and an SE of the difference of ~4.9pp — i.e. the +2.5pt gap is well under one standard error. Mean-over-runs remains 40.25% vs 37.75%, but that difference is not statistically supported at n=200 concepts.",
+      "detail": "The error is a general trap for this whole project: repeating a run on a fixed eval set shrinks the sampling-noise term but says nothing about concept-level uncertainty, so 'every run beats every run' can look decisive while the underlying difference is not. ANY future claim on this 200-row set should be tested over concepts (paired sign test / McNemar), not over run repeats. Also corrected: the 'cascade matches Opus' claim is flag-dependent and should be dropped (on gold rows not flagged sme_original_as_synonym, Opus 39.9% >= cascade 39.6%).",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "trustworthy-leakage-free-evaluation-of-translation-quality",
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "a6490e96795f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c81d66d09022",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "695e503323c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "52ee9aa929ce",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b7dbfe42d0d0",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-63",
+      "statement": "The cascade should still ship, but on COST and TRIAGE grounds rather than accuracy. Its entire edge sits in the kept half — gemma-unanimous beats Qwen by +3.2 to +5.2pp on unflagged rows in all 4 runs — while on escalated rows the cascade's Qwen output equals standalone Qwen within +/-1pp. So the worst case is Qwen parity, achieved with ~half the corpus never leaving a free local GPU, plus an n_distinct review-priority signal (AUC 0.755, cross-generation validated) that replaces a Gemma acceptability judge measured to correlate poorly with SME verdicts and costing an extra ~870s GPU pass.",
+      "detail": "Gold-bias check (the concern that the gold's sme_original_as_synonym rows favour the cascade's gemma half): real but modest and NOT load-bearing — flagged 17 rows cascade 47.1% vs Qwen 41.2%, unflagged 183 rows 39.6% vs 37.4%, and the kept-half mechanism survives de-flagging in all 4 runs. Threshold-selection-on-eval bias is negligible: the sweep is monotone and n_distinct>=2 is optimal in every run independently. Production preconditions identified by audit: no production cascade flow exists yet (all cascade flows point at sme_gold_all); the packaging script crashes on cascade output (globs the wrong filename, hard-requires judge/detector artifacts, ignores routed=escalation_failed); escalate_uncertain has no retry (1/103 observed failure -> ~25 silent low-confidence fallbacks at production scale); and normalize_spacing/gate_contrast now default True so a 'v1' rerun silently executes v2 semantics and must be pinned.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+        "confidence-based-review-triage-policy"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d25df2389b9f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "695e503323c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "52ee9aa929ce",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-64",
+      "statement": "ROOT CAUSE of the two 'vLLM hangs': the HTTP client uses an INFINITE read timeout. `translate_one`'s default `timeout=(10, None)` (10s connect, no read limit) is inherited by `complete()` and by BOTH translate stages, neither of which passes a finite value — the translate node's `request_timeout_seconds` param is accepted but never reaches the HTTP call. So a single wedged request blocks a worker thread FOREVER, and once all 16 workers are blocked the run stops permanently with no error, no timeout and no log line: silence indistinguishable from progress. A direct load harness sending the SAME prompts, params, concurrency and temperature but with a finite 300s timeout completed 8,000 calls twice (256s, 31.2-31.3 req/s, 0 errors, no stall) — twice the volume at which the flow died, and 65% faster.",
+      "detail": "Hypotheses FALSIFIED by the harness, each of which I had asserted or assumed at some point: (1) concurrent runs competing — the second hang had only one run active; (2) sustained volume — 8,000 direct calls pass where 4,000 flow calls hung; (3) prefix caching with a shared 5.2k-token system prompt — identical in the passing harness; (4) request parameters (stop sequences / chat_template_kwargs / enable_thinking) — a faithful-params run also passed; (5) BGE-M3 holding a second CUDA context — the first hang loaded it, the second used a cached lookup. The remaining difference between harness and flow is the timeout. FIXES REQUIRED: give complete()/translate_one a finite read timeout, wire `request_timeout_seconds` through to it, and add a stall watchdog to the runner so a stall reports in ~90s with a py-spy dump rather than being noticed hours later by a human. Diagnostic harness committed at scripts/ops/vllm_hang_repro.py.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "snomed-translation"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "6971a3101a3a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6fcf56cd567f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-11"
     }
   ]
 }

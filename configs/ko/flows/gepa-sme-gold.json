@@ -1,0 +1,50 @@
+{
+  "id": "gepa-sme-gold",
+  "name": "gepa_sme_gold",
+  "description": "Clean GEPA re-opt aligned with the SME: seed = hand style guide v6.0, train/dev = SME gold splits (in-domain imaging, SME-corrected register; held-out test untouched), reward = multi-reference spacing-normalised exact + chrF with frozen+enforced hard rules and the contrast-fidelity penalty, reflection = Opus 5 via the Agent-SDK provider. Output prompt is promoted only if it beats v6.0 on the held-out SME gold test split (23.1% exact, run 04fcaa5c0202).",
+  "project": "gepa_sme_gold_v1",
+  "nodes": [
+    {
+      "id": "train",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 60.0},
+      "params": {"source": "sme_gold_train"},
+      "inputs": {}
+    },
+    {
+      "id": "dev",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 200.0},
+      "params": {"source": "sme_gold_dev"},
+      "inputs": {}
+    },
+    {
+      "id": "seed",
+      "type": "function",
+      "pos": {"x": 40.0, "y": 340.0},
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "gepa",
+      "type": "function",
+      "pos": {"x": 320.0, "y": 160.0},
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "reflection_model_key": "claude-opus",
+        "train_limit": 132,
+        "dev_limit": 29,
+        "output_tag": "gepa_sme_gold_v1",
+        "function": "optimize"
+      },
+      "inputs": {
+        "trainset": "train",
+        "devset": "dev",
+        "seed_style_guide": "seed:style_guide"
+      }
+    }
+  ]
+}

@@ -1,0 +1,201 @@
+{
+  "id": "corr200-v6-gemma",
+  "name": "corr200_v6_gemma",
+  "description": "200-row SME gold: v6.0 + gemma, then judge/transliteration-guided LLM correction round; evaluates both the original and corrected translations to measure the revision lift.",
+  "project": "style_guide_v6_baseline_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_all"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "corr200_v6_gemma",
+        "resume": false,
+        "request_timeout_seconds": 300,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "translate",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 200.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 480.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 340.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 480.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "max_tokens": 220,
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "correct",
+      "type": "function",
+      "pos": {
+        "x": 860.0,
+        "y": 340.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "correction_round"
+      },
+      "inputs": {
+        "translations": "translate:translations",
+        "transliteration_flags": "translit:flags",
+        "judgements": "judge:judgements"
+      }
+    },
+    {
+      "id": "evaluate_corrected",
+      "type": "function",
+      "pos": {
+        "x": 1120.0,
+        "y": 340.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "correct:translations",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1380.0,
+        "y": 340.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "sme200_corrected_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate_corrected:metrics"
+      }
+    }
+  ]
+}

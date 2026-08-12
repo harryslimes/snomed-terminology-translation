@@ -1,0 +1,11 @@
+{
+  "id": "production_imaging_pool",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/ko/sme_review/2026-08-09/production_imaging_pool.csv",
+  "csv_path": "data/languages/ko/sme_review/2026-08-09/production_imaging_pool.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term"
+  }
+}

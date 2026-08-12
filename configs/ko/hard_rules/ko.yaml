@@ -71,3 +71,31 @@ rules:
     enforce: false
     freeze: false
     penalty: 0.5
+
+  # --- SME batch-2 rulings (Q&A received 2026-08-09). ----------------------
+
+  - id: images-end-yeongsang
+    description: >-
+      Produced images end in 영상, never 조영상 (SME ruling: procedures end
+      조영/조영술, images end 영상 — 조영상 is not used). Corrects the v5.1
+      -gram table which prescribed 조영상.
+    canonical:
+      - 영상
+    forbidden:
+      - 조영상
+    enforce: true
+    freeze: true
+    penalty: 0.25
+
+  - id: fluoroscopy-guidance-form
+    description: >-
+      Fluoroscopy as guidance is 투시 유도하 (or 형광 투시 유도하); the
+      standalone-examination form 투시 검사 must not appear inside a guidance
+      phrase (SME ruling distinguishing exam vs guidance).
+    canonical:
+      - 투시 유도하
+    forbidden_regex:
+      - '투시\s*검사\s*유도'
+    enforce: true
+    freeze: true
+    penalty: 0.25

@@ -1,0 +1,150 @@
+{
+  "id": "production-imaging-translate",
+  "name": "production_imaging_translate",
+  "description": "Full production translation of the active imaging frontier (5,012 concepts: the 5,796 untranslated pool minus 784 inactive in INT_20260101) with the promoted recipe: style guide v6.0 + cleaned SME-augmented exemplar pool + Qwen 3.8-Max (thinking disabled; 35.0% exact vs gemma's 30.0% on the 200-row SME gold), followed by the audit pass (contrast fidelity, transliteration echo, Gemma acceptability judge) that ranks terms for SME sampling. Deliverable for the SME per their 2026-08-09 email.",
+  "project": "sme_batch_selection_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "production_imaging_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 480.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "qwen38-max-remote",
+        "output_tag": "production_imaging_v6_0_qwen38",
+        "resume": true,
+        "request_timeout_seconds": 300,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "translit_audit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 200.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "judge",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 340.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "max_tokens": 220,
+        "function": "acceptability_judge"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 880.0,
+        "y": 340.0
+      },
+      "params": {
+        "expression": "(judged_partial + judged_wrong) / n_judged * 100",
+        "output_name": "judge_review_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "judge:metrics"
+      }
+    }
+  ]
+}

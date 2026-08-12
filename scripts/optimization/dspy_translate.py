@@ -265,6 +265,7 @@ def make_metric(hints: dict | Path | str | None = None,
     (bundled Korean hints, no penalties).
     """
     from snomed_translation.hard_rules import find_violations, load_hard_rules, penalty_for
+    from snomed_translation.sme_feedback import contrast_issue
 
     hints_data = _load_hints(hints)
     enforced_rules = [r for r in load_hard_rules(hard_rules) if r.enforce]
@@ -288,6 +289,16 @@ def make_metric(hints: dict | Path | str | None = None,
                       if (enforced_rules and exact != 1.0) else [])
         if violations:
             score = max(0.0, score - penalty_for(violations))
+
+        # Contrast-fidelity penalty (source-conditional, so it can't be a
+        # surface hard rule): a hallucinated / wrong-polarity / dropped
+        # 조영제 phrase was the top SME batch-2 "Wrong" class.
+        contrast_flag = ""
+        if exact != 1.0:
+            source_en = getattr(gold, "preferred_term", "") or ""
+            contrast_flag = contrast_issue(source_en, candidate)
+            if contrast_flag:
+                score = max(0.0, score - 0.25)
 
         # Plain-validation call: return just the (penalised) float score.
         if pred_name is None and pred_trace is None:
@@ -324,6 +335,13 @@ def make_metric(hints: dict | Path | str | None = None,
                 "HARD RULE violations (score penalised, MUST fix): "
                 + "; ".join(msg for _, msg in violations)
             )
+
+        if contrast_flag:
+            parts.append(
+                f"CONTRAST FIDELITY violation ({contrast_flag}; score "
+                "penalised, MUST fix): output a 조영제 사용/미사용 phrase only "
+                "when the source says with/without contrast, and always when "
+                "it does")
 
         return {"score": score, "feedback": " | ".join(parts)}
 

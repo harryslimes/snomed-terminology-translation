@@ -176,17 +176,32 @@ def source_schema(source) -> dict[str, Any]:
             "built": True}
 
 
+_MULTI_REF_COLUMNS = ("all_references", "target_all", "ko_all")
+
+
 def _eval_set_from_datasource(ds: dict) -> EvalSetSpec:
     """Build an EvalSetSpec that translates a datasource's English column and
-    treats its target column as the (single) reference."""
+    treats its target column as the canonical reference.
+
+    Multi-reference: when the dataset carries an all-references column (a
+    '|'-separated list of every accepted rendering), wire it so
+    ``evaluation.multi_ref`` actually takes effect. Without this the
+    all-references column falls back to the single target column, which
+    silently makes ``multi_ref`` inert and scores every accepted synonym as a
+    miss.
+    """
     roles = ds["roles"]
+    target = roles.get("target", "target_term")
+    lower = {str(c).lower(): c for c in (ds.get("columns") or [])}
+    all_refs = next(
+        (lower[name] for name in _MULTI_REF_COLUMNS if name in lower), target)
     return EvalSetSpec(
         csv=Path(ds["dataset"]),
         columns=EvalSetColumns(
             sctid=roles.get("sctid", "sctid"),
             source_term=roles.get("en", "en_term"),
-            reference=roles.get("target", "target_term"),
-            all_references=roles.get("target", "target_term"),
+            reference=target,
+            all_references=all_refs,
         ),
     )
 
@@ -314,6 +329,13 @@ def build_translate(node: FlowNode, base_cfg: PipelineConfig,
         kwargs["resume"] = bool(node.params["resume"])
     if "temperature" in node.params:
         kwargs["temperature"] = float(node.params["temperature"])
+    if node.params.get("attributes_json"):
+        kwargs["attributes_json"] = str(node.params["attributes_json"])
+    if node.params.get("thinking") is not None:
+        # Explicit tri-state: absent = inherit the model catalogue default,
+        # true/false = force. Must test `is not None` — `if params.get(...)`
+        # would silently drop `false`, which is the whole point of the switch.
+        kwargs["thinking"] = bool(node.params["thinking"])
     if "request_timeout_seconds" in node.params:
         kwargs["request_timeout_seconds"] = float(
             node.params["request_timeout_seconds"]
@@ -339,6 +361,9 @@ def build_translate_consistency(node: FlowNode, base_cfg: PipelineConfig,
     kwargs["samples"] = int(node.params.get("samples", 5))
     if "temperature" in node.params:
         kwargs["temperature"] = float(node.params["temperature"])
+    if "request_timeout_seconds" in node.params:
+        kwargs["request_timeout_seconds"] = float(
+            node.params["request_timeout_seconds"])
     return cfg, kwargs
 
 

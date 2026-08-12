@@ -1,0 +1,12 @@
+{
+  "id": "sme_gold_test",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/evals/korean/sme_gold_splits/test.csv",
+  "csv_path": "data/evals/korean/sme_gold_splits/test.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "ko_reference"
+  }
+}
