@@ -1341,6 +1341,37 @@ select_sme_batch_spec = FunctionSpec(
     runner="snomed_translation.batch_selection:select_sme_batch",
 )
 
+package_deliverable_spec = FunctionSpec(
+    name="package_deliverable", label="Package deliverable for review",
+    category="evaluate",
+    description="Assemble the reviewer-facing deliverable: overlay adjudicated "
+                "SME renderings and their synonyms over the machine output, "
+                "set review_priority from the qa_gate worklist, and drop dead "
+                "columns. Separate from package_sme_batch, which packages a "
+                "sampled batch around selection provenance a full deliverable "
+                "has no analogue for; the reviewer response columns are the "
+                "same so the spreadsheet is unchanged.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="gold", label="SME-adjudicated renderings", kinds=["dataset"]),
+        PortSpec(name="priority", label="qa_gate worklist", kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="deliverable", label="Review packet", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="gold_col", label="Gold translation column", kind="text",
+                  default="ko_reference"),
+        ParamSpec(name="drop_cols", label="Columns to omit (comma-separated)",
+                  kind="text"),
+        ParamSpec(name="output_name", label="Output file name", kind="text",
+                  default="deliverable"),
+    ],
+    runner="snomed_translation.batch_selection:package_deliverable",
+)
+
 package_sme_batch_spec = FunctionSpec(
     name="package_sme_batch", label="Package SME review batch", category="evaluate",
     description="Join selection metadata to newly generated translations and emit "
@@ -1544,6 +1575,8 @@ splice_translations_spec = FunctionSpec(
         PortSpec(name="patch", label="Patch translations", kinds=["dataset"],
                  required=True),
         PortSpec(name="restrict", label="Allow-list of sctids to apply",
+                 kinds=["dataset"]),
+        PortSpec(name="sme_labels", label="SME-adjudicated rows (locked)",
                  kinds=["dataset"]),
     ],
     outputs=[PortSpec(name="translations", label="Spliced translations",
@@ -1836,7 +1869,7 @@ def specs() -> list[FunctionSpec]:
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
         transliteration_detect_spec, acceptability_judge_spec,
         acceptability_judge_batched_spec, correction_round_spec,
-        select_sme_batch_spec, package_sme_batch_spec,
+        select_sme_batch_spec, package_sme_batch_spec, package_deliverable_spec,
         translation_evaluation_summary_spec,
         semantic_partial_credit_calibration_spec,
         curate_exemplar_pool_spec,

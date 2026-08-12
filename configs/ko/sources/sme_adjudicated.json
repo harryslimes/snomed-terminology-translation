@@ -1,0 +1,9 @@
+{
+  "id": "sme_adjudicated",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "Rows a human reviewer has adjudicated (SME gold, batches 1-2). Wired to splice_translations' sme_labels port so no repair can overwrite them. Not advisory: a rule is inferred and can be wrong, and hip-not-buttock 'repaired' 13 of these away from the reviewer's own answer before this existed.",
+  "output_csv": "data/evals/korean/sme_gold_splits/sme_gold_all.csv",
+  "csv_path": "data/evals/korean/sme_gold_splits/sme_gold_all.csv",
+  "csv_columns": {"sctid": "sctid", "en": "preferred_term", "target": "ko_reference"}
+}

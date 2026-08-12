@@ -216,6 +216,13 @@ def hierarchy_consistency(ctx: RunContext, inputs: dict[str, Any],
                         "sctid": sid, "english": rec["en"], "korean": rec["ko"],
                         "ancestor_sctid": anc, "ancestor_english": arec["en"],
                         "ancestor_korean": arec["ko"],
+                        # The findings contract: every detector names its check
+                        # and its severity, so qa_gate can attribute a row
+                        # without guessing. Without this the reviewer's
+                        # flagged_checks column read "findings2" — the port
+                        # name qa_gate falls back to.
+                        "check": "hierarchy-inconsistency",
+                        "severity": "warning",
                         "message": "ancestor rendering not reused",
                     })
             frontier = nxt
@@ -227,6 +234,7 @@ def hierarchy_consistency(ctx: RunContext, inputs: dict[str, Any],
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["sctid", "english", "korean",
+                                          "check", "severity",
                                           "ancestor_sctid", "ancestor_english",
                                           "ancestor_korean", "message"])
         w.writeheader()
@@ -524,6 +532,24 @@ def splice_translations(ctx: RunContext, inputs: dict[str, Any],
     # adoption step has to refuse the change too. Pre-existing violations are
     # left alone: fixing those is a separate job, and withholding a patch row
     # because the BASE was already broken would just freeze the defect in.
+    # SME LOCK. A row a human has adjudicated is not the machine's to change,
+    # whatever a detector says about it. This is a stronger guarantee than any
+    # rule, because rules are inferred and can be wrong: hip-not-buttock was
+    # written from the in-batch majority and "repaired" 13 rows away from the
+    # SME's own approved rendering (왼쪽 엉덩이 컴퓨터 단층 촬영). The lock would
+    # have refused every one of them without anyone having to notice the rule
+    # was wrong first.
+    lpath = _dataset_path(inputs.get("sme_labels"))
+    locked: set[str] = set()
+    if lpath and Path(lpath).exists():
+        with Path(lpath).open(encoding="utf-8") as f:
+            locked = {(r.get("sctid") or "").strip() for r in csv.DictReader(f)}
+        before = len(patch)
+        patch = {k: v for k, v in patch.items() if k not in locked}
+        n_locked = before - len(patch)
+    else:
+        n_locked = 0
+
     rules_file = params.get("rules_file")
     blocker_rules = [r for r in load_hard_rules(rules_file)
                      if r.severity == "blocker"] if rules_file else []
@@ -593,11 +619,13 @@ def splice_translations(ctx: RunContext, inputs: dict[str, Any],
                  "n_unchanged": float(n_identical),
                  "n_withheld_by_restrict": float(n_restricted),
                  "n_refused_new_blocker": float(n_refused),
+                 "n_locked_sme": float(n_locked),
                  "n_patch_orphans": float(len(orphans))},
         message=(f"{n_rows} rows, {n_applied} replaced by the patch "
                  f"({n_identical} patch rows identical to base, "
                  f"{n_restricted} withheld by the restrict list, "
                  f"{n_refused} refused for introducing a blocker, "
+                 f"{n_locked} refused as SME-adjudicated, "
                  f"{len(orphans)} patch rows absent from base)"))
 
 

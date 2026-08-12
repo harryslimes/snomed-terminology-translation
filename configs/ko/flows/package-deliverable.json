@@ -1,0 +1,208 @@
+{
+  "id": "package-deliverable",
+  "name": "package_deliverable",
+  "description": "Build the reviewer-facing pack from ko_imaging_deliverable. Runs the detector family, aggregates it into the qa_gate worklist, then packages: SME-adjudicated renderings and their synonyms overlaid over the machine output, review_priority driven by the worklist, adjudicated rows marked done, and the dead columns dropped (judge_label fired on 0 of 5,012; transliteration_echo fired once and it was a false positive). Re-runnable — everything resolves from the named deliverable object, so the pack can be rebuilt after any repair.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "data_object": "ko_imaging_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 480.0
+      },
+      "params": {
+        "source": "sme_adjudicated"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 620.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rules",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 40.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "pack",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 180.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "pack",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "contrast",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 320.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "translit",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 460.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "deliverable",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 200.0
+      },
+      "params": {
+        "max_blockers": 0,
+        "fail_if_not_shippable": false,
+        "output_tag": "pack",
+        "function": "qa_gate"
+      },
+      "inputs": {
+        "findings1": "rules:findings",
+        "findings2": "hierarchy:findings",
+        "findings3": "contrast:flags",
+        "findings4": "translit:flags"
+      }
+    },
+    {
+      "id": "pack",
+      "type": "function",
+      "pos": {
+        "x": 1040.0,
+        "y": 200.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "gold_col": "ko_reference",
+        "drop_cols": "judge_label,transliteration_echo",
+        "output_name": "production_imaging_deliverable_v2",
+        "function": "package_deliverable",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml"
+      },
+      "inputs": {
+        "translations": "deliverable",
+        "gold": "gold",
+        "priority": "gate:worklist"
+      }
+    },
+    {
+      "id": "verify",
+      "type": "function",
+      "pos": {
+        "x": 1380.0,
+        "y": 200.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation_ko",
+        "output_tag": "packed",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "pack:deliverable"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1720.0,
+        "y": 200.0
+      },
+      "params": {
+        "expression": "n_rows_with_blocker",
+        "output_name": "packed_blocker_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "verify:metrics"
+      }
+    },
+    {
+      "id": "promote_pack",
+      "type": "promote",
+      "pos": {
+        "x": 1720.0,
+        "y": 360.0
+      },
+      "params": {
+        "name": "ko_imaging_review_pack",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "pack:deliverable"
+      }
+    }
+  ]
+}

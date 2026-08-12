@@ -1,7 +1,7 @@
 {
   "id": "blocker-repair",
   "name": "blocker_repair",
-  "description": "Repair the deliverable's blocker rows, cheapest-and-safest first. Pass 1 substitutes each rule's forbidden form with its canonical one, touching only the offending span. Pass 2 re-translates ONLY what substitution cannot fix — structural defects such as a repeated token, where the objection is word order rather than a term. The order matters: free re-translation takes the licence it is given, and when it repaired all 30 rows at once it cleared every rule while dropping 방출 from a SPECT term and swapping a DEXA term for an unrelated one, neither of which any detector watches. Substitution cannot do that. Adoption is still gated: only rows whose blocker actually clears are kept, and the patch-safety gate independently refuses any change introducing a new blocker. Re-promotes ko_imaging_deliverable.",
+  "description": "Repair the deliverable's blocker rows, cheapest-and-safest first. Pass 1 substitutes each rule's forbidden form with its canonical one, touching only the offending span. Pass 2 re-translates ONLY what substitution cannot fix — structural defects such as a repeated token, where the objection is word order rather than a term. The order matters: free re-translation takes the licence it is given, and when it repaired all 30 rows at once it cleared every rule while dropping 방출 from a SPECT term and swapping a DEXA term for an unrelated one, neither of which any detector watches. Substitution cannot do that. Adoption is still gated: only rows whose blocker actually clears are kept, and the patch-safety gate independently refuses any change introducing a new blocker. Re-promotes ko_imaging_deliverable. Every splice is wired to the SME-adjudicated set: a row a human has ruled on is never overwritten by a repair, however confident a detector is. That guarantee is stronger than any rule because rules are inferred and can be wrong — hip-not-buttock was derived from the in-batch majority and changed 13 rows away from the reviewer's own approved rendering before this lock existed.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -13,6 +13,18 @@
       },
       "params": {
         "data_object": "ko_imaging_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sme_labels",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 600.0
+      },
+      "params": {
+        "source": "sme_adjudicated"
       },
       "inputs": {}
     },
@@ -99,7 +111,8 @@
       },
       "inputs": {
         "base": "deliverable",
-        "patch": "substitute:translations"
+        "patch": "substitute:translations",
+        "sme_labels": "sme_labels"
       }
     },
     {
@@ -212,7 +225,8 @@
       },
       "inputs": {
         "base": "splice_sub:translations",
-        "patch": "cascade:translations"
+        "patch": "cascade:translations",
+        "sme_labels": "sme_labels"
       }
     },
     {
@@ -266,7 +280,8 @@
       "inputs": {
         "base": "splice_sub:translations",
         "patch": "cascade:translations",
-        "restrict": "diff:fixed"
+        "restrict": "diff:fixed",
+        "sme_labels": "sme_labels"
       }
     },
     {

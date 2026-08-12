@@ -272,3 +272,134 @@ def package_sme_batch(ctx: RunContext, inputs: dict[str, Any],
         message=(f"packaged {len(rows)} SME rows; missing={missing}, "
                  f"translation_errors={errors}"),
     )
+
+
+def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
+                        params: dict[str, Any]) -> FunctionResult:
+    """Assemble the reviewer-facing deliverable from a translation set.
+
+    Distinct from ``package_sme_batch``, which packages a SAMPLED batch and is
+    built around selection provenance (arm, modality group, risk) that a full
+    deliverable has no analogue for. Shared where it matters: the reviewer's
+    response columns keep the same names, so the spreadsheet looks identical to
+    previous batches.
+
+    Three joins, in this order:
+
+    1. SME OVERLAY. Where a concept has an adjudicated rendering it wins over
+       the machine's, and its accepted synonyms come with it. This is not a
+       nicety — the deliverable is assembled from raw cascade output, so
+       without it 130 reviewed rows ship as machine text and two of them ship
+       as blockers whose adjudicated form is clean.
+    2. PRIORITY. review_priority comes from the qa_gate worklist so the
+       reviewer's attention follows the detectors, and `done` marks the
+       adjudicated rows so nobody re-reviews them.
+    3. PRUNE. Columns listed in ``drop_cols`` are omitted. Signals that fired
+       on nothing (an all-empty judge label) or fired once as a known false
+       positive are noise in a reviewer's spreadsheet, and a column of blanks
+       invites the reader to wonder what it was supposed to mean.
+    """
+    translations = read_rows(inputs.get("translations"))
+    if not translations:
+        return FunctionResult(ok=False, message="package_deliverable needs `translations`")
+    gold = {(r.get("sctid") or "").strip(): r for r in read_rows(inputs.get("gold"))}
+    priority = {(r.get("sctid") or "").strip(): r
+                for r in read_rows(inputs.get("priority"))}
+
+    ko_col = str(params.get("ko_col") or "translation")
+    gold_col = str(params.get("gold_col") or "ko_reference")
+
+    # An adjudicated answer is authoritative but NOT immortal: a later ruling
+    # supersedes an earlier row. All 7 gold rows rendering plain radiography as
+    # 일반 x선 are batch1; all 4 using the ruled form 단순 촬영 are batch2. So
+    # overlaying gold blindly would have re-introduced the very forms a later
+    # SME ruling replaced — and several of those rows are rated only PARTIAL.
+    # The overlay therefore obeys the same law as every other patch here: it
+    # may not introduce a blocker. Where it would, the machine text stands and
+    # the row goes to the reviewer as a conflict to settle.
+    from snomed_translation.hard_rules import find_violations, load_hard_rules
+    blocker_rules = [r for r in load_hard_rules(params.get("rules_file"))
+                     if r.severity == "blocker"] if params.get("rules_file") else []
+    drop = {c.strip() for c in str(params.get("drop_cols") or "").split(",") if c.strip()}
+    review_cols = ["sme_rating", "sme_corrected_ko", "sme_error_category", "sme_notes"]
+
+    fields = ["sctid", "preferred_term", "translation_ko", "synonyms_ko",
+              "translation_source", "review_priority", "flagged_checks",
+              "n_distinct", "routed"] + review_cols
+    fields = [f for f in fields if f not in drop]
+
+    rows, n_gold, n_high, n_superseded = [], 0, 0, 0
+    for r in translations:
+        sctid = (r.get("sctid") or "").strip()
+        en = (r.get("preferred_term") or "").strip()
+        g = gold.get(sctid)
+        if g and blocker_rules and find_violations(
+                (g.get(gold_col) or "").strip(), blocker_rules,
+                require_enforce=False, source=en):
+            g = None
+            n_superseded += 1
+        if g:
+            n_gold += 1
+            translation = (g.get(gold_col) or "").strip()
+            syns = [s for s in (g.get("ko_all") or "").split("|")[1:] if s.strip()]
+            source, prio = "sme_approved", "done"
+            if (g.get("sme_rating") or "").strip().upper() == "PARTIAL":
+                # Rated partially correct, so not a settled answer: ship it but
+                # send it back rather than marking it done.
+                source, prio = "sme_partial", "high"
+                n_high += 1
+        else:
+            translation = (r.get(ko_col) or "").strip()
+            syns, source = [], "machine_v6_0"
+            p = priority.get(sctid)
+            # Disagreement is the strongest single predictor we have of an
+            # incorrect row (unanimous 57.7% exact vs 14.6% when the samples
+            # disagree, AUC 0.755), so it drives priority alongside the
+            # detectors rather than being relegated to a column.
+            nd = int(r.get("n_distinct") or 0)
+            if p and (p.get("max_severity") or "") == "blocker":
+                prio = "high"
+            elif p and int(p.get("n_checks") or 1) > 1:
+                prio = "high"
+            elif nd >= 4:
+                prio = "high"
+            elif p or nd >= 2:
+                prio = "medium"
+            else:
+                prio = "low"
+            n_high += int(prio == "high")
+        row = {
+            "sctid": sctid,
+            "preferred_term": (r.get("preferred_term") or "").strip(),
+            "translation_ko": translation,
+            "synonyms_ko": " | ".join(syns),
+            "translation_source": source,
+            "review_priority": prio,
+            "flagged_checks": (priority.get(sctid, {}).get("checks") or ""),
+            "n_distinct": r.get("n_distinct", ""),
+            "routed": r.get("routed", ""),
+        }
+        row.update({c: "" for c in review_cols})
+        rows.append({k: v for k, v in row.items() if k in fields})
+
+    out = Path(ctx.artifacts_dir() or ctx.log_dir) / (
+        f"{params.get('output_name') or 'deliverable'}.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows)
+
+    missing = sum(1 for r in rows if not r.get("translation_ko"))
+    return FunctionResult(
+        ok=missing == 0,
+        outputs={"deliverable": str(out), "dataset": str(out)},
+        metrics={"n_rows": float(len(rows)), "n_sme_approved": float(n_gold),
+                 "n_high_priority": float(n_high),
+                 "n_gold_superseded": float(n_superseded),
+                 "n_missing_translation": float(missing),
+                 "n_columns": float(len(fields))},
+        message=(f"packaged {len(rows)} rows: {n_gold} SME-approved (marked "
+                 f"done), {n_superseded} adjudicated rows withheld as "
+                 f"superseded by a later ruling, {n_high} high priority, "
+                 f"{missing} missing; {len(fields)} columns"))

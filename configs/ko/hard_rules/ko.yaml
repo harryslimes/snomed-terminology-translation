@@ -179,28 +179,35 @@ rules:
     severity: blocker
     penalty: 0.25
 
+  # RETIRED — I wrote this rule and it was wrong. Kept as the worked example of
+  # how, because the same mistake is easy to repeat.
+  #
+  # The claim was that 엉덩이 is the buttock and wrong for the hip. The SME gold
+  # says otherwise: "Computed tomography of left hip" -> 왼쪽 엉덩이 컴퓨터 단층
+  # 촬영, with no alternative listed. 엉덩관절 appears in gold only where the
+  # source says hip JOINT ("Fluoroscopic arthrography of hip joint"). So 엉덩이
+  # for a plain hip is an SME-approved rendering, and the rule "repaired" 13
+  # rows away from the reviewer's own answer.
+  #
+  # The error was in where I looked. I derived the canonical form from the
+  # in-batch majority (고관절, 34 rows) instead of from sme_gold_all.csv, which
+  # was on disk and authoritative. Batch frequency measures what the model did
+  # most often; it is not evidence about what is correct, and here the batch is
+  # inconsistent four ways for the same source (고관절 34, 엉덩이 13, 엉덩관절 4,
+  # 엉덩뼈 3). One SME data point does not settle that either — so this goes to
+  # the reviewer as a question rather than becoming a rule.
+  #
+  # Rule of thumb this cost us: a canonical form must come from an adjudicated
+  # source. If the only support is a frequency count, there is no rule yet.
   - id: hip-not-buttock
     description: >-
-      엉덩이 is the buttock; imaging of the hip refers to the joint or region
-      (엉덩관절 / 고관절). SME ruling from batch 2.
-    evidence: ["run:65e53f071b45"]
+      RETIRED — asserted 엉덩이 was wrong for the hip; SME gold shows it is the
+      approved rendering. See the note above.
+    evidence: ["run:a26b516efa1e", "file:data/evals/korean/sme_gold_splits/sme_gold_all.csv"]
+    enabled: false
     when_source: '\bhips?\b'
-    # In-batch majority for "hip": 고관절 42 rows, vs 엉덩관절 5 and 엉덩이 13.
-    # 고관절 is chosen for CONSISTENCY with what already shipped, not as a
-    # register ruling — 고관절 is Sino-Korean and the register oracle found the
-    # SME and the KR authorities lean native (엉덩관절) where the extension
-    # leans Sino. That choice is the SME's to make and is raised as an explicit
-    # question in the review pack; what is not in doubt is that 엉덩이 is the
-    # buttock and wrong for all 13.
-    canonical:
-      - 고관절
     forbidden:
       - 엉덩이
-    examples:
-      flag:
-        - {source: "Computed tomography of left hip", target: "왼쪽 엉덩이 컴퓨터 단층 촬영"}
-      pass:
-        - {source: "Computed tomography of pelvis", target: "골반 컴퓨터 단층 촬영"}
     enforce: false
     freeze: false
     severity: blocker
