@@ -1368,6 +1368,11 @@ package_deliverable_spec = FunctionSpec(
                   kind="text"),
         ParamSpec(name="output_name", label="Output file name", kind="text",
                   default="deliverable"),
+        ParamSpec(name="xlsx", label="Also write an .xlsx review workbook",
+                  kind="bool", default=False),
+        ParamSpec(name="sample_per_tier", label="Stratified review sample per priority tier",
+                  kind="number", default=0),
+        ParamSpec(name="seed", label="Sample seed", kind="number", default=20260812),
     ],
     runner="snomed_translation.batch_selection:package_deliverable",
 )

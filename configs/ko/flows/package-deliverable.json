@@ -1,7 +1,7 @@
 {
   "id": "package-deliverable",
   "name": "package_deliverable",
-  "description": "Build the reviewer-facing pack from ko_imaging_deliverable. Runs the detector family, aggregates it into the qa_gate worklist, then packages: SME-adjudicated renderings and their synonyms overlaid over the machine output, review_priority driven by the worklist, adjudicated rows marked done, and the dead columns dropped (judge_label fired on 0 of 5,012; transliteration_echo fired once and it was a false positive). Re-runnable — everything resolves from the named deliverable object, so the pack can be rebuilt after any repair.",
+  "description": "Build the reviewer-facing pack from ko_imaging_deliverable. Runs the detector family, aggregates it into the qa_gate worklist, then packages: SME-adjudicated renderings and their synonyms overlaid over the machine output, review_priority driven by the worklist, adjudicated rows marked done, and the dead columns dropped (judge_label fired on 0 of 5,012; transliteration_echo fired once and it was a false positive). Re-runnable — everything resolves from the named deliverable object, so the pack can be rebuilt after any repair. Draws a deterministic stratified review sample (40 machine rows per priority tier, marked review_sample=yes) so the claim that review_priority predicts errors is actually testable: reviewing only the high tier would measure nothing, and the 93 sme_partial rows sitting in high would bias its error rate if not excluded.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -146,7 +146,10 @@
         "drop_cols": "judge_label,transliteration_echo",
         "output_name": "production_imaging_deliverable_v2",
         "function": "package_deliverable",
-        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml"
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "xlsx": true,
+        "sample_per_tier": 40,
+        "seed": 20260812
       },
       "inputs": {
         "translations": "deliverable",

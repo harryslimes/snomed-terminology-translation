@@ -7,6 +7,9 @@ from typing import Any
 from pipelines.context import RunContext
 from pipelines.functions import FunctionResult
 
+import logging
+log = logging.getLogger(__name__)
+
 STOP = {"of", "the", "and", "with", "without", "using", "for", "to", "in",
         "on", "by", "a", "an", "procedure", "imaging"}
 LATERALITY = {"left", "right", "bilateral", "upper", "lower"}
@@ -390,16 +393,151 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
         w.writeheader()
         w.writerows(rows)
 
+    # Pre-drawn stratified sample. The point of review_priority is to predict
+    # where the errors are, and that claim is only testable if the reviewer
+    # looks at all three tiers — reviewing only `high` measures nothing. Drawing
+    # the sample here rather than asking the reviewer to filter also removes
+    # two ways the comparison could go wrong: contamination of `high` by the 93
+    # sme_partial rows (which are not machine output and would bias its error
+    # rate), and selection within a tier toward rows that look interesting.
+    # Deterministic in sctid, so the same pack always yields the same sample.
+    per_tier = int(params.get("sample_per_tier") or 0)
+    n_sampled = 0
+    if per_tier:
+        by_tier = defaultdict(list)
+        for row in rows:
+            if row.get("translation_source") == "machine_v6_0":
+                by_tier[row.get("review_priority")].append(row)
+        picked = set()
+        for tier in ("high", "medium", "low"):
+            pool = sorted(by_tier.get(tier, []),
+                          key=lambda r: stable(r, int(params.get("seed") or 20260812)))
+            picked.update(id(r) for r in pool[:per_tier])
+        for row in rows:
+            row["review_sample"] = "yes" if id(row) in picked else ""
+        n_sampled = sum(1 for r in rows if r.get("review_sample") == "yes")
+        if "review_sample" not in fields:
+            fields.insert(fields.index("review_priority") + 1, "review_sample")
+        with out.open("w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(rows)
+
     missing = sum(1 for r in rows if not r.get("translation_ko"))
+
+    xlsx_info = {}
+    if params.get("xlsx"):
+        xlsx_path = out.with_suffix(".xlsx")
+        try:
+            xlsx_info = _write_review_xlsx(out, xlsx_path, fields)
+        except Exception as exc:  # noqa: BLE001 — the CSV is the artifact of record
+            log.warning("package_deliverable: xlsx rendering failed (%s); "
+                        "the CSV is unaffected", exc)
+
     return FunctionResult(
         ok=missing == 0,
-        outputs={"deliverable": str(out), "dataset": str(out)},
+        outputs={"deliverable": str(out), "dataset": str(out),
+                 **({"xlsx": str(out.with_suffix(".xlsx"))} if xlsx_info else {})},
         metrics={"n_rows": float(len(rows)), "n_sme_approved": float(n_gold),
                  "n_high_priority": float(n_high),
                  "n_gold_superseded": float(n_superseded),
                  "n_missing_translation": float(missing),
-                 "n_columns": float(len(fields))},
+                 "n_columns": float(len(fields)),
+                 "n_review_sample": float(n_sampled),
+                 "xlsx_written": 1.0 if xlsx_info else 0.0},
         message=(f"packaged {len(rows)} rows: {n_gold} SME-approved (marked "
                  f"done), {n_superseded} adjudicated rows withheld as "
                  f"superseded by a later ruling, {n_high} high priority, "
-                 f"{missing} missing; {len(fields)} columns"))
+                 f"{missing} missing; {n_sampled} drawn for the priority "
+                 f"experiment; {len(fields)} columns"))
+
+
+def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> dict:
+    """Render the review pack as a workbook a reviewer can actually work in.
+
+    The CSV is the machine-readable artifact; this is the human one. Reviewers
+    open it, filter, and type into it for hours, so the affordances are the
+    deliverable: a frozen header and ID/term columns so context never scrolls
+    away, an autofilter so they can slice by priority themselves, priority
+    colour-coded so a glance locates the work, and the four response columns
+    visually separated so it is obvious where to type.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    with csv_path.open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Review"
+    ws.append(fields)
+
+    header_fill = PatternFill("solid", fgColor="1F3864")
+    response_fill = PatternFill("solid", fgColor="7030A0")
+    response_cols = {"sme_rating", "sme_corrected_ko", "sme_error_category", "sme_notes"}
+    for i, name in enumerate(fields, 1):
+        c = ws.cell(row=1, column=i)
+        c.fill = response_fill if name in response_cols else header_fill
+        c.font = Font(color="FFFFFF", bold=True)
+        c.alignment = Alignment(vertical="center", wrap_text=True)
+
+    prio_fill = {
+        "high": PatternFill("solid", fgColor="F8CBAD"),
+        "medium": PatternFill("solid", fgColor="FFE699"),
+        "low": PatternFill("solid", fgColor="E2EFDA"),
+        "done": PatternFill("solid", fgColor="D9D9D9"),
+    }
+    prio_idx = fields.index("review_priority") + 1 if "review_priority" in fields else None
+    for r in rows:
+        ws.append([r.get(k, "") for k in fields])
+        if prio_idx:
+            cell = ws.cell(row=ws.max_row, column=prio_idx)
+            fill = prio_fill.get((r.get("review_priority") or "").strip())
+            if fill:
+                cell.fill = fill
+
+    widths = {"sctid": 16, "preferred_term": 52, "translation_ko": 40,
+              "synonyms_ko": 26, "translation_source": 17, "review_priority": 15,
+              "flagged_checks": 26, "n_distinct": 11, "routed": 12,
+              "sme_rating": 14, "sme_corrected_ko": 34,
+              "sme_error_category": 20, "sme_notes": 40}
+    for i, name in enumerate(fields, 1):
+        ws.column_dimensions[get_column_letter(i)].width = widths.get(name, 18)
+    ws.freeze_panes = "C2"          # keep sctid + English in view while scrolling
+    ws.auto_filter.ref = ws.dimensions
+    ws.row_dimensions[1].height = 30
+
+    # A second sheet so the column semantics travel WITH the file. A legend in
+    # a covering email is lost the moment the file is forwarded.
+    key = wb.create_sheet("How to read this")
+    for line in [
+        ["Column", "Meaning"],
+        ["translation_ko", "The proposed Korean term. This is what needs checking."],
+        ["synonyms_ko", "Additional accepted forms already on record."],
+        ["translation_source", "machine_v6_0 = newly generated. sme_approved = your previously accepted wording, unchanged. sme_partial = you rated it PARTIAL before, so it is back for another look."],
+        ["review_priority", "Where our automated checks think the risk is: high, medium, low. done = previously accepted, no action needed."],
+        ["flagged_checks", "Which check fired, when one did. hierarchy-inconsistency = rendered differently from its own parent concept."],
+        ["n_distinct", "How many different answers the model gave across 5 attempts. 1 = it was consistent; 4-5 = it was unsure."],
+        ["", ""],
+        ["Please fill in", ""],
+        ["sme_rating", "ACCEPTABLE / PARTIAL / WRONG"],
+        ["sme_corrected_ko", "Your preferred wording, if it needs changing"],
+        ["sme_error_category", "e.g. wrong referent, wrong register, word order, missing element"],
+        ["sme_notes", "Anything else worth recording"],
+    ]:
+        key.append(line)
+    key.column_dimensions["A"].width = 22
+    key.column_dimensions["B"].width = 110
+    for c in key["A"]:
+        c.font = Font(bold=True)
+    for row in key.iter_rows(min_col=2, max_col=2):
+        for c in row:
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+    key["A1"].fill = header_fill
+    key["B1"].fill = header_fill
+    key["A1"].font = key["B1"].font = Font(color="FFFFFF", bold=True)
+
+    wb.save(xlsx_path)
+    return {"n_rows": len(rows), "n_cols": len(fields)}
