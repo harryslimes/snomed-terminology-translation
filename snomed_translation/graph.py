@@ -331,6 +331,8 @@ def build_translate(node: FlowNode, base_cfg: PipelineConfig,
         kwargs["temperature"] = float(node.params["temperature"])
     if node.params.get("attributes_json"):
         kwargs["attributes_json"] = str(node.params["attributes_json"])
+    if node.params.get("ancestor_context_json"):
+        kwargs["ancestor_context_json"] = str(node.params["ancestor_context_json"])
     if node.params.get("thinking") is not None:
         # Explicit tri-state: absent = inherit the model catalogue default,
         # true/false = force. Must test `is not None` — `if params.get(...)`

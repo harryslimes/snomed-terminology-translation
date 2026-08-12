@@ -1,7 +1,7 @@
 {
-  "id": "production-cascade",
-  "name": "production_cascade",
-  "description": "PRODUCTION cascade over the 5,012 active imaging concepts, in exactly the configuration measured on the 200-row SME gold (mean 40.25% vs Qwen 37.75%, gemma 35.75%). gemma4-26b-qat samples 5 per concept at temp 0.7 under style guide v6.0 and the eval-safe curated pool; concepts whose samples agree keep gemma's answer; the rest are re-translated BLIND by Qwen 3.8-Max replaying the original prompt. Shipped for COST and TRIAGE, not for a proven accuracy gain: the edge lives in the kept half and the escalated half is Qwen-parity, so worst case is Qwen quality with ~half the corpus on free local GPU plus an n_distinct review-priority signal (AUC 0.755) replacing the poorly-correlated acceptability judge. Deterministic detectors run on the final output as an audit. Output is GATED: validate_translations fails the run on any blocker-severity rule violation or malformed output, and hierarchy_consistency reports ancestor-rendering reuse failures (which also surface wrong-referent errors).",
+  "id": "ancestor-repair-cascade",
+  "name": "ancestor_repair_cascade",
+  "description": "TARGETED REPAIR of the 342 production rows that are hierarchy-inconsistent with a TRUSTWORTHY ancestor. Same cascade as production-cascade (gemma samples 5 at temp 0.7, disagreement escalates blind to Qwen 3.8-Max) over the subset emitted by build-ancestor-context, with that ancestor's established Korean injected into the prompt. Context is injected at the SAMPLE node, not the escalation node, because escalation replays the sampled prompt verbatim — so both arms see it and routing is not confounded with conditioning. Warranted by a matched A/B on SME gold (run c6c3d40d310b vs b22048d53b05): +10.7 chrF on the 16 context-receiving concepts against +0.0 on the 184 identical-prompt controls, difference-in-differences p<0.0001. Exact match did not move (4/16 -> 5/16) and is far too underpowered at n=16 to; the gain is in phrase structure and term choice. 3 of 16 got worse, so this run is a CANDIDATE set for diffing, not an in-place overwrite.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -12,7 +12,7 @@
         "y": 60.0
       },
       "params": {
-        "source": "production_imaging_pool"
+        "source": "ancestor_repair_terms"
       },
       "inputs": {}
     },
@@ -64,9 +64,10 @@
         "model_key": "gemma4-26b-qat",
         "samples": 5,
         "temperature": 0.7,
-        "output_tag": "production_cascade",
+        "output_tag": "ancestor_repair",
         "function": "translate_consistency",
-        "request_timeout_seconds": 300
+        "request_timeout_seconds": 300,
+        "ancestor_context_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/ancestor_context_production.json"
       },
       "inputs": {
         "terms": "terms",
@@ -141,12 +142,12 @@
         "y": 60.0
       },
       "params": {
-        "expression": "escalation_rate_pct",
-        "output_name": "escalation_rate_pct",
+        "expression": "inconsistency_rate_pct",
+        "output_name": "repair_inconsistency_rate_pct",
         "function": "evaluate_formula"
       },
       "inputs": {
-        "metrics": "cascade:metrics"
+        "metrics": "hierarchy:metrics"
       }
     },
     {
@@ -158,10 +159,11 @@
       },
       "params": {
         "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
-        "fail_on_blocker": true,
+        "fail_on_blocker": false,
         "en_col": "preferred_term",
         "ko_col": "translation",
-        "function": "validate_translations"
+        "function": "validate_translations",
+        "output_tag": "repair"
       },
       "inputs": {
         "translations": "cascade:translations"
@@ -179,7 +181,8 @@
         "max_depth": 4,
         "en_col": "preferred_term",
         "ko_col": "translation",
-        "function": "hierarchy_consistency"
+        "function": "hierarchy_consistency",
+        "output_tag": "repair"
       },
       "inputs": {
         "translations": "cascade:translations"

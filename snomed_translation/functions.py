@@ -575,6 +575,9 @@ translate_spec = FunctionSpec(
     outputs=[PortSpec(name="translations", kinds=["dataset"],
                       roles=["sctid", "en", "target"])],
     params=[
+        # Ancestor's established Korean rendering, keyed by sctid.
+        ParamSpec(name="ancestor_context_json", label="Ancestor context JSON",
+                  kind="text"),
         # Optional SNOMED defining-attribute context, keyed by sctid.
         ParamSpec(name="attributes_json", label="Concept attributes JSON",
                   kind="text"),
@@ -1429,6 +1432,157 @@ curate_exemplar_pool_spec = FunctionSpec(
     runner="snomed_translation.pool_curation:curate_exemplar_pool",
 )
 
+validate_translations_spec = FunctionSpec(
+    name="validate_translations", label="Validate translations", category="detect",
+    description="Check a translations dataset against the hard rules and "
+                "output-hygiene checks (empty, ERROR, repeated token, "
+                "untranslated Latin). Splits findings into blockers and "
+                "warnings by each rule's `severity`. With fail_on_blocker the "
+                "node FAILS the run, gating a deliverable on rules we already "
+                "wrote down — the missing third consumer alongside the prompt "
+                "and the optimiser.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Validation findings", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="output_tag", label="Output tag (namespaces the findings file)",
+                  kind="text"),
+        ParamSpec(name="rules_file", label="Hard rules YAML", kind="text"),
+        ParamSpec(name="fail_on_blocker", label="Fail the run on blockers",
+                  kind="bool", default=False),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text"),
+    ],
+    runner="snomed_translation.validation:validate_translations",
+)
+
+hierarchy_consistency_spec = FunctionSpec(
+    name="hierarchy_consistency", label="Hierarchy consistency", category="detect",
+    description="Where a SNOMED ancestor's English term is contained in a "
+                "descendant's, the ancestor's translation should be reused. "
+                "Flags the ones that are not (spacing ignored). Doubles as a "
+                "wrong-referent detector: it surfaced 'sacrum' rendered as "
+                "엉덩뼈 (ilium) while the same concept's sibling was correct.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Inconsistent pairs", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="output_tag", label="Output tag (namespaces the findings file)",
+                  kind="text"),
+        ParamSpec(name="rf2_relationship_file", label="RF2 relationship snapshot",
+                  kind="text", required=True),
+        ParamSpec(name="max_depth", label="Ancestor depth", kind="number", default=4),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text"),
+    ],
+    runner="snomed_translation.validation:hierarchy_consistency",
+)
+
+hierarchy_harmonise_spec = FunctionSpec(
+    name="hierarchy_harmonise", label="Hierarchy harmonise", category="detect",
+    description="Deterministically rewrite descendants flagged by "
+                "hierarchy_consistency so they reuse their ancestor's Korean "
+                "rendering (descendant's own modifiers kept, ancestor's head "
+                "appended). No model in the loop, so it cannot hallucinate.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True),
+            PortSpec(name="findings", label="hierarchy_consistency findings",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="translations", label="Harmonised translations",
+                      kinds=["dataset"]),
+             PortSpec(name="audit", label="Before/after audit", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[ParamSpec(name="ko_col", label="Translation column", kind="text"),
+            ParamSpec(name="output_tag", label="Output tag", kind="text")],
+    runner="snomed_translation.validation:hierarchy_harmonise",
+)
+
+build_ancestor_context_spec = FunctionSpec(
+    name="build_ancestor_context", label="Build ancestor context", category="data",
+    description="Build the sctid -> ancestor-rendering map used by the "
+                "translate node's ancestor_context_json, admitting an ancestor "
+                "only if it was unanimous AND carries no blocker-severity "
+                "validation finding. Unanimity alone is confidence, not "
+                "correctness: a malformed but unanimous ancestor would "
+                "otherwise be allowed to teach its descendants.",
+    inputs=[
+        PortSpec(name="findings", label="hierarchy_consistency findings",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="translations", label="Translations (for routed/unanimity)",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="validation", label="validate_translations findings",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="context", label="Ancestor context JSON", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        # Teaching bar > shipping bar: also exclude ancestors that are
+        # themselves hierarchy-flagged or contain a repeated content token.
+        ParamSpec(name="strict_ancestor", label="Strict ancestor filter",
+                  kind="bool", default=True),
+        ParamSpec(name="output_json", label="Output JSON path", kind="text"),
+        ParamSpec(name="require_unanimous", label="Require unanimous ancestor",
+                  kind="bool", default=True),
+        ParamSpec(name="output_terms_csv", label="Repair work-list CSV", kind="text"),
+    ],
+    runner="snomed_translation.validation:build_ancestor_context",
+)
+
+splice_translations_spec = FunctionSpec(
+    name="splice_translations", label="Splice translations", category="data",
+    description="Overlay a patch translation set onto a base set by sctid, so "
+                "a targeted repair can be scored IN CONTEXT. A subset repair "
+                "scored on its own subset is misleading for anything "
+                "relational — hierarchy consistency over the 342 repaired "
+                "rows alone sees 31 of the batch's 1,774 containment pairs, "
+                "because a row's ancestor is usually outside the subset.",
+    inputs=[
+        PortSpec(name="base", label="Base translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="patch", label="Patch translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="restrict", label="Allow-list of sctids to apply",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="translations", label="Spliced translations",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text",
+                  default="spliced"),
+        # When set, a patch row that introduces a blocker the base row did not
+        # have is refused. Pre-existing violations are left alone.
+        ParamSpec(name="rules_file", label="Hard rules file (patch safety)",
+                  kind="text"),
+    ],
+    runner="snomed_translation.validation:splice_translations",
+)
+
+diff_findings_spec = FunctionSpec(
+    name="diff_findings", label="Diff findings (before/after)", category="data",
+    description="Row-level before/after comparison of two findings sets: what "
+                "was fixed, what newly broke. A net count cannot distinguish "
+                "138 clean fixes from 200 fixes bought with 62 new breaks. "
+                "The `fixed` output doubles as the allow-list for a restricted "
+                "re-splice, so only changes that demonstrably helped ship.",
+    inputs=[
+        PortSpec(name="before", label="Findings before", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="after", label="Findings after", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[PortSpec(name="fixed", label="Fixed sctids", kinds=["dataset"]),
+             PortSpec(name="regressed", label="Newly broken sctids", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[ParamSpec(name="output_tag", label="Output tag", kind="text",
+                      default="diff")],
+    runner="snomed_translation.validation:diff_findings",
+)
+
 escalate_uncertain_spec = FunctionSpec(
     name="escalate_uncertain", label="Escalate uncertain (cascade)",
     category="translate",
@@ -1605,6 +1759,12 @@ def specs() -> list[FunctionSpec]:
         translation_evaluation_summary_spec,
         semantic_partial_credit_calibration_spec,
         curate_exemplar_pool_spec,
+        validate_translations_spec,
+        hierarchy_consistency_spec,
+        hierarchy_harmonise_spec,
+        build_ancestor_context_spec,
+        splice_translations_spec,
+        diff_findings_spec,
         self_review_spec,
         escalate_uncertain_spec,
         contrast_fidelity_detect_spec,

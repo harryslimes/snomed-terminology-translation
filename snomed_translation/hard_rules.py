@@ -61,6 +61,20 @@ class HardRule:
     forbidden_regex: list[str] = field(default_factory=list)
     enforce: bool = True
     freeze: bool = True
+    # Master off switch. A rule kept in the file for documentation, or parked
+    # pending validation, sets enabled: false and is dropped at load time so
+    # NO consumer sees it. Previously `enforce: false` was doing double duty as
+    # this switch, which broke the moment the validator started checking
+    # non-enforced rules: example-native-body-site is disabled on purpose (an
+    # ablation found prescribing native body sites hurts) and would otherwise
+    # have started emitting warnings for 하지/상지.
+    enabled: bool = True
+    # How an OUTPUT violation is treated by validate_translations:
+    #   "blocker" — malformed or clinically wrong; gates the deliverable
+    #   "warning" — a style preference the SME accepts as synonymy; surfaces
+    #               in review priority but never blocks
+    # Independent of `penalty`, which is the optimiser's concern.
+    severity: str = "warning"
     penalty: float = DEFAULT_PENALTY
     # Optional hand-written prompt text; if absent the frozen block is composed
     # from description + canonical/forbidden.
@@ -86,6 +100,8 @@ class HardRule:
             forbidden_regex=_as_list(d.get("forbidden_regex")),
             enforce=bool(d.get("enforce", True)),
             freeze=bool(d.get("freeze", True)),
+            enabled=bool(d.get("enabled", True)),
+            severity=str(d.get("severity", "warning")).strip().lower(),
             penalty=float(d.get("penalty", DEFAULT_PENALTY)),
             text=str(d.get("text", "")),
         )
@@ -116,7 +132,8 @@ def load_hard_rules(src: "dict | Path | str | None") -> list[HardRule]:
         import yaml
         data = yaml.safe_load(Path(src).read_text(encoding="utf-8")) or {}
     raw_rules = data.get("rules") if isinstance(data, dict) else data
-    return [HardRule.from_dict(r) for r in (raw_rules or [])]
+    rules = [HardRule.from_dict(r) for r in (raw_rules or [])]
+    return [r for r in rules if r.enabled]
 
 
 def frozen_block(rules: list[HardRule]) -> str:
@@ -148,16 +165,30 @@ def frozen_block(rules: list[HardRule]) -> str:
 
 
 def find_violations(
-    candidate: str, rules: list[HardRule]
+    candidate: str, rules: list[HardRule], *, require_enforce: bool = True
 ) -> list[tuple[HardRule, str]]:
-    """Return (rule, message) for every enforce=True rule the candidate breaks.
+    """Return (rule, message) for every rule the candidate breaks.
 
     Surface-form matching only: a forbidden substring present, or a forbidden
     regex matching. Scope is not consulted here (see HardRule.scope).
+
+    ``require_enforce`` keeps the two switches independent, as the rules file
+    has always documented them: ``enforce`` decides whether the OPTIMISER
+    subtracts a penalty, ``severity`` decides whether a VALIDATOR treats the
+    violation as shipping-blocking. Callers that score for GEPA keep the
+    default; ``validate_translations`` passes False so an enforce=False rule
+    is still checked against output.
+
+    They were not actually independent before: this function skipped
+    enforce=False rules outright, so a rule written to gate the deliverable
+    without steering the prompt was silently a no-op. That is exactly the
+    combination sme-rejected-body-site needs — a prior ablation found that
+    PRESCRIBING native body sites hurts quality, so the terms must not enter
+    the prompt or the metric, while shipping them still has to be caught.
     """
     out: list[tuple[HardRule, str]] = []
     for r in rules:
-        if not r.enforce:
+        if require_enforce and not r.enforce:
             continue
         for tok in r.forbidden:
             if tok and tok in candidate:

@@ -1,0 +1,113 @@
+{
+  "id": "eval200-ancestor-context-baseline",
+  "name": "eval200_ancestor_context_baseline",
+  "description": "MATCHED BASELINE for eval200-ancestor-context. Byte-identical flow except ancestor_context_json is absent, so the same exemplar pool (pooled_curated_eval), the same style guide and the same model are used. Exists because the first ancestor-context comparison was confounded: it was read against a pooled_legacy baseline, so its +6.5pt headline conflated the pool change with the context change. Judge on the 16 context-receiving concepts, not the 200-row aggregate — the other 184 see an identical prompt in both arms.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_all"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated_eval"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "eval200_ancestor_ctx_base",
+        "resume": false,
+        "request_timeout_seconds": 300,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "translate",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 200.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "translate:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 860.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "sme200_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate:metrics"
+      }
+    }
+  ]
+}

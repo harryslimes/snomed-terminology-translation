@@ -1,0 +1,193 @@
+{
+  "id": "ancestor-repair-selective",
+  "name": "ancestor_repair_selective",
+  "description": "Adopt only the ancestor-repair changes that demonstrably help. Pass 1 splices all 342 repaired rows over the shipped 5,012 and re-detects hierarchy consistency; diff_findings then isolates the rows whose flag actually cleared; pass 2 re-splices ONLY those, and the detectors run again on that deliverable. Motivated by the row-level diff of the full splice: 233 rows changed but only 138 cleared a flag, so 95 edits carried the intervention's regression risk (3 of 16 worsened on SME gold, e.g. 후복막 -> 후복강) with no measured upside. Baseline to beat: 580 rows flagged, 12 blockers, 4 contrast issues.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "base",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "production_cascade_output"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "patch",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "ancestor_repair_output"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "baseline_detect",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 380.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "baseline",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "base"
+      }
+    },
+    {
+      "id": "splice_all",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "repair_all",
+        "function": "splice_translations",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml"
+      },
+      "inputs": {
+        "base": "base",
+        "patch": "patch"
+      }
+    },
+    {
+      "id": "detect_all",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 120.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "all",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "splice_all:translations"
+      }
+    },
+    {
+      "id": "diff",
+      "type": "function",
+      "pos": {
+        "x": 880.0,
+        "y": 260.0
+      },
+      "params": {
+        "output_tag": "repair",
+        "function": "diff_findings"
+      },
+      "inputs": {
+        "before": "baseline_detect:findings",
+        "after": "detect_all:findings"
+      }
+    },
+    {
+      "id": "splice_sel",
+      "type": "function",
+      "pos": {
+        "x": 1160.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "repair_selective",
+        "function": "splice_translations",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml"
+      },
+      "inputs": {
+        "base": "base",
+        "patch": "patch",
+        "restrict": "diff:fixed"
+      }
+    },
+    {
+      "id": "detect_sel",
+      "type": "function",
+      "pos": {
+        "x": 1440.0,
+        "y": 60.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "selective",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "splice_sel:translations"
+      }
+    },
+    {
+      "id": "validate_sel",
+      "type": "function",
+      "pos": {
+        "x": 1440.0,
+        "y": 220.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "selective",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "splice_sel:translations"
+      }
+    },
+    {
+      "id": "contrast_sel",
+      "type": "function",
+      "pos": {
+        "x": 1440.0,
+        "y": 380.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "splice_sel:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1720.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "n_rows_flagged",
+        "output_name": "rows_flagged_selective",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "detect_sel:metrics"
+      }
+    }
+  ]
+}

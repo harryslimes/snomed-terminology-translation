@@ -201,9 +201,28 @@ def render_concept_facts(attr: dict) -> str:
     return "\n".join(facts)
 
 
+def render_ancestor_context(rec: dict) -> str:
+    """Target-language context: an ancestor concept's ESTABLISHED rendering.
+
+    Distinct from attribute injection (which failed): that added English facts,
+    which the model treated as more source text to translate. This supplies
+    already-correct KOREAN for a concept the source term restates, and asks the
+    model to extend it rather than re-derive it.
+    """
+    en = (rec.get("ancestor_english") or "").strip()
+    ko = (rec.get("ancestor_korean") or "").strip()
+    if not en or not ko:
+        return ""
+    return (f"This term extends a concept that already has an established "
+            f"Korean rendering:\n  {en}  ->  {ko}\n"
+            f"Reuse that rendering for the shared part and add only what this "
+            f"term adds. Do not restate the same idea twice.")
+
+
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         limit: int | None = None, resume: bool = False,
         attributes_json: str | None = None,
+        ancestor_context_json: str | None = None,
         temperature: float | None = None,
         thinking: bool | None = None,
         request_timeout_seconds: float = 120.0,
@@ -265,6 +284,15 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
                                message=f"attributes_json not found: {ap}")
         attributes = json.loads(ap.read_text(encoding="utf-8"))
         log.info("Concept attributes loaded: %d concepts", len(attributes))
+
+    ancestors: dict = {}
+    if ancestor_context_json:
+        ap2 = Path(ancestor_context_json)
+        if not ap2.exists():
+            return StageResult(stage="translate", ok=False,
+                               message=f"ancestor_context_json not found: {ap2}")
+        ancestors = json.loads(ap2.read_text(encoding="utf-8"))
+        log.info("Ancestor context loaded for %d concepts", len(ancestors))
 
     # Prompts
     system_prompt, user_template = _build_prompts(cfg)
@@ -397,6 +425,10 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
         user_prompt = render_user(
             user_template, paired_translations=pairs_table, english=english,
             language_name=cfg.language.name)
+        if ancestors:
+            anc = render_ancestor_context(ancestors.get(row["sctid"], {}))
+            if anc:
+                user_prompt = anc + "\n\n" + user_prompt
         if attributes:
             facts = render_concept_facts(attributes.get(row["sctid"], {}))
             if facts:

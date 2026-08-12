@@ -5,11 +5,25 @@
 # build_translator (frozen prompt block). Referenced from a project/optimization
 # recipe as `optimization.hard_rules_file`.
 #
-# Two independent switches per rule:
+# Independent switches per rule:
+#   enabled: false -> dropped at load time; NO consumer sees the rule. Use for
+#                     rules kept as documentation or parked pending validation.
+#                     Do not use `enforce: false` for this — the validator
+#                     checks non-enforced rules on purpose (see below).
 #   freeze:  true  -> injected verbatim into the prompt as a constant input
 #                     field. GEPA mutates the style-guide instruction string;
 #                     it cannot touch this field, so the rule survives every
 #                     generation.
+#   severity: blocker -> an OUTPUT violation gates the deliverable (malformed
+#                        or clinically wrong). warning (default) -> surfaces in
+#                        review priority but never blocks. Consumed by
+#                        validate_translations; independent of `penalty`.
+#
+#                        `severity` and `enforce` are genuinely independent:
+#                        validate_translations checks EVERY enabled rule,
+#                        including enforce:false ones, so a rule can gate the
+#                        deliverable without steering the prompt or the metric.
+#
 #   enforce: true  -> the metric subtracts `penalty` (default 0.25 of the
 #                     [0,1] score) when the output violates the rule. This is
 #                     what actually stops GEPA exploring the disallowed form:
@@ -35,6 +49,7 @@ rules:
     forbidden_regex:
       - '[.,;:]\s*$'
     enforce: true
+    severity: blocker
     freeze: true
     penalty: 0.25
 
@@ -44,6 +59,7 @@ rules:
       - '^\s*["“‘]'
       - '["”’]\s*$'
     enforce: true
+    severity: blocker
     freeze: true
     penalty: 0.25
 
@@ -68,11 +84,74 @@ rules:
       - 상지
       - 위팔
       - 하지
+    enabled: false
     enforce: false
     freeze: false
     penalty: 0.5
 
+  # --- Output hygiene. Malformed output, not style. All blockers. ----------
+
+  - id: no-rf2-markup
+    description: >-
+      RF2 caret markup (e.g. "Tl^201^") must never survive into a translation.
+    rationale: >-
+      3 of 5,012 production rows shipped with carets intact (447864009). It is
+      source-format leakage, always wrong, and trivially detectable.
+    evidence: ["run:65e53f071b45"]
+    forbidden_regex:
+      - '\^[^^]*\^'
+    enforce: true
+    freeze: true
+    severity: blocker
+    penalty: 0.25
+
+  - id: no-deprecated-xray-lowercase
+    description: >-
+      The pre-ruling X-ray forms (X선 / x선 / 일반 x선) must not appear; the
+      SME ruling is 단순 촬영.
+    rationale: >-
+      4 rows shipped as 일반 x선 despite the ruling being in the style guide
+      and in the exemplar-pool curation rules — an output check was the
+      missing link.
+    evidence: ["run:65e53f071b45"]
+    forbidden_regex:
+      - '(?i)(일반\s*)?x\s*선'
+    enforce: true
+    freeze: true
+    severity: blocker
+    penalty: 0.25
+
   # --- SME batch-2 rulings (Q&A received 2026-08-09). ----------------------
+
+  - id: sme-rejected-body-site
+    description: >-
+      Body-site terms the SME rejected in batch 2: 위팔 (upper arm, used where
+      the source says only "arm") and 엉덩이 (buttock, used for the hip).
+    rationale: >-
+      OUTPUT-VALIDATION ONLY — deliberately not frozen into the prompt and not
+      enforced in the GEPA metric. A prior ablation found that *prescribing*
+      native body sites hurt translation quality
+      (docs/imaging_resources_ablation_findings_2026-04-20.md), which is why
+      the example-native-body-site rule above stays disabled; that finding is
+      about the prompt, not about checking what shipped, and the two switches
+      are independent.
+
+      Blocker severity is what makes this self-correcting. build_ancestor_context
+      refuses to let a blocker-violating ancestor teach its descendants, so
+      marking these terms here stops the ancestor-repair pass propagating them:
+      without it the repair REVERSED two correct 팔 renderings into 위팔 and
+      introduced 엉덩이 on a hip CT, because hierarchy consistency rewards
+      copying an ancestor whether or not the ancestor is right. The strict
+      ancestor filter could not catch these — unlike the malformed
+      439101006 case, these ancestors are fluent, unanimous and clean.
+    evidence: ["run:77ad3633b851", "run:bc4dde661d72"]
+    forbidden:
+      - 위팔
+      - 엉덩이
+    enforce: false
+    freeze: false
+    severity: blocker
+    penalty: 0.25
 
   - id: images-end-yeongsang
     description: >-
@@ -84,6 +163,7 @@ rules:
     forbidden:
       - 조영상
     enforce: true
+    severity: warning
     freeze: true
     penalty: 0.25
 
@@ -97,5 +177,6 @@ rules:
     forbidden_regex:
       - '투시\s*검사\s*유도'
     enforce: true
+    severity: warning
     freeze: true
     penalty: 0.25

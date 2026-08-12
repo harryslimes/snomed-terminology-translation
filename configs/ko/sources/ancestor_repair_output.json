@@ -1,0 +1,12 @@
+{
+  "id": "ancestor_repair_output",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/8fd947b0591e/artifacts/cascade_production.csv",
+  "csv_path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/wizard-data/wizard_runs/8fd947b0591e/artifacts/cascade_production.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "translation"
+  }
+}

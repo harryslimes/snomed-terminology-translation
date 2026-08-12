@@ -80,13 +80,41 @@ def test_seed_yaml_loads_and_is_safe_by_default():
     path = ROOT / "configs" / "hard_rules" / "ko.yaml"
     rules = load_hard_rules(path)
     by_id = {r.id: r for r in rules}
-    # The illustrative native-body-site rule ships DISABLED (known-risky).
-    assert by_id["example-native-body-site"].enforce is False
+    # The illustrative native-body-site rule ships DISABLED (known-risky), and
+    # `enabled: false` means dropped at load — not merely unenforced. It must
+    # not reach ANY consumer: the validator deliberately checks enforce:false
+    # rules, so relying on `enforce` alone would have turned this parked rule
+    # into live warnings for 하지/상지.
+    assert "example-native-body-site" not in by_id
     # Output-hygiene invariants ship enabled + frozen.
     assert by_id["no-trailing-punctuation"].enforce is True
     block = frozen_block(rules)
-    # Disabled+unfrozen example must not leak into the prompt block.
+    # Disabled example must not leak into the prompt block.
     assert "상지" not in block
+
+
+def test_severity_and_enforce_are_independent():
+    """An enforce:false rule still gates output; it just doesn't steer GEPA."""
+    rules = load_hard_rules({"rules": [
+        {"id": "output-only", "forbidden": ["위팔"],
+         "enforce": False, "freeze": False, "severity": "blocker"},
+    ]})
+    assert rules and rules[0].severity == "blocker"
+    # The optimiser's view: no penalty, so GEPA is not steered by this rule.
+    assert find_violations("위팔 동맥 색전술", rules) == []
+    # The validator's view: the violation is still caught.
+    caught = find_violations("위팔 동맥 색전술", rules, require_enforce=False)
+    assert [r.id for r, _ in caught] == ["output-only"]
+
+
+def test_disabled_rules_are_dropped_for_every_consumer():
+    rules = load_hard_rules({"rules": [
+        {"id": "parked", "forbidden": ["하지"], "enabled": False,
+         "severity": "blocker"},
+        {"id": "live", "forbidden": ["위팔"], "severity": "blocker"},
+    ]})
+    assert [r.id for r in rules] == ["live"]
+    assert find_violations("왼쪽 하지 촬영", rules, require_enforce=False) == []
 
 
 if __name__ == "__main__":

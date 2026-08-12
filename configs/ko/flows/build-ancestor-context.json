@@ -1,0 +1,93 @@
+{
+  "id": "build-ancestor-context",
+  "name": "build_ancestor_context",
+  "description": "Build the filtered ancestor-context map for the production batch: detect hierarchy inconsistency, validate the translations, then admit an ancestor as teaching context only if it was unanimous AND has no blocker-severity finding. Guards the one contamination path the poisoning probe could not rule out (malformed ancestors, as opposed to fluent-but-wrong ones, which the model resisted 25/25).",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "translations",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "production_cascade_output"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "detect",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "detect",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "translations"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 220.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "ancestors",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "translations"
+      }
+    },
+    {
+      "id": "build",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "require_unanimous": true,
+        "output_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/ancestor_context_production.json",
+        "function": "build_ancestor_context",
+        "output_terms_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/ancestor_repair_terms.csv"
+      },
+      "inputs": {
+        "findings": "detect:findings",
+        "translations": "translations",
+        "validation": "validate:findings"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "n_context",
+        "output_name": "n_ancestor_context",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "build:metrics"
+      }
+    }
+  ]
+}

@@ -1998,6 +1998,327 @@
       "proposed_by": "agent",
       "author": "",
       "ts": "2026-08-11"
+    },
+    {
+      "id": "conclusion-65",
+      "statement": "NEGATIVE: deterministic ancestor substitution is HARMFUL despite winning its own metric. Applied to the 580 descendants flagged as not reusing an ancestor's rendering, it cut hierarchy inconsistency from 660/1774 pairs (37.2%) to 154/1774 (8.7%) — but on the 22 substituted rows that have SME gold, exact match COLLAPSED from 7/22 to 1/22, blocker-severity rule violations rose 12 -> 17, and 53% of outputs gained a stem-duplicate (e.g. keeping the descendant's 역방향 while appending the ancestor's 역행 — the same word twice). A textbook case of optimising the proxy: the consistency metric improved 4x while the thing it proxies for got worse.",
+      "detail": "Mechanism: the rule 'keep the descendant's own tokens, append the ancestor's rendering' assumes descendant tokens are disjoint from ancestor tokens. They are not — they are often VARIANTS (역방향/역행, 촬영/사진술), so both survive. It also strands function words: 'Kidney imaging with vascular flow and function' became '및 기능 동반 혈류 신장 영상 검사', opening with a dangling 및 ('and'). Not all of it is bad — 'Retroperitoneal echography, B-scan, limited' correctly moved 제한적 to match the ancestor's word order, which is the SME's stated ruling — but the good cases cannot be separated from the bad ones without exactly the judgement the mechanical rule was meant to avoid. DECISION: ship hierarchy_consistency as a DETECTOR only; do not ship hierarchy_harmonise as an automatic fixer. A guarded variant (substitute only when no stem-duplicate is created, token count does not grow, and the result passes validation) is the only version worth testing next.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context",
+        "term-level-consistency-across-the-terminology"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "0bbc08917b3f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3194695c00b3",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-66",
+      "statement": "Output validation is now formalised as a flow gate, closing a loop that had been open all along: the hard-rules file previously had only two consumers (the prompt's frozen block and the GEPA metric), so a ruling could be in the prompt, enforced during optimisation, and still ship broken. Its first run over the shipped 5,012-term deliverable found 12 blocker-severity rows invisible to every existing check: 6 deprecated X선 forms, 4 RF2 caret leaks, 2 adjacent repeated tokens.",
+      "detail": "New nodes: validate_translations (hard-rule violations + output hygiene — empty, ERROR marker, repeated token, untranslated Latin absent from the source — split by a new per-rule `severity` field, with fail_on_blocker gating the run) and hierarchy_consistency (RF2 is-a closure restricted to the batch; flags descendants not reusing an ancestor's rendering where the ancestor's English is contained in theirs). Both wired into production-cascade with the gate armed. Two output-hygiene rules were added to the rules file because nothing was checking them: no-rf2-markup and no-deprecated-xray-lowercase. The hierarchy detector's value is NOT consistency enforcement (see the harmonisation negative) but error detection: it is what surfaced 'sacrum' rendered as 엉덩벌 (ilium) while the same concept's contrast-free sibling was correct.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "snomed-translation",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "3194695c00b3",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "65e53f071b45",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-67",
+      "statement": "Ancestor-context injection is the FIRST intervention in this project that improved without damaging anything — but the effect is too small to clear the noise floor. Injecting an ancestor concept's established KOREAN rendering into a descendant's prompt (gated on the ancestor having been unanimous across its own 5 samples) moved the 16 context-injected rows from 4/16 to 5/16 exact: 1 gained, ZERO lost, sign test p=0.50. Full-eval 72->73 of 200, i.e. noise.",
+      "detail": "The zero-loss property is what distinguishes it: self-review damaged 100% of the correct rows it edited, deterministic ancestor substitution destroyed 6 of 7 correct answers, and attribute injection lost rows outright. This one cost nothing. The single gain is the mechanism working exactly as intended — 'MRI of brachial plexus' went from Sino 상완 신경총 to native 신경얼기, matching gold, because the ancestor supplied the register. CEILING: the addressable population is 16 rows on this eval (22 flagged, 7 gated out for a non-unanimous ancestor), so even perfect repair caps at +8pts and realistically ~+0.5. At production scale the same stratum is 580/5,012 rows, so the per-row effect touches ~11% of the corpus rather than 8% of the eval — the eval barely samples where this signal lives, which is itself the finding: much of the hierarchy signal's value is irreducibly SME TRIAGE, not automatable accuracy.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context",
+        "term-level-consistency-across-the-terminology"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "b22048d53b05",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "e7d290ec3d1f",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "0bbc08917b3f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-68",
+      "statement": "The generation-vs-editing pattern now has a measured boundary: models here cannot DISCRIMINATE correct Korean (LLM-judge selection equals majority vote equals chance; every edit path damages), but generation CONDITIONED on target-language evidence is at worst harmless and slightly positive. Two hypotheses died on data before being run: routing on the hierarchy flag is redundant (12 of the 16 wrong flagged rows already escalate on n_distinct alone), and consistency-based re-ranking of existing samples is impossible (on the flagged+disagreeing stratum gold appears in the 5 samples only 1/12 times — there is nothing to select).",
+      "detail": "Stratification of the 22 flagged rows overlapping the eval: flagged+samples-disagree n=12, exact 0.00, gold-in-samples 1/12; flagged+unanimous n=10, exact 0.60, gold-in-samples 6/10. So the flag's marginal information over n_distinct is the 10 unanimous rows, 6 of which are already correct — escalating them risks breaking 6 to fix at most 4. Practical consequence: keep hierarchy_consistency as a DETECTOR feeding SME review priority, keep ancestor-context injection as a free component (zero measured cost), and stop looking for an automated accuracy win from this signal on a 200-row eval that contains only 22 of its rows.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "targeted-error-class-detectors-what-similarity-misses",
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "b22048d53b05",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "654d40eea4c0",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "0bbc08917b3f",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-69",
+      "statement": "Ancestor-context injection does NOT propagate upstream errors: in a deliberate poisoning probe, 25 rows the baseline already translated correctly were each fed an ancestor whose Korean carried one injected error (신장->엉덩벌, 정맥->동맥, 왼쪽->오른쪽, 영상->조영상, 자기 공명->컴퓨터 단층 …). The adoption rate was ZERO: 24/25 resisted and remained exact, 1 broke for an unrelated reason. The model treats the ancestor rendering as weak evidence, not as an instruction to copy — the same weak-instruction-following that makes it under-use the style guide protects it here.",
+      "detail": "This is the direct test of the contamination objection raised against the top-down-hierarchy proposal, and it clears it for the INJECTION form specifically. It does not clear the SUBSTITUTION form, which is mechanical and by construction copies whatever the ancestor says (measured separately at 7/22 -> 1/22 exact, conclusion 65). Probe is a worst case in one respect (every ancestor poisoned, vs ~5% suspect in reality) and a best case in another (single-token corruptions of an otherwise fluent rendering, n=25, so the 95% CI on a 0/25 adoption rate still admits rates up to ~14%). Exposure if shipped as-is on the 5,012-term batch: of 580 descendants with an in-batch ancestor, 58% would draw on a clean unanimous ancestor, 37% are removed by the unanimity gate, 5% have an ancestor that is itself hierarchy-flagged and 0.3% one with a blocker-severity violation.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [
+        "translation-prompt-context",
+        "term-level-consistency-across-the-terminology"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "057746d3feb7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b22048d53b05",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-70",
+      "statement": "The unanimity gate protecting ancestor injection filters on CONFIDENCE, not correctness, and a confidently-wrong ancestor passes it. The known-malformed ancestor 439101006 ('X-ray tomography' -> 단순 촬영 단층 촬영, a repeated-modality blocker) is routed=kept with n_distinct=1 and has 19 flagged in-batch descendants. The correct guard is therefore not unanimity alone but the validation gate: an ancestor must PASS validate_translations before it is allowed to condition a descendant.",
+      "detail": "Cheap and complete fix, since both pieces already exist: filter the ancestor-context map through validate_translations' blocker findings before injection. On the production batch that removes only 2 of 580 descendants, so it costs nothing in coverage while closing the one contamination path the poisoning probe cannot rule out — a fluent but wrong ancestor is exactly what the probe tested and the model resisted, whereas a MALFORMED ancestor (repeated tokens, caret markup) is a different distribution that was not tested.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "translation-prompt-context"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "65e53f071b45",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "3194695c00b3",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "057746d3feb7",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-71",
+      "statement": "Ancestor-context injection improves phrase structure on the concepts that receive it (+10.7 chrF), but does not move exact match.",
+      "detail": "Matched A/B on the 200-row SME gold set, gemma4-26b-qat under style guide v6.0 and the pooled_curated_eval pool, differing only in whether ancestor_context_json was set.\n\nOn the 16 concepts that received context: chrF 65.6 -> 76.2 (+10.7), 8 improved / 3 worsened / 5 unchanged. On the 184 concepts whose prompts were byte-identical in both arms: chrF 70.0 -> 70.1 (+0.0), only 1 exact-match flip. The 184 therefore establish the noise floor and the difference-in-differences is +10.66 chrF, permutation p<0.0001 (20,000 shuffles).\n\nExact match on the treated rows went 4/16 -> 5/16 — at n=16 this is uninformative in either direction, and the sign test within the treated rows (8 up vs 3 down on chrF) is p=0.227. The effect is in MAGNITUDE, not in how many rows move: the context reorders phrases and swaps vocabulary to match the ancestor rather than flipping rows across the exact-match threshold. Examples: '후복강 초음파 검사 B-스캔 제한적' -> '제한적 B-스캔 후복강 초음파 검사'; '오른쪽 위팔' -> '오른쪽 팔' (fixes an SME-flagged defect class); '상완 신경총' -> '신경얼기' (gains exact match).\n\n3 of 16 got WORSE, notably '신장 피부 경유 생검' -> '경피적 신장 생검', moving away from the SME's preferred 피부 경유. Ancestor context is therefore a candidate generator to be diffed, not a safe in-place overwrite.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "medium",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "b22048d53b05",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c6c3d40d310b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4ccafd6046db",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-72",
+      "statement": "The first ancestor-context evaluation was confounded by an exemplar-pool change and its +6.5pt headline should not be cited.",
+      "detail": "Run b22048d53b05 (ancestor context, 36.5% exact) was read against run 127cf3fcdac1 (30.0% exact) as its baseline. The two differ in more than the context: b22048d53b05 used the pooled_curated_eval exemplar source while 127cf3fcdac1 used pooled_legacy (and consequently self-excluded 200 exemplars vs 0). The 6.5-point gap conflates the pool change with the context change, and the 184 concepts that received NO context account for most of it — which no context effect can explain.\n\nThe matched baseline c6c3d40d310b (same pool, same guide, same model, context removed) scores 35.5%, so the true aggregate context effect on 200 rows is +1.0 point, i.e. nothing.\n\nMethodological point: when an intervention only touches a small subset of rows, the untouched rows are a free within-experiment control. Reading the aggregate headline discards that control and is what let the pool change masquerade as an effect. Always report the treated-vs-untreated difference-in-differences.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "b22048d53b05",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "127cf3fcdac1",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "c6c3d40d310b",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-73",
+      "statement": "Ancestor-context repair fixes 132 of the 580 hierarchy-inconsistent production rows with zero detector regressions, and selective adoption gets the same benefit from 131 edits instead of 228.",
+      "detail": "Applied to the 5,012-row imaging deliverable and scored IN CONTEXT (spliced back into the full batch, same detectors, run 6e366a325751):\n\n  hierarchy-flagged rows   580 -> 448   (132 fixed, 0 newly broken)\n  blockers                  76 -> 76\n  contrast-fidelity issues   4 -> 4\n  new translation collisions               0\n\nThe subset repair's OWN hierarchy number (90.3%) is meaningless and must not be quoted: run over 341 rows in isolation only 31 of the batch's 1,774 containment pairs survive, because a repaired row's ancestor is usually outside the subset. That is what the splice_translations node exists to fix.\n\nSelective adoption is strictly better than wholesale. Of the 228 rows the repair changed, only 132 cleared a flag; the other 96 carried the intervention's regression risk with no measured benefit. Restricting the splice to the rows whose flag actually cleared keeps all 132 fixes for 131 edits. Pair-level inconsistency is marginally worse under selection (29.82% vs 28.97%) because the withheld edits did fix ~15 additional PAIRS on rows that stay flagged regardless — not worth 97 unnecessary changes to the deliverable.\n\nThe adopted changes are overwhelmingly register normalisation aligning siblings to a shared ancestor: 견갑골 -> 어깨빨, 고관절 -> 엉덩이, 뒤오목 -> 후두개, 수술중 투시 -> 수술중 투시 유도하. Direction is set by whichever form the ancestor chose, so this is a consistency intervention, not a register policy.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "6e366a325751",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8fd947b0591e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "89cf8e323b73",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "bc4dde661d72",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-74",
+      "statement": "Hierarchy consistency rewards copying an ancestor whether or not the ancestor is right, so a consistency repair needs an independent correctness gate.",
+      "detail": "The first ancestor repair (run 77ad3633b851) improved every consistency metric while REVERSING two correct 팔 renderings into the SME-rejected 위팔, introducing 엉덩이 on a hip CT, and generalising 주상골 (scaphoid) to 손목빨 (carpal). Each change made the descendant agree with its ancestor, which is exactly what the metric scores.\n\nThe existing strict ancestor filter could not catch these. It excludes ancestors that are non-unanimous, blocker-violating, self-inconsistent or repeated-token — but unlike the malformed 439101006 case it was built for, these ancestors are fluent, unanimous and clean. They are simply wrong in a way only a reviewer's ruling defines.\n\nTwo independent gates fixed it, and both were needed:\n  1. SOURCE — encode the SME's rulings as blocker-severity rules, which makes build_ancestor_context refuse those ancestors as teaching context (342 -> 341 admitted, blocker-excluded 2 -> 4).\n  2. ADOPTION — splice_translations refuses any patch row that INTRODUCES a blocker the base row did not have. Necessary because the model still emits 위팔 unprompted: 2 rows were refused at adoption even after no ancestor taught it.\n\nResult: 3 of the 4 defective rows are now caught automatically. The survivor is the specificity loss (주상골 -> 손목빨), which is a distinct failure class with no detector — the repair erases a distinction the English preserves while improving the metric. It produced no collision, so it is one row, but a specificity-loss detector is the natural next node.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "77ad3633b851",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "8fd947b0591e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "6e366a325751",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-75",
+      "statement": "64 rows of the shipped 5,012-row deliverable carry body-site terms the SME already rejected — roughly triple the count on the fix-first list.",
+      "detail": "Discovered when the sme-rejected-body-site rule was added and the batch re-validated: blocker findings went 12 -> 76 across 75 rows, of which 64 are 위팔 or 엉덩이 (run 89cf8e323b73). The fix-first list carried roughly 21 (10 위팔 + 11 hip -> 엉덩이), counted by hand.\n\nThese were invisible because the rule that would have caught them could not fire. `severity` and `enforce` were documented in the rules file as independent switches but were not: find_violations skipped enforce:false rules, and validate_translations filtered them AGAIN at load. So a rule written to gate the deliverable without steering the prompt — exactly what this ruling needs, since a prior ablation found that PRESCRIBING native body sites hurts quality — was a silent no-op.\n\nThis is a deliverable finding independent of the ancestor work: it is 64 defective rows in what would have been sent to the SME, and the repair fixes none of them (they are pre-existing, not introduced, so the patch-safety gate deliberately leaves them alone). They need their own correction pass.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "89cf8e323b73",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "65e53f071b45",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-12"
     }
   ]
 }

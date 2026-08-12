@@ -43,6 +43,7 @@ from snomed_translation.scoring import norm_text
 from snomed_translation.stages.translate import (
     _build_prompts,
     _load_eval_rows,
+    render_ancestor_context,
     render_user,
 )
 from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
@@ -81,10 +82,27 @@ def _group_candidates(samples: list[str]) -> list[dict]:
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         samples: int = 5, temperature: float | None = None,
         limit: int | None = None, resume: bool = False,
+        ancestor_context_json: str | None = None,
         request_timeout_seconds: float = 300.0, **_) -> StageResult:
     """Translate every concept ``samples`` times; write a candidates CSV."""
     stage = "translate_consistency"
     samples = max(1, int(samples))
+
+    # Optional target-language context, same contract as the translate stage.
+    # Injecting it HERE rather than at the escalation node is deliberate: the
+    # cascade's escalation replays this stage's rendered prompt verbatim from
+    # the sidecar, so the context reaches both arms and the two arms stay
+    # comparable. Injecting downstream would give only the escalated rows the
+    # context and silently confound routing with conditioning.
+    ancestors: dict = {}
+    if ancestor_context_json:
+        anc_path = Path(ancestor_context_json)
+        if not anc_path.exists():
+            return StageResult(stage=stage, ok=False,
+                               message=f"ancestor_context_json not found: {anc_path}")
+        ancestors = json.loads(anc_path.read_text(encoding="utf-8"))
+        log.info("[%s] ancestor context loaded for %d concepts", stage,
+                 len(ancestors))
 
     # --- Model + prompt + endpoint setup (mirrors the translate stage). ---
     try:
@@ -154,11 +172,21 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     # Render each concept's user prompt once; sample it N times. The rendered
     # prompt is stashed for the prompt sidecar so the judge can replay it.
     user_prompts: dict[str, str] = {}
+    n_with_context = 0
     for row in remaining:
         pairs = lookup_cache.get(row["sctid"], [])[: cfg.translation.lookup_topn]
-        user_prompts[row["sctid"]] = render_user(
+        prompt = render_user(
             user_template, paired_translations=format_pairs_table(pairs),
             english=row["preferred_term"], language_name=cfg.language.name)
+        if ancestors:
+            anc = render_ancestor_context(ancestors.get(row["sctid"], {}))
+            if anc:
+                prompt = anc + "\n\n" + prompt
+                n_with_context += 1
+        user_prompts[row["sctid"]] = prompt
+    if ancestors:
+        log.info("[%s] %d/%d prompts carry ancestor context", stage,
+                 n_with_context, len(remaining))
 
     # Flatten into (sctid, sample_index) tasks for even concurrency.
     tasks = [(row["sctid"], i) for row in remaining for i in range(samples)]
@@ -244,6 +272,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "n_calls": float(completed[0]),
             "n_errors": float(errors[0]),
             "n_multi_candidate": float(n_multi),
+            "n_with_ancestor_context": float(n_with_context),
             "elapsed_seconds": elapsed,
         },
         message=(f"{len(by_sctid)} concepts × {samples} samples, "

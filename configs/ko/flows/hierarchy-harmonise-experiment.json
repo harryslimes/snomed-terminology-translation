@@ -1,0 +1,33 @@
+{
+  "id": "hierarchy-harmonise-experiment",
+  "name": "hierarchy_harmonise_experiment",
+  "description": "Zeroth experiment for the hierarchy proposal, no model calls: apply deterministic ancestor substitution to the descendants flagged by hierarchy_consistency, then re-run BOTH the consistency lint and the validation gate on the result. Decides whether a mechanical lint suffices or a model is needed. Measures: consistency recovered, and rule violations introduced.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "translations", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "production_cascade_output"}, "inputs": {}},
+    {"id": "detect", "type": "function", "pos": {"x": 320.0, "y": 60.0},
+     "params": {"rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+                "max_depth": 4, "en_col": "preferred_term", "ko_col": "translation",
+                "function": "hierarchy_consistency"},
+     "inputs": {"translations": "translations"}},
+    {"id": "harmonise", "type": "function", "pos": {"x": 600.0, "y": 60.0},
+     "params": {"ko_col": "translation", "output_tag": "experiment",
+                "function": "hierarchy_harmonise"},
+     "inputs": {"translations": "translations", "findings": "detect:findings"}},
+    {"id": "recheck", "type": "function", "pos": {"x": 880.0, "y": 60.0},
+     "params": {"rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+                "max_depth": 4, "en_col": "preferred_term", "ko_col": "translation",
+                "function": "hierarchy_consistency"},
+     "inputs": {"translations": "harmonise:translations"}},
+    {"id": "revalidate", "type": "function", "pos": {"x": 880.0, "y": 220.0},
+     "params": {"rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+                "fail_on_blocker": false, "en_col": "preferred_term", "ko_col": "translation",
+                "function": "validate_translations"},
+     "inputs": {"translations": "harmonise:translations"}},
+    {"id": "headline", "type": "function", "pos": {"x": 1160.0, "y": 60.0},
+     "params": {"expression": "n_inconsistent", "output_name": "inconsistent_after",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "recheck:metrics"}}
+  ]
+}
