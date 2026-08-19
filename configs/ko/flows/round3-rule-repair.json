@@ -1,0 +1,131 @@
+{
+  "id": "round3-rule-repair",
+  "name": "round3_rule_repair",
+  "description": "Batch repair of ko_imaging_deliverable against the round-3 SME rules (2026-08-19). All eight are warning-severity convention rules whose canonical forms come from the reviewer's written rulings, so repair is by MINIMAL substitution — the offending span only, nothing else in the row can drift. Two rules need explicit ordered transforms: fluoro-adjectival-not-guidance MOVES 투시 next to the study noun (조영제 사용 투시 유도하 [site] 혈관 조영 -> 조영제 사용 [site] 투시 혈관 조영, matching the reviewer's corrections verbatim; naive forbidden->canonical would double 투시), with a delete fallback for non-조영 studies; ecg-gated-donggi replaces the 심전도 게이팅 bigram first so the canonical does not double 심전도. Adoption is gated as always: the SME lock refuses adjudicated rows, the patch-safety gate refuses any change introducing a blocker, and validate/dupes/hierarchy re-run on the spliced result so acceptance is Pareto, not the repaired rule's own evidence. Re-promotes ko_imaging_deliverable.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 200.0},
+      "params": {"data_object": "ko_imaging_deliverable"},
+      "inputs": {}
+    },
+    {
+      "id": "sme_labels",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 480.0},
+      "params": {"source": "sme_adjudicated"},
+      "inputs": {}
+    },
+    {
+      "id": "before",
+      "type": "function",
+      "pos": {"x": 340.0, "y": 120.0},
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "round3_before",
+        "function": "validate_translations"
+      },
+      "inputs": {"translations": "deliverable"}
+    },
+    {
+      "id": "dupes_before",
+      "type": "function",
+      "pos": {"x": 340.0, "y": 340.0},
+      "params": {"ko_col": "translation", "en_col": "preferred_term",
+                 "output_tag": "round3_before", "function": "duplicate_translation"},
+      "inputs": {"translations": "deliverable"}
+    },
+    {
+      "id": "substitute",
+      "type": "function",
+      "pos": {"x": 640.0, "y": 120.0},
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "ko_col": "translation",
+        "severities": "warning,blocker",
+        "substitutions": {
+          "fluoro-adjectival-not-guidance": [
+            ["투시 유도하 (.*?)(혈관 조영|정맥 조영)", "\\1투시 \\2"],
+            ["투시 유도하\\s*", "투시 "]
+          ],
+          "ecg-gated-donggi": [
+            ["심전도 게이팅", "심전도 동기"],
+            ["게이팅", "심전도 동기"]
+          ]
+        },
+        "output_tag": "round3_repair",
+        "function": "rule_substitute"
+      },
+      "inputs": {"translations": "deliverable", "findings": "before:findings"}
+    },
+    {
+      "id": "apply",
+      "type": "function",
+      "pos": {"x": 940.0, "y": 200.0},
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "round3_repaired",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {"base": "deliverable", "patch": "substitute:translations",
+                 "sme_labels": "sme_labels"}
+    },
+    {
+      "id": "after",
+      "type": "function",
+      "pos": {"x": 1240.0, "y": 80.0},
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "round3_after",
+        "function": "validate_translations"
+      },
+      "inputs": {"translations": "apply:translations"}
+    },
+    {
+      "id": "dupes_after",
+      "type": "function",
+      "pos": {"x": 1240.0, "y": 240.0},
+      "params": {"ko_col": "translation", "en_col": "preferred_term",
+                 "output_tag": "round3_after", "function": "duplicate_translation"},
+      "inputs": {"translations": "apply:translations"}
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {"x": 1240.0, "y": 400.0},
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "round3_after",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {"translations": "apply:translations"}
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {"x": 1540.0, "y": 80.0},
+      "params": {"expression": "n_warnings", "output_name": "warnings_after",
+                 "function": "evaluate_formula"},
+      "inputs": {"metrics": "after:metrics"}
+    },
+    {
+      "id": "promote",
+      "type": "promote",
+      "pos": {"x": 1540.0, "y": 240.0},
+      "params": {"name": "ko_imaging_deliverable", "type": "dataset"},
+      "inputs": {"value": "apply:translations"}
+    }
+  ]
+}

@@ -1695,6 +1695,9 @@ rule_substitute_spec = FunctionSpec(
         ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
         ParamSpec(name="ko_col", label="Translation column", kind="text",
                   default="translation"),
+        ParamSpec(name="severities", label="Finding severities to repair "
+                                           "(comma-separated)", kind="text",
+                  default="blocker"),
         ParamSpec(name="output_tag", label="Output tag", kind="text",
                   default="patch"),
     ],

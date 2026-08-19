@@ -955,11 +955,13 @@ def rule_substitute(ctx: RunContext, inputs: dict[str, Any],
     rules = {r.id: r for r in load_hard_rules(params.get("rules_file"))}
     extra = params.get("substitutions") or {}
     ko_col = str(params.get("ko_col") or "translation")
+    severities = {s.strip().lower() for s in
+                  str(params.get("severities") or "blocker").split(",") if s.strip()}
 
     targets: dict[str, set[str]] = defaultdict(set)
     with Path(fpath).open(encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            if (r.get("severity") or "").strip().lower() != "blocker":
+            if (r.get("severity") or "").strip().lower() not in severities:
                 continue
             sid = (r.get("sctid") or "").strip()
             if sid:
@@ -969,10 +971,19 @@ def rule_substitute(ctx: RunContext, inputs: dict[str, Any],
         applied: list[str] = []
         for check in sorted(checks):
             # Explicit regex substitutions first: they express transforms a
-            # forbidden/canonical pair cannot, such as unwrapping RF2 carets.
+            # forbidden/canonical pair cannot, such as unwrapping RF2 carets
+            # or MOVING a token (투시 유도하 [site] 혈관 조영 -> [site] 투시
+            # 혈관 조영, where naive forbidden->canonical would double 투시).
+            # Either one (pattern, repl) pair or an ordered list of pairs;
+            # a list is applied in sequence so a specific transform can run
+            # before its catch-all fallback.
             if check in extra:
-                pat, repl = extra[check]
-                new = re.sub(pat, repl, text)
+                steps = extra[check]
+                if steps and isinstance(steps[0], str):
+                    steps = [steps]
+                new = text
+                for pat, repl in steps:
+                    new = re.sub(pat, repl, new)
                 if new != text:
                     text, _ = new, applied.append(check)
                 continue
