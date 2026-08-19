@@ -1,0 +1,66 @@
+{
+  "id": "sme-round3-tier-separation",
+  "name": "sme_round3_tier_separation",
+  "description": "The pre-registered analysis for the round-3 blinded sample: does review_priority predict what the SME rejects? Joins the ingested 120 ratings (ko_sme_round3_sample) to the pack that carries the blinded tier labels (ko_imaging_review_pack) and tests whether rejection rises across the ordered low/medium/high tiers with the linear-by-linear association test — equal to Cochran-Armitage for the binary outcome, and run a second time keeping ACCEPTABLE < PARTIAL < WRONG ordinal, both as planned in the covering-email notes before the reviewer saw the file. The sample was blinded and stratified 40/40/40 precisely so this run would be meaningful.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "reviewed",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 140.0
+      },
+      "params": {
+        "data_object": "ko_sme_round3_sample"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "pack",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 320.0
+      },
+      "params": {
+        "data_object": "ko_imaging_review_pack"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "separation",
+      "type": "function",
+      "pos": {
+        "x": 380.0,
+        "y": 220.0
+      },
+      "params": {
+        "tier_col": "review_priority",
+        "rating_col": "sme_rating",
+        "output_tag": "round3",
+        "function": "priority_tier_separation"
+      },
+      "inputs": {
+        "reviewed": "reviewed",
+        "pack": "pack"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 720.0,
+        "y": 220.0
+      },
+      "params": {
+        "expression": "trend_z_ordinal",
+        "output_name": "tier_trend_z_ordinal",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "separation:metrics"
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "ingest-sme-round3",
+  "name": "ingest_sme_round3",
+  "description": "Ingest the SME's returned round-3 review workbook (the blinded 120-row sample from the 5,012-concept imaging pack, review pack run c97b76ff431b). Parses the 'Sample - please do these first' sheet, repairs the header row by position (the file came back with sme_error_category overwritten by a duplicate sme_corrected_ko header — a name-keyed reader silently drops every correction), normalises ratings, tallies the reviewer's own error categories, and promotes the result as ko_sme_round3_sample so every downstream analysis of the round reads one ingested object rather than re-parsing the spreadsheet.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "ingest",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "xlsx_path": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/sme_review/2026-08-12/returned/production_imaging_review_pack_thirdround.xlsx",
+        "sheet": "Sample - please do these first",
+        "output_tag": "round3",
+        "function": "ingest_review_pack"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "promote_reviewed",
+      "type": "promote",
+      "pos": {
+        "x": 380.0,
+        "y": 200.0
+      },
+      "params": {
+        "name": "ko_sme_round3_sample",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "ingest:reviewed"
+      }
+    }
+  ]
+}

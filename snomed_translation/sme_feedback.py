@@ -678,3 +678,217 @@ def escalate_uncertain(ctx: RunContext, inputs: dict[str, Any],
            + (f"; {n_err} escalation errors" if n_err else ""))
     return FunctionResult(ok=True, outputs={"translations": str(out)},
                           metrics=metrics, message=msg)
+
+
+# ---------------------------------------------------------------------------
+# ingest_review_pack / priority_tier_separation (review round 3, 2026-08)
+# ---------------------------------------------------------------------------
+
+# The reviewer-facing workbook layout, as package_deliverable writes it. The
+# returned file's header row cannot be trusted verbatim: round 3 came back
+# with `sme_error_category` overwritten by a second `sme_corrected_ko`, which
+# a name-keyed reader silently collapses (DictReader keeps the LAST duplicate,
+# so every correction would have been read as a category and dropped).
+_REVIEW_SHEET_CANONICAL = [
+    "sctid", "preferred_term", "translation_ko", "synonyms_ko",
+    "sme_rating", "sme_corrected_ko", "sme_error_category", "sme_notes",
+]
+
+_RATINGS = ("ACCEPTABLE", "PARTIAL", "WRONG", "CORRECT")
+
+
+def ingest_review_pack(ctx: RunContext, inputs: dict[str, Any],
+                       params: dict[str, Any]) -> FunctionResult:
+    """Parse a returned SME review workbook into a normalised dataset.
+
+    Reads one sheet of the .xlsx the reviewer sent back, repairs a damaged
+    header row by position against the canonical layout, normalises ratings,
+    and tallies the reviewer's own error categories. The output CSV is the
+    single source row set for every downstream analysis of the round, so the
+    round is ingested exactly once, by a tracked run, not re-parsed ad hoc.
+    """
+    from openpyxl import load_workbook
+
+    xlsx = str(params.get("xlsx_path") or "").strip()
+    if not xlsx or not Path(xlsx).exists():
+        return FunctionResult(ok=False, message=f"ingest_review_pack: no workbook at {xlsx!r}")
+    sheet = str(params.get("sheet") or "Sample - please do these first")
+
+    wb = load_workbook(xlsx, read_only=True, data_only=True)
+    if sheet not in wb.sheetnames:
+        return FunctionResult(ok=False,
+                              message=f"ingest_review_pack: sheet {sheet!r} not in {wb.sheetnames}")
+    rows = [list(r) for r in wb[sheet].iter_rows(values_only=True)]
+    if not rows:
+        return FunctionResult(ok=False, message="ingest_review_pack: empty sheet")
+
+    header = [str(h).strip() if h is not None else "" for h in rows[0]]
+    header_repaired = 0
+    if len(set(header)) != len(header) or header != _REVIEW_SHEET_CANONICAL[:len(header)]:
+        if len(header) == len(_REVIEW_SHEET_CANONICAL):
+            header = list(_REVIEW_SHEET_CANONICAL)
+            header_repaired = 1
+        else:
+            return FunctionResult(
+                ok=False,
+                message=(f"ingest_review_pack: header {header} has duplicates or "
+                         f"unexpected names and column count {len(header)} != "
+                         f"{len(_REVIEW_SHEET_CANONICAL)}, cannot repair by position"))
+
+    out_rows: list[dict[str, str]] = []
+    counts = {r: 0 for r in _RATINGS}
+    n_unrated = n_corrected = n_categorized = 0
+    cats: dict[str, int] = {}
+    for raw in rows[1:]:
+        raw = list(raw) + [None] * (len(header) - len(raw))
+        rec = {h: (str(v).strip() if v is not None else "") for h, v in zip(header, raw)}
+        if not rec.get("sctid"):
+            continue
+        rating = rec.get("sme_rating", "").upper()
+        rec["sme_rating"] = rating
+        if rating in counts:
+            counts[rating] += 1
+        elif rating:
+            return FunctionResult(ok=False,
+                                  message=f"ingest_review_pack: unknown rating {rating!r} "
+                                          f"on {rec['sctid']}")
+        else:
+            n_unrated += 1
+        if rec.get("sme_corrected_ko"):
+            n_corrected += 1
+        if rec.get("sme_error_category"):
+            n_categorized += 1
+            for c in rec["sme_error_category"].replace(";", ",").split(","):
+                c = re.sub(r"\s+", " ", c.strip().lower())
+                if c:
+                    cats[c] = cats.get(c, 0) + 1
+        out_rows.append(rec)
+
+    tag = str(params.get("output_tag") or "").strip()
+    out = Path(ctx.log_dir) / f"sme_review_ingested{'_' + tag if tag else ''}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(header))
+        w.writeheader()
+        w.writerows(out_rows)
+
+    metrics: dict[str, float] = {
+        "n_rows": float(len(out_rows)),
+        "n_rated": float(sum(counts.values())),
+        "n_unrated": float(n_unrated),
+        "n_corrected": float(n_corrected),
+        "n_categorized": float(n_categorized),
+        "header_repaired": float(header_repaired),
+    }
+    for r, c in counts.items():
+        metrics[f"n_{r.lower()}"] = float(c)
+    for c, k in sorted(cats.items(), key=lambda kv: -kv[1]):
+        metrics["cat_" + re.sub(r"[^a-z0-9]+", "_", c).strip("_")] = float(k)
+
+    msg = (f"{len(out_rows)} rows, {sum(counts.values())} rated ("
+           + ", ".join(f"{v} {k}" for k, v in counts.items() if v)
+           + f"), {n_corrected} corrected"
+           + ("; header row repaired by position" if header_repaired else ""))
+    return FunctionResult(ok=True, outputs={"reviewed": str(out)},
+                          metrics=metrics, message=msg)
+
+
+def priority_tier_separation(ctx: RunContext, inputs: dict[str, Any],
+                             params: dict[str, Any]) -> FunctionResult:
+    """Does review_priority predict what the SME actually rejects?
+
+    Joins a reviewed sample to the pack that carries the (blinded) tier
+    labels and tests whether rejection rises across ordered tiers with the
+    linear-by-linear association test — the pre-registered analysis for the
+    round-3 sample: it equals Cochran-Armitage for a binary outcome and keeps
+    the ACCEPTABLE < PARTIAL < WRONG ordering (both recover power that
+    collapsing to right/wrong throws away).
+    """
+    import math
+
+    rpath = _dataset_path(inputs.get("reviewed"))
+    ppath = _dataset_path(inputs.get("pack"))
+    if not rpath or not Path(rpath).exists():
+        return FunctionResult(ok=False, message="priority_tier_separation: no `reviewed`")
+    if not ppath or not Path(ppath).exists():
+        return FunctionResult(ok=False, message="priority_tier_separation: no `pack`")
+
+    tier_col = str(params.get("tier_col") or "review_priority")
+    rating_col = str(params.get("rating_col") or "sme_rating")
+
+    tiers: dict[str, str] = {}
+    with Path(ppath).open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            sid = (r.get("sctid") or "").strip()
+            if sid:
+                tiers[sid] = (r.get(tier_col) or "").strip().lower()
+
+    tier_score = {"low": 0.0, "medium": 1.0, "high": 2.0}
+    rating_score = {"ACCEPTABLE": 0.0, "CORRECT": 0.0, "PARTIAL": 1.0, "WRONG": 2.0}
+
+    joined: list[dict[str, str]] = []
+    n_unmatched = 0
+    with Path(rpath).open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            sid = (r.get("sctid") or "").strip()
+            rating = (r.get(rating_col) or "").strip().upper()
+            tier = tiers.get(sid, "")
+            if not rating:
+                continue
+            if tier not in tier_score:
+                n_unmatched += 1
+                continue
+            joined.append({"sctid": sid, "tier": tier, "rating": rating,
+                           "preferred_term": (r.get("preferred_term") or "").strip(),
+                           "sme_error_category": (r.get("sme_error_category") or "").strip()})
+
+    if not joined:
+        return FunctionResult(ok=False, message="priority_tier_separation: nothing joined")
+
+    def linear_by_linear(xs: list[float], ys: list[float]) -> tuple[float, float]:
+        n = len(xs)
+        mx, my = sum(xs) / n, sum(ys) / n
+        sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        sxx = sum((x - mx) ** 2 for x in xs)
+        syy = sum((y - my) ** 2 for y in ys)
+        if sxx <= 0 or syy <= 0:
+            return 0.0, 1.0
+        r = sxy / math.sqrt(sxx * syy)
+        z = r * math.sqrt(n - 1)
+        return z, math.erfc(abs(z) / math.sqrt(2.0))  # two-sided
+
+    xs = [tier_score[j["tier"]] for j in joined]
+    ys_bin = [1.0 if rating_score[j["rating"]] > 0 else 0.0 for j in joined]
+    ys_ord = [rating_score[j["rating"]] for j in joined]
+    z_bin, p_bin = linear_by_linear(xs, ys_bin)
+    z_ord, p_ord = linear_by_linear(xs, ys_ord)
+
+    metrics: dict[str, float] = {
+        "n_joined": float(len(joined)), "n_unmatched": float(n_unmatched),
+        "trend_z_binary": round(z_bin, 4), "trend_p_binary": round(p_bin, 6),
+        "trend_z_ordinal": round(z_ord, 4), "trend_p_ordinal": round(p_ord, 6),
+    }
+    for tier in ("low", "medium", "high"):
+        rows_t = [j for j in joined if j["tier"] == tier]
+        n_rej = sum(1 for j in rows_t if rating_score[j["rating"]] > 0)
+        n_wrong = sum(1 for j in rows_t if j["rating"] == "WRONG")
+        metrics[f"{tier}_n"] = float(len(rows_t))
+        metrics[f"{tier}_n_not_acceptable"] = float(n_rej)
+        metrics[f"{tier}_n_wrong"] = float(n_wrong)
+        metrics[f"{tier}_reject_rate_pct"] = (
+            round(100.0 * n_rej / len(rows_t), 2) if rows_t else 0.0)
+
+    tag = str(params.get("output_tag") or "").strip()
+    out = Path(ctx.log_dir) / f"tier_ratings{'_' + tag if tag else ''}.csv"
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["sctid", "tier", "rating",
+                                          "preferred_term", "sme_error_category"])
+        w.writeheader()
+        w.writerows(joined)
+
+    msg = ("reject rate " + " / ".join(
+        f"{t}={metrics[f'{t}_reject_rate_pct']:.0f}% (n={int(metrics[f'{t}_n'])})"
+        for t in ("low", "medium", "high"))
+        + f"; trend p={p_bin:.4g} binary, p={p_ord:.4g} ordinal")
+    return FunctionResult(ok=True, outputs={"joined": str(out)},
+                          metrics=metrics, message=msg)

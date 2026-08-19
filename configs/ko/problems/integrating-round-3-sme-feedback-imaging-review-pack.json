@@ -1,0 +1,48 @@
+{
+  "id": "integrating-round-3-sme-feedback-imaging-review-pack",
+  "title": "Integrating round-3 SME feedback (imaging review pack)",
+  "prose": "The SME returned the round-3 imaging review pack (5,012 concepts, pack run c97b76ff431b): the blinded 120-row stratified sample fully rated, plus prose rulings on the three open questions from the covering email (hip, bare limb/extremity, native-vs-Sino register policy).\n\nQuestions this round has to answer:\n1. Does review_priority predict rejection? (the pre-registered purpose of the blinded sample — 40 rows per tier, analysis planned before the reviewer saw the file: linear-by-linear trend, binary and ordinal.)\n2. What is actually wrong with the PARTIAL rows — is it prompt-fixable (register, word order, term choice the model was never told about), exemplar-pool-induced (the retrieved pairs teach the wrong phrasing), or knowledge the system cannot have (reviewer glossary rulings)?\n3. How do her three prose rulings become machinery? Hip is RF2-checkable (procedure site: hip joint structure → 엉덩 관절, hip region structure → 엉덩이). Register policy: native form preferred (KMA/editorial guide), Sino-Korean carried as synonym — 'if we have the native forms along with the Sino-Korean forms, we are safe.'\n4. Her per-term glossary rulings in sme_notes (e.g. cutting balloon = 칼날 풍선, angioplasty = 혈관성형 with ~술 as synonym, cone = 원뿔, percutaneous = 피부경유) are extractable, durable assets — they should land in the rule file / style guide, not stay in a spreadsheet.\n\nHeadline shape of the return: 120/120 rated — 50 ACCEPTABLE, 70 PARTIAL, 0 WRONG, 72 corrections supplied (numbers to be confirmed by the tracked ingest run; the returned file also came back with a damaged header row — sme_error_category overwritten by a duplicate sme_corrected_ko — which the ingest node repairs by position).",
+  "parent": "exploiting-sme-terminologist-feedback",
+  "created": "2026-08-19T19:07:59",
+  "retired": false,
+  "resolved_by": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "body": "ROUND-3 RETURN, INGESTED AND ANALYSED (2026-08-19).\n\nIngest (run 4e0bdfa92d98, promotes ko_sme_round3_sample): 120/120 sample rows rated — 50 ACCEPTABLE, 70 PARTIAL, 0 WRONG; 72 corrections, 63 with the reviewer's own error category. The returned header row was damaged (sme_error_category overwritten by a duplicate sme_corrected_ko) and is repaired by position in the ingest node; a name-keyed reader would have silently dropped every correction. Reviewer categories: preferred term/word choice ~32, word order 14, register ~7, wrong referent 3, missing/extra word ~8.\n\nTIER VALIDATION (run 9faf1d8ef3f7, investigation priority_tier_validation_v1): reject rate low 40% (16/40) → medium 52.5% (21/40) → high 82.5% (33/40); linear-by-linear trend z=3.84, p=0.00012 (binary = ordinal since 0 WRONG). The pre-registered blinded design paid off: review_priority genuinely predicts SME rejection and can direct future review effort. Note the floor: even LOW-tier machine rows are 40% not-acceptable, so priority triages, it does not certify.\n\nWHAT IS WRONG WITH THE 70 PARTIALs — systematic classes, each with the reviewer's explicit rule:\n1. 투시 유도하 over-application (~10 rows): \"Fluoroscopic angiography\" must be 투시 혈관조영; 유도하 only when the source says guidance/guided. PROVENANCE: the curated pool contains only TWO rows with 투시 유도하 where EN lacks \"guid*\" — and both are SME_gold_v1, i.e. her own earlier adjudications, now superseded by this ruling. Our gold is stale, and the SME lock + exemplar retrieval will keep re-teaching the old pattern until those gold rows are updated.\n2. transluminal = 혈관내, cutting balloon = 칼날 풍선 (~8 rows, the PTA family): the pool already overwhelmingly prefers 혈관내 (≈2,270 vs ≈14 for 혈관 경유 among transluminal rows — exploratory read, to be confirmed by a tracked audit). The system output 혈관 경유 DESPITE the pool — this class is prompt/rule-induced, not pool-induced.\n3. ~술 suffix policy: preferred term drops 술 (조영, 혈관 성형), ~술 form acceptable as synonym. Pool pressure runs the other way (조영술 ≈1,187 rows), so this needs an explicit rule.\n4. plain X-ray must include 방사선 (일반/단순 방사선 촬영, not bare 단순 촬영): pool support is thin (8 rows, 5 bare).\n5. Word-order templates stated explicitly by the reviewer: [guiding device] → [route] → [body site] → [method/test]; purpose rendered \"A를 위한\" before the test; time modifiers (intraoperative/postoperative) before the contrast phrase; urgency + organ + method for stat studies.\n6. Term-level glossary rulings in sme_notes (~40 extractable): cone=원뿔, extended(test)=정밀, stat=응급, renogram=신장기능도, intrathecal=수막내 (not 수막공간내), PET-CT=양전자 방출 단층 컴퓨터 단층 촬영, using (contrast agent)=사용 not 이용, ablation=절제, focused assessment=표적 평가, etc.\n\nPROSE RULINGS (from the covering-email questions):\n- HIP: resolve from the concept MODEL, not the FSN — procedure site hip joint structure → 엉덩 관절/고관절; hip region → 엉덩이. Literature: CT/MRI/DXA/US \"hip\" = hip joint. This is RF2-checkable (procedure site attribute) → a deterministic detector + repair.\n- LIMB: 팔/다리/사지 three-way split confirmed; 팔다리 also acceptable for bare limb/extremity.\n- REGISTER: KMA and the Korean editorial guide prefer native forms; Sino-Korean carried alongside as synonym — \"if we have the native forms along with the Sino-Korean forms, we are safe.\" NB her own corrections are not uniformly native (상장간막동맥 preferred over 위창자간막), so register stays term-by-term with both forms carried.\n\nREVIEWER-CONSISTENCY CAVEATS for gold ingestion: one correction has a typo (조용제 for 조영제, 433633006); 좌측 used once where 왼쪽 is her own established pattern (3641000087103); 피부 경유/피부경유 spacing varies within her corrections. Round-3 corrections need normalisation + a conflict check against existing gold before entering sme_adjudicated.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "4e0bdfa92d98",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9faf1d8ef3f7",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "sme_round3_ingest_v1",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "priority_tier_validation_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-19T19:13:03"
+    }
+  ],
+  "plan": {
+    "tasks": [],
+    "gates": []
+  }
+}

@@ -2319,6 +2319,80 @@
       "proposed_by": "agent",
       "author": "",
       "ts": "2026-08-12"
+    },
+    {
+      "id": "conclusion-76",
+      "statement": "review_priority predicts SME rejection: on the blinded 120-row round-3 sample, reject rate rises 40% / 52.5% / 82.5% across low/medium/high tiers (linear-by-linear z=3.84, p=0.00012, pre-registered analysis).",
+      "detail": "The blinded, stratified 40/40/40 design was decided before the reviewer saw the file, so this is a clean validation: the priority score (automated detectors + sampling disagreement) can direct review effort. Caveat: the LOW tier still runs 40% not-acceptable, so the score triages rather than certifies — low priority must not be read as 'reviewed'. All 70 rejections are PARTIAL (0 WRONG): the residual defect mass is convention-level, not clinical.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "confidence-based-review-triage-policy",
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9faf1d8ef3f7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4e0bdfa92d98",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-19"
+    },
+    {
+      "id": "conclusion-77",
+      "statement": "The round-3 PARTIAL mass is dominated by systematic, rule-writable convention classes, and the two largest are NOT exemplar-pool-induced: 투시-유도하 over-application traces to our own now-superseded SME gold, and transluminal=혈관 경유 was output despite the pool overwhelmingly preferring 혈관내.",
+      "detail": "70 PARTIAL / 0 WRONG. Classes: 투시 유도하 without source 'guidance' (~10 rows; the only pool support is 2 SME_gold_v1 rows the reviewer has now overruled — stale gold, which the SME lock would otherwise preserve); transluminal=혈관내 + cutting balloon=칼날 풍선 (~8 rows, prompt-induced against the pool); ~술 suffix policy (PT drops 술, synonym keeps it — here the pool DOES push the wrong way); plain X-ray must include 방사선; explicit word-order templates; ~40 term-level glossary rulings in her notes. Implication: deterministic rule/glossary/style-guide fixes reach most of the mass; adjudicated-gold rows must be update-able when the reviewer supersedes herself.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "4e0bdfa92d98",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9faf1d8ef3f7",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-19"
+    },
+    {
+      "id": "conclusion-78",
+      "statement": "Reviewer prose rulings from round 3 convert directly to machinery: hip resolves from the RF2 procedure-site model (hip joint structure → 엉덩 관절/고관절, hip region → 엉덩이), limb keeps the 팔/다리/사지 split (팔다리 acceptable), and body-site register follows KMA policy — native form preferred with the Sino-Korean form carried as synonym.",
+      "detail": "Hip is machine-checkable: a detector that reads the concept's procedure-site attribute from RF2 and checks the Korean rendering against it, plus a repair pass. The register ruling means the deliverable should systematically carry both forms (native PT, Sino synonym) — 'if we have the native forms along with the Sino-Korean forms, we are safe.' Her own corrections are not uniformly native (상장간막동맥 over 위창자간막), so register remains term-by-term; carrying both forms is the safe invariant.",
+      "kind": "decision",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "4e0bdfa92d98",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-19"
     }
   ]
 }

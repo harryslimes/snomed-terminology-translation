@@ -1853,6 +1853,61 @@ sme_metric_separation_spec = FunctionSpec(
     runner="snomed_translation.sme_feedback:sme_metric_separation",
 )
 
+ingest_review_pack_spec = FunctionSpec(
+    name="ingest_review_pack", label="Ingest returned SME review workbook",
+    category="evaluate",
+    description="Parse one sheet of the .xlsx a reviewer sent back into a "
+                "normalised dataset: repairs a damaged header row by position "
+                "against the canonical review-pack layout (round 3 came back "
+                "with sme_error_category overwritten by a duplicate "
+                "sme_corrected_ko, which a name-keyed reader silently drops), "
+                "normalises ratings, and tallies the reviewer's own error "
+                "categories. Each review round is ingested exactly once, by a "
+                "tracked run.",
+    inputs=[],
+    outputs=[
+        PortSpec(name="reviewed", label="Normalised reviewed rows", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="xlsx_path", label="Returned workbook (.xlsx)", kind="text"),
+        ParamSpec(name="sheet", label="Sheet name", kind="text",
+                  default="Sample - please do these first"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:ingest_review_pack",
+)
+
+priority_tier_separation_spec = FunctionSpec(
+    name="priority_tier_separation", label="Priority-tier separation",
+    category="evaluate",
+    description="Does review_priority predict what the SME rejects? Joins a "
+                "reviewed sample to the pack carrying the blinded tier labels "
+                "and tests whether rejection rises across ordered tiers with "
+                "the linear-by-linear association test (= Cochran-Armitage "
+                "for a binary outcome; also run keeping ACCEPTABLE < PARTIAL "
+                "< WRONG ordinal). The pre-registered analysis for the "
+                "round-3 blinded 120-row sample.",
+    inputs=[
+        PortSpec(name="reviewed", label="Ingested reviewed rows",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="pack", label="Pack with tier labels",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[
+        PortSpec(name="joined", label="Per-row tier/rating join", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="tier_col", label="Tier column in pack", kind="text",
+                  default="review_priority"),
+        ParamSpec(name="rating_col", label="Rating column", kind="text",
+                  default="sme_rating"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:priority_tier_separation",
+)
+
 register_feedback_analysis_spec = FunctionSpec(
     name="register_feedback_analysis",
     label="SME register feedback analysis",
@@ -1919,6 +1974,8 @@ def specs() -> list[FunctionSpec]:
         escalate_uncertain_spec,
         contrast_fidelity_detect_spec,
         sme_metric_separation_spec,
+        ingest_review_pack_spec,
+        priority_tier_separation_spec,
         register_feedback_analysis_spec,
         transliteration_recall_calibration_spec,
     ]
