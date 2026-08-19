@@ -40,7 +40,8 @@ class GraphError(Exception):
 ROLE_ALIASES: dict[str, tuple[str, ...]] = {
     "sctid": ("sctid", "id", "concept_id", "conceptid", "sct_id", "code"),
     "en": ("en", "en_term", "english", "eng", "source_term", "preferred_term", "term"),
-    "target": ("target", "target_term", "ko", "kor", "ko_term", "translation", "reference"),
+    "target": ("target", "target_term", "ko", "kor", "ko_term", "translation", "reference",
+               "ko_reference"),
     "candidates": ("candidates",),
 }
 
