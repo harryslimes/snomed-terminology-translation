@@ -1867,12 +1867,17 @@ ingest_review_pack_spec = FunctionSpec(
     inputs=[],
     outputs=[
         PortSpec(name="reviewed", label="Normalised reviewed rows", kinds=["dataset"]),
+        PortSpec(name="terms", label="Eval-shaped terms (sctid, preferred_term, "
+                                     "ko_reference = correction else rated text)",
+                 kinds=["dataset"]),
         PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
     ],
     params=[
         ParamSpec(name="xlsx_path", label="Returned workbook (.xlsx)", kind="text"),
         ParamSpec(name="sheet", label="Sheet name", kind="text",
                   default="Sample - please do these first"),
+        ParamSpec(name="typo_fixes", label="Reference typo fixes (wrong=right;...)",
+                  kind="text"),
         ParamSpec(name="output_tag", label="Output tag", kind="text"),
     ],
     runner="snomed_translation.sme_feedback:ingest_review_pack",

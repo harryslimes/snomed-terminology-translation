@@ -105,10 +105,21 @@ rules:
     severity: blocker
     penalty: 0.25
 
+  # RETIRED 2026-08-19 — superseded by the reviewer's own round-3 ruling.
+  # Batch-2 said plain radiography = 단순 촬영 and this rule banned the x선
+  # forms. Round 3 (returned workbook, run 4e0bdfa92d98) states "plain x-ray =
+  # 일반 x선, 일반 방사선 촬영, 단순 x선, 단순 방사선 촬영" and corrects BARE
+  # 단순 촬영 rows to the 방사선 forms — i.e. the form this rule enforced is
+  # now the defect and a form it forbade is now acceptable. Replaced by
+  # plain-xray-needs-radiation below. Second instance of the standing lesson:
+  # a ruling is adjudicated, but it is not immutable — rules need provenance
+  # so a newer ruling can retire them.
   - id: no-deprecated-xray-lowercase
+    enabled: false
     description: >-
-      PLAIN radiography is 단순 촬영; the pre-ruling forms (X선 / x선 /
-      일반 x선) must not appear for those concepts.
+      RETIRED (round-3 supersession) — asserted plain radiography must be
+      단순 촬영 and banned the x선 forms; the reviewer now lists 일반 x선 and
+      단순 x선 as acceptable and corrects bare 단순 촬영. See comment.
     rationale: >-
       4 rows shipped as 일반 x선 despite the ruling being in the style guide
       and in the exemplar-pool curation rules — an output check was the
@@ -239,4 +250,174 @@ rules:
     enforce: true
     severity: warning
     freeze: true
+    penalty: 0.25
+
+  # --- SME round-3 rulings (returned workbook 2026-08-19, run 4e0bdfa92d98).
+  #
+  # All SOURCE-CONDITIONAL mapping rules, same shape as the batch-2 block:
+  # each Korean form below is fine in general and wrong only for these source
+  # terms. Severity is WARNING, not blocker: the reviewer rated every instance
+  # PARTIAL (convention-level), not WRONG, and there will be hundreds across
+  # the 5,012 — they should drive review priority and repair, not gate the
+  # deliverable. Canonicals come from the reviewer's written rulings, not
+  # batch frequency.
+
+  - id: fluoro-adjectival-not-guidance
+    description: >-
+      투시 유도하 is licensed only when the source says guidance/guided.
+      Adjectival "fluoroscopic [study]" is 투시 [study]: fluoroscopic
+      angiography = 투시 혈관 조영. Reviewer: 'if we want to use 투시 유도하,
+      we need "guided or guidance" with "fluoroscopy"'. The old pattern's only
+      pool support is two of our own earlier gold rows, now superseded.
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: '^(?!.*guid).*fluoroscop'
+    canonical:
+      - 투시
+    forbidden:
+      - 유도하
+    examples:
+      flag:
+        - {source: "Fluoroscopic angiography of bronchial artery with contrast", target: "조영제 사용 기관지 동맥 투시 유도하 혈관 조영"}
+        - {source: "Fluoroscopic venography with contrast", target: "조영제 사용 투시 유도하 정맥 조영"}
+      pass:
+        - {source: "Fluoroscopic angiography of bronchial artery with contrast", target: "조영제 사용 기관지 동맥 투시 혈관 조영"}
+        - {source: "Nerve block with injection of lumbar spine using fluoroscopic guidance", target: "투시 유도하 허리 척추 주사 신경 차단"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: transluminal-vascular-naegwan
+    description: >-
+      Transluminal in a vascular context is 혈관내 (혈관 경유 also listed by
+      the reviewer but 혈관내 preferred in every round-3 correction; v6.0's
+      table prescribed 혈관 경유 and every such row came back PARTIAL).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'transluminal'
+    canonical:
+      - 혈관내
+    forbidden_regex:
+      - '혈관\s?경유'
+    examples:
+      flag:
+        - {source: "Percutaneous transluminal angioplasty of tibial artery using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관 경유 경골 동맥 혈관 성형"}
+      pass:
+        - {source: "Percutaneous transluminal angioplasty of tibial artery using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 경골 동맥 혈관 성형"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: cutting-balloon-kalnal
+    description: Cutting balloon is 칼날 풍선, not 절단 풍선 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'cutting balloon'
+    canonical:
+      - 칼날 풍선
+    forbidden_regex:
+      - '절단\s?풍선'
+    examples:
+      flag:
+        - {source: "Percutaneous transluminal cutting balloon angioplasty of portal vein using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 문맥 절단 풍선 혈관 성형"}
+      pass:
+        - {source: "Percutaneous transluminal cutting balloon angioplasty of portal vein using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 문맥 칼날 풍선 혈관 성형"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: intrathecal-sumangnae
+    description: Intrathecal is 수막내 (or 지주막내), not 수막공간내 — 공간 is an unnecessary word (reviewer, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'intrathecal'
+    canonical:
+      - 수막내
+    forbidden:
+      - 수막공간내
+    examples:
+      flag:
+        - {source: "Intrathecal injection using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 수막공간내 주사"}
+      pass:
+        - {source: "Intrathecal injection using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 수막내 주사"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: cone-beam-wonppul
+    description: Cone (beam) is 원뿔, not 원추형 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: '\bcone\b'
+    canonical:
+      - 원뿔
+    forbidden:
+      - 원추형
+    examples:
+      flag:
+        - {source: "Aspiration of spine using cone beam computed tomography guidance", target: "원추형 빔 컴퓨터 단층 촬영 유도하 척추 흡인"}
+      pass:
+        - {source: "Aspiration of spine using cone beam computed tomography guidance", target: "원뿔 빔 컴퓨터 단층 촬영 유도하 척추 흡인"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: plain-xray-needs-radiation
+    description: >-
+      Plain X-ray must include 방사선 (or the x선 spelling): 일반 방사선 촬영 /
+      단순 방사선 촬영 / 일반 x선 / 단순 x선. Bare 단순 촬영 — which the
+      batch-2-era guide prescribed — came back corrected on every round-3 row.
+      Replaces no-deprecated-xray-lowercase (retired above).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'plain (x-?ray|radiograph|film)'
+    canonical:
+      - 일반 방사선 촬영
+      - 단순 방사선 촬영
+    forbidden_regex:
+      - '단순\s?촬영'
+    examples:
+      flag:
+        - {source: "Plain X-ray of forearm", target: "아래팔 단순 촬영"}
+      pass:
+        - {source: "Plain X-ray of forearm", target: "아래팔 단순 방사선 촬영"}
+        - {source: "Plain X-ray of left clavicle", target: "왼쪽 빗장뼈 일반 방사선 촬영"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: ecg-gated-donggi
+    description: Electrocardiography gated is 심전도 동기, not the loan 게이팅 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'gated'
+    canonical:
+      - 심전도 동기
+    forbidden:
+      - 게이팅
+    examples:
+      flag:
+        - {source: "Positron emission tomography electrocardiography gated myocardial rest study using fluorodeoxyglucose", target: "플루오로데옥시글루코스 사용 심전도 게이팅 심근 안정 양전자 방출 단층 촬영"}
+      pass:
+        - {source: "Positron emission tomography electrocardiography gated myocardial rest study using fluorodeoxyglucose", target: "플루오로데옥시글루코스 사용 심근 휴식기 심전도 동기 양전자 방출 단층 촬영"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: mammography-radiographic
+    description: Mammography is 유방 방사선 촬영, not 유방 촬영술 (reviewer correction, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'mammograph|mammogram'
+    canonical:
+      - 유방 방사선 촬영
+    forbidden_regex:
+      - '유방\s?촬영술?(?!\s*영상)'
+    examples:
+      flag:
+        - {source: "Mammography and aspiration of right breast", target: "오른쪽 유방 촬영술 및 흡인"}
+      pass:
+        - {source: "Mammography and aspiration of right breast", target: "오른쪽 유방 방사선 촬영 및 흡인"}
+    enforce: true
+    freeze: false
+    severity: warning
     penalty: 0.25

@@ -772,6 +772,36 @@ def ingest_review_pack(ctx: RunContext, inputs: dict[str, Any],
         w.writeheader()
         w.writerows(out_rows)
 
+    # Terms output: the reviewed rows reshaped as an eval/translate set. The
+    # effective reference is the reviewer's correction when one was given,
+    # otherwise the text she rated (ACCEPTABLE rows are their own reference).
+    # A correction may span multiple lines (preferred term first, synonyms
+    # after, sometimes labelled "(as a synonym)"); the reference is the first
+    # line. `typo_fixes` ("wrong=right;...") applies ONLY here — the reviewed
+    # output above keeps her text verbatim.
+    fixes = [p.split("=", 1) for p in
+             str(params.get("typo_fixes") or "").split(";") if "=" in p]
+    n_typo_fixed = 0
+    terms_rows = []
+    for rec in out_rows:
+        ref = (rec.get("sme_corrected_ko") or "").splitlines()[0].strip() \
+            if rec.get("sme_corrected_ko") else rec.get("translation_ko", "")
+        ref = ref.strip().strip('"')
+        for wrong, right in fixes:
+            if wrong in ref:
+                ref = ref.replace(wrong, right)
+                n_typo_fixed += 1
+        terms_rows.append({"sctid": rec["sctid"],
+                           "preferred_term": rec["preferred_term"],
+                           "ko_reference": ref,
+                           "sme_rating": rec["sme_rating"]})
+    terms_out = Path(ctx.log_dir) / f"sme_review_terms{'_' + tag if tag else ''}.csv"
+    with terms_out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["sctid", "preferred_term",
+                                          "ko_reference", "sme_rating"])
+        w.writeheader()
+        w.writerows(terms_rows)
+
     metrics: dict[str, float] = {
         "n_rows": float(len(out_rows)),
         "n_rated": float(sum(counts.values())),
@@ -779,6 +809,7 @@ def ingest_review_pack(ctx: RunContext, inputs: dict[str, Any],
         "n_corrected": float(n_corrected),
         "n_categorized": float(n_categorized),
         "header_repaired": float(header_repaired),
+        "n_typo_fixed": float(n_typo_fixed),
     }
     for r, c in counts.items():
         metrics[f"n_{r.lower()}"] = float(c)
@@ -788,8 +819,10 @@ def ingest_review_pack(ctx: RunContext, inputs: dict[str, Any],
     msg = (f"{len(out_rows)} rows, {sum(counts.values())} rated ("
            + ", ".join(f"{v} {k}" for k, v in counts.items() if v)
            + f"), {n_corrected} corrected"
-           + ("; header row repaired by position" if header_repaired else ""))
-    return FunctionResult(ok=True, outputs={"reviewed": str(out)},
+           + ("; header row repaired by position" if header_repaired else "")
+           + (f"; {n_typo_fixed} typo fix(es) in terms refs" if n_typo_fixed else ""))
+    return FunctionResult(ok=True, outputs={"reviewed": str(out),
+                                            "terms": str(terms_out)},
                           metrics=metrics, message=msg)
 
 
