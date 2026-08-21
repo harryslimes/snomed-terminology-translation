@@ -1916,6 +1916,44 @@ priority_tier_separation_spec = FunctionSpec(
     runner="snomed_translation.sme_feedback:priority_tier_separation",
 )
 
+merge_adjudicated_gold_spec = FunctionSpec(
+    name="merge_adjudicated_gold", label="Merge review round into adjudicated gold",
+    category="evaluate",
+    description="Merge a new review round into the adjudicated gold set with "
+                "supersession: recency wins (a new row replaces an older row "
+                "for the same concept; an older row whose text violates the "
+                "current rule file is withheld and emitted on the superseded "
+                "output as the reviewer's confirmation list), and the newest "
+                "round is never rule-checked away — its contradictions with "
+                "older rulings go to the adjudication ledger. The merged set "
+                "is what the SME lock and the reviewer overlay both read, so "
+                "this is the single place where 'currently adjudicated' is "
+                "decided.",
+    inputs=[
+        PortSpec(name="gold", label="Existing adjudicated gold",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="round", label="Ingested review round",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[
+        PortSpec(name="merged", label="Merged adjudicated set", kinds=["dataset"]),
+        PortSpec(name="superseded", label="Withheld rows (confirmation list)",
+                 kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="severities", label="Rule severities that supersede",
+                  kind="text", default="blocker,warning"),
+        ParamSpec(name="batch_label", label="Batch label for new rows",
+                  kind="text", default="round3"),
+        ParamSpec(name="typo_fixes", label="Reference typo fixes (wrong=right;...)",
+                  kind="text"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:merge_adjudicated_gold",
+)
+
 register_feedback_analysis_spec = FunctionSpec(
     name="register_feedback_analysis",
     label="SME register feedback analysis",
@@ -1984,6 +2022,7 @@ def specs() -> list[FunctionSpec]:
         sme_metric_separation_spec,
         ingest_review_pack_spec,
         priority_tier_separation_spec,
+        merge_adjudicated_gold_spec,
         register_feedback_analysis_spec,
         transliteration_recall_calibration_spec,
     ]

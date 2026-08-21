@@ -15,7 +15,7 @@
       "id": "sme_labels",
       "type": "datasource",
       "pos": {"x": 40.0, "y": 480.0},
-      "params": {"source": "sme_adjudicated"},
+      "params": {"data_object": "ko_sme_adjudicated_v2"},
       "inputs": {}
     },
     {

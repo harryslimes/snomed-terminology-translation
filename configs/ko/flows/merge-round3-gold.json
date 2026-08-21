@@ -1,0 +1,58 @@
+{
+  "id": "merge-round3-gold",
+  "name": "merge_round3_gold",
+  "description": "Merge the round-3 review (ko_sme_round3_sample: 120 rated rows, 72 corrections) into the adjudicated gold set with supersession. Recency wins: a round-3 row replaces any older gold row for the same concept, and older gold rows whose text violates the current rule file (warnings included — the round-3 rules encode her newest rulings) are withheld to the superseded output, which IS the confirmation list for the next reviewer email. Round-3 rows are never rule-checked away (their contradictions with older rulings, e.g. the arthrogram 조영상, go to the adjudication ledger). Promotes ko_sme_adjudicated_v2 — the object every SME lock and reviewer overlay should read from now on — plus ko_sme_superseded_r3 for the email. The original sme_gold_all.csv is untouched.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 120.0},
+      "params": {"source": "sme_adjudicated"},
+      "inputs": {}
+    },
+    {
+      "id": "round3",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 300.0},
+      "params": {"data_object": "ko_sme_round3_sample"},
+      "inputs": {}
+    },
+    {
+      "id": "merge",
+      "type": "function",
+      "pos": {"x": 380.0, "y": 200.0},
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "severities": "blocker,warning",
+        "batch_label": "round3",
+        "typo_fixes": "조용제=조영제",
+        "output_tag": "r3",
+        "function": "merge_adjudicated_gold"
+      },
+      "inputs": {"gold": "gold", "round": "round3"}
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {"x": 720.0, "y": 120.0},
+      "params": {"expression": "n_merged", "output_name": "adjudicated_rows",
+                 "function": "evaluate_formula"},
+      "inputs": {"metrics": "merge:metrics"}
+    },
+    {
+      "id": "promote_merged",
+      "type": "promote",
+      "pos": {"x": 720.0, "y": 260.0},
+      "params": {"name": "ko_sme_adjudicated_v2", "type": "dataset"},
+      "inputs": {"value": "merge:merged"}
+    },
+    {
+      "id": "promote_superseded",
+      "type": "promote",
+      "pos": {"x": 720.0, "y": 400.0},
+      "params": {"name": "ko_sme_superseded_r3", "type": "dataset"},
+      "inputs": {"value": "merge:superseded"}
+    }
+  ]
+}

@@ -24,7 +24,7 @@
         "y": 480.0
       },
       "params": {
-        "source": "sme_adjudicated"
+        "data_object": "ko_sme_adjudicated_v2"
       },
       "inputs": {}
     },
@@ -145,12 +145,12 @@
         "ko_col": "translation",
         "gold_col": "ko_reference",
         "drop_cols": "judge_label,transliteration_echo",
-        "output_name": "production_imaging_deliverable_v2",
+        "output_name": "production_imaging_deliverable_v3",
         "function": "package_deliverable",
         "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
         "xlsx": true,
         "sample_per_tier": 40,
-        "seed": 20260812
+        "seed": 20260821
       },
       "inputs": {
         "translations": "deliverable",

@@ -925,3 +925,135 @@ def priority_tier_separation(ctx: RunContext, inputs: dict[str, Any],
         + f"; trend p={p_bin:.4g} binary, p={p_ord:.4g} ordinal")
     return FunctionResult(ok=True, outputs={"joined": str(out)},
                           metrics=metrics, message=msg)
+
+
+def merge_adjudicated_gold(ctx: RunContext, inputs: dict[str, Any],
+                           params: dict[str, Any]) -> FunctionResult:
+    """Merge a new review round into the adjudicated gold set, with supersession.
+
+    The adjudicated set is the SME lock and the reviewer overlay, so what it
+    contains IS the system's definition of "currently ruled". Two laws:
+
+    1. RECENCY WINS. A round-3 row replaces an older gold row for the same
+       concept, and an older gold row whose text violates the CURRENT rule
+       file (which encodes the newest rulings) is withheld as superseded —
+       emitted on the ``superseded`` output as the reviewer's confirmation
+       list, never silently dropped. Without this, an immutable lock preserves
+       text its own author has overruled: 20 such rows after round 3.
+    2. NEWEST ROWS ARE NEVER RULE-CHECKED AWAY. The latest round is
+       definitionally current; where it contradicts a rule derived from an
+       OLDER ruling (round 3's arthrogram 조영상 vs the batch-2 조영상 ban),
+       the contradiction goes to the adjudication ledger, not auto-resolution.
+
+    Round-3 semantics: ko_reference = the reviewer's correction (first line,
+    typo-fixed) where given, else the text she rated. A correction's later
+    lines are synonyms ONLY when explicitly annotated "(… synonym)" — other
+    trailing commentary is not an endorsement. An ACCEPTABLE row WITH a
+    correction keeps the machine text as an accepted synonym; a PARTIAL row
+    does not (she rated it partial, it is not an accepted form).
+    """
+    from snomed_translation.hard_rules import find_violations, load_hard_rules
+
+    gold_rows = []
+    gpath = _dataset_path(inputs.get("gold"))
+    if not gpath or not Path(gpath).exists():
+        return FunctionResult(ok=False, message="merge_adjudicated_gold: no `gold`")
+    with Path(gpath).open(encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fields = list(reader.fieldnames or [])
+        gold_rows = list(reader)
+
+    rpath = _dataset_path(inputs.get("round"))
+    if not rpath or not Path(rpath).exists():
+        return FunctionResult(ok=False, message="merge_adjudicated_gold: no `round`")
+    with Path(rpath).open(encoding="utf-8") as f:
+        round_rows = list(csv.DictReader(f))
+
+    severities = {s.strip().lower() for s in
+                  str(params.get("severities") or "blocker,warning").split(",")
+                  if s.strip()}
+    rules = [r for r in load_hard_rules(params.get("rules_file"))
+             if r.severity in severities] if params.get("rules_file") else []
+    fixes = [p.split("=", 1) for p in
+             str(params.get("typo_fixes") or "").split(";") if "=" in p]
+    batch_label = str(params.get("batch_label") or "round3")
+    syn_re = re.compile(r"\(([^)]*synonym[^)]*)\)\s*$", re.I)
+
+    new_ids = {(r.get("sctid") or "").strip() for r in round_rows}
+    merged: list[dict] = []
+    superseded: list[dict] = []
+    per_check: dict[str, int] = {}
+    n_replaced = 0
+    for g in gold_rows:
+        sid = (g.get("sctid") or "").strip()
+        if sid in new_ids:
+            n_replaced += 1
+            superseded.append({**g, "superseded_by": "replaced_by_" + batch_label})
+            continue
+        found = find_violations((g.get("ko_reference") or "").strip(), rules,
+                                require_enforce=False,
+                                source=(g.get("preferred_term") or "").strip())
+        if found:
+            checks = ",".join(sorted(r.id for r, _ in found))
+            for r, _ in found:
+                per_check[r.id] = per_check.get(r.id, 0) + 1
+            superseded.append({**g, "superseded_by": checks})
+            continue
+        merged.append(g)
+
+    n_round_corrected = 0
+    for r in round_rows:
+        machine = (r.get("translation_ko") or "").strip()
+        corr_raw = (r.get("sme_corrected_ko") or "").strip()
+        lines = [l.strip().strip('"') for l in corr_raw.splitlines() if l.strip()]
+        text = lines[0] if lines else machine
+        for wrong, right in fixes:
+            text = text.replace(wrong, right)
+        syns = [syn_re.sub("", l).strip() for l in lines[1:] if syn_re.search(l)]
+        rating = (r.get("sme_rating") or "").strip().upper()
+        flags = ""
+        if lines:
+            n_round_corrected += 1
+            if rating == "ACCEPTABLE" and machine and machine != text:
+                syns.append(machine)
+                flags = "sme_original_as_synonym"
+        merged.append({
+            "sctid": (r.get("sctid") or "").strip(),
+            "preferred_term": (r.get("preferred_term") or "").strip(),
+            "ko_reference": text,
+            "ko_all": "|".join([text] + [s for s in syns if s]),
+            "reviewed_ko": text if lines else machine,
+            "batch": batch_label,
+            "sme_rating": rating,
+            "gold_flags": flags,
+        })
+
+    tag = str(params.get("output_tag") or batch_label)
+    out = Path(ctx.log_dir) / f"adjudicated_merged_{tag}.csv"
+    sup_out = Path(ctx.log_dir) / f"adjudicated_superseded_{tag}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(merged)
+    with sup_out.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields + ["superseded_by"],
+                           extrasaction="ignore")
+        w.writeheader()
+        w.writerows(superseded)
+
+    metrics: dict[str, float] = {
+        "n_gold_in": float(len(gold_rows)), "n_round_in": float(len(round_rows)),
+        "n_merged": float(len(merged)),
+        "n_superseded_by_rules": float(len(superseded) - n_replaced),
+        "n_replaced_by_round": float(n_replaced),
+        "n_round_corrected": float(n_round_corrected),
+    }
+    for cid, n in sorted(per_check.items(), key=lambda kv: -kv[1]):
+        metrics["superseded_" + re.sub(r"[^a-z0-9]+", "_", cid)] = float(n)
+    msg = (f"{len(gold_rows)} gold + {len(round_rows)} {batch_label} -> "
+           f"{len(merged)} merged; {len(superseded) - n_replaced} withheld as "
+           f"rule-superseded, {n_replaced} replaced by newer review")
+    return FunctionResult(ok=True,
+                          outputs={"merged": str(out), "superseded": str(sup_out)},
+                          metrics=metrics, message=msg)
