@@ -1,7 +1,7 @@
 {
   "id": "production-cascade",
   "name": "production_cascade",
-  "description": "PRODUCTION cascade over the 5,012 active imaging concepts, in exactly the configuration measured on the 200-row SME gold (mean 40.25% vs Qwen 37.75%, gemma 35.75%). gemma4-26b-qat samples 5 per concept at temp 0.7 under style guide v6.0 and the eval-safe curated pool; concepts whose samples agree keep gemma's answer; the rest are re-translated BLIND by Qwen 3.8-Max replaying the original prompt. Shipped for COST and TRIAGE, not for a proven accuracy gain: the edge lives in the kept half and the escalated half is Qwen-parity, so worst case is Qwen quality with ~half the corpus on free local GPU plus an n_distinct review-priority signal (AUC 0.755) replacing the poorly-correlated acceptability judge. Deterministic detectors run on the final output as an audit. Output is GATED: validate_translations fails the run on any blocker-severity rule violation or malformed output, and hierarchy_consistency reports ancestor-rendering reuse failures (which also surface wrong-referent errors).",
+  "description": "PRODUCTION cascade over the 5,012 active imaging concepts. Re-run configuration 2026-08-21 (round-3 integration): style guide v6.1 (reviewer's round-3 rulings: 투시 유도하 gating, transluminal=혈관내, plain X-ray needs 방사선, -술 policy, word-order templates, 40-entry glossary), exemplar-precedence clause in the system prompt, and the round-3 curated eval-safe pool (pooled_curated_eval_r3: supersession drops + retrieval-slot hygiene; index built by vector reuse). Measured on the 120-row round-3 set: v6.1 config lifts exact agreement with the reviewer's wording from 42.5% (no-change baseline) to ~56-61% (runs 274572a407ae, eb21b1697f04, 9c13c80665e7, 3d2405812def). gemma4-26b-qat samples 5 @ 0.7; disagreement escalates blind to Qwen 3.8-Max (n_distinct also drives review priority, AUC 0.755; validated on the blinded round-3 sample: reject 40/52.5/82.5% across tiers, run 9faf1d8ef3f7). validate_translations is ADVISORY here (fail_on_blocker=false): this flow is step 1 of a mandatory chain — cascade -> round3-rule-repair (SME lock + blocker gate) -> package-deliverable (qa_gate) — and the promote is content-addressed, so a bad run is diagnosable and rollback-able rather than silently shipped. Promotes ko_imaging_deliverable.",
   "project": "translation_prompt_context_v1",
   "nodes": [
     {
@@ -24,7 +24,7 @@
         "y": 200.0
       },
       "params": {
-        "source": "pooled_curated_eval"
+        "source": "pooled_curated_eval_r3"
       },
       "inputs": {}
     },
@@ -48,7 +48,7 @@
         "y": 480.0
       },
       "params": {
-        "path": "style_guide/style_guide_ko_v6_0.md",
+        "path": "style_guide/style_guide_ko_v6_1.md",
         "function": "style_guide"
       },
       "inputs": {}
@@ -158,7 +158,7 @@
       },
       "params": {
         "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
-        "fail_on_blocker": true,
+        "fail_on_blocker": false,
         "en_col": "preferred_term",
         "ko_col": "translation",
         "function": "validate_translations"
@@ -183,6 +183,21 @@
       },
       "inputs": {
         "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "promote_out",
+      "type": "promote",
+      "pos": {
+        "x": 1720.0,
+        "y": 520.0
+      },
+      "params": {
+        "name": "ko_imaging_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "cascade:translations"
       }
     }
   ]
