@@ -25,9 +25,15 @@ import yaml
 from pipelines.context import RunContext
 from pipelines.functions import FunctionResult
 
-# Post-ruling rewrites (SME Q&A 2026-08-09), shared with the gold builder.
+# Post-ruling rewrites applied to `ruling_updated_only` additions.
+#
+# The batch-2 entry ((일반 )?x선 -> 단순 촬영) was REMOVED 2026-08-21: the
+# reviewer's round-3 return (run 4e0bdfa92d98) lists 일반 x선 / 단순 x선 as
+# acceptable and corrects BARE 단순 촬영 to the 방사선 forms — the transform
+# had become a machine that converts acceptable forms into the current defect.
+# Second supersession of a batch-2 x-ray ruling; see the retired
+# no-deprecated-xray-lowercase hard rule for the first.
 RULING_UPDATES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"(일반\s*)?[xX]\s*-?\s*선"), "단순 촬영"),
     (re.compile(r"조영상"), "영상"),
 ]
 

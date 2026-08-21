@@ -43,16 +43,23 @@ rules:
   # a 조영상 exemplar, directly contradicting the style guide in the same
   # prompt (see the translation-prompt-context note, 2026-08-10).
 
+# RETIRED 2026-08-21 — the reviewer's round-3 return supersedes the batch-2
+  # x-ray ruling this rule enforced: 일반 x선 / 단순 x선 are acceptable again
+  # and BARE 단순 촬영 is now the defect (see r3-plain-xray-bare-dansun below,
+  # and the retired no-deprecated-xray-lowercase hard rule). This rule was
+  # dropping now-acceptable pairs (including DXA rows, whose EN matches
+  # '\bX-ray' — the 이중 에너지 X선 forms are correct) while keeping the pairs
+  # that teach the current defect.
   - id: deprecated-xray-form
     description: >-
-      Drop EN X-ray/radiograph pairs whose Korean uses X선 / 일반 X선 /
-      방사선 영상 촬영 instead of the SME-canonical 단순 촬영.
+      RETIRED (round-3 supersession) — dropped X선-form pairs per the batch-2
+      ruling the reviewer has since reversed. See comment.
     rationale: >-
       SME Q&A 2026-08-09: "X-ray should be translated into '단순 촬영'".
-      Style guide v6.0 encodes this; the retrieved exemplars contradicted it.
-    evidence: ["run:6ba05d4eca9a", "conclusion:conclusion-35"]
+      Superseded by the round-3 return (run 4e0bdfa92d98).
+    evidence: ["run:6ba05d4eca9a", "conclusion:conclusion-35", "run:4e0bdfa92d98"]
     action: drop
-    enabled: true
+    enabled: false
     match:
       en_regex: '\b([xX]-?ray|[Rr]adiograph)'
       target_regex: '([xX]\s*선|방사선\s*영상\s*촬영)'
@@ -88,6 +95,150 @@ rules:
       target_regex: ',\s*(NA|N/A)\s*$'
     replace:
       replacement: ''
+
+  # --- Round-3 supersessions (returned workbook 2026-08-19, run 4e0bdfa92d98)
+  # Pairs that teach conventions the reviewer's round-3 rulings retire. All
+  # DROPS: for reference data, removing a contradiction beats fabricating a
+  # rewritten pair no human validated. Volumes are small (the pool already
+  # overwhelmingly prefers 혈관내, for instance) but these rows are retrieved
+  # precisely for the queries they mislead — the run-274572a407ae prompts show
+  # 피부경유 혈관경유 혈관성형 and 수막공간내 경로 being served as reference
+  # for exactly the terms the reviewer corrected.
+
+  - id: r3-fluoro-adjectival-yudoha
+    description: >-
+      Drop pairs where the English has fluoroscop* but no guidance/guided and
+      the Korean uses 유도하 — the pattern round 3 retired (adjectival
+      fluoroscopic [study] = 투시 [study]). Includes the two stale
+      SME_gold_v1 rows that were this pattern's only pool support.
+    rationale: >-
+      Reviewer, round 3: 'if we want to use 투시 유도하, we need "guided or
+      guidance" with "fluoroscopy"'. Hard rule fluoro-adjectival-not-guidance.
+    evidence: ["run:4e0bdfa92d98", "run:274572a407ae", "run:b2e80cefddb3"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '^(?!.*[Gg]uid)(?=.*[Ff]luoroscop)'
+      target_regex: '유도하'
+
+  - id: r3-transluminal-gyeongyu
+    description: >-
+      Drop transluminal pairs whose Korean uses 혈관 경유 (round-3 canonical
+      is 혈관내; ~14 rows against ~2,270 already teaching 혈관내).
+    rationale: Reviewer, round 3 — 'transluminal = 혈관경유, 혈관내 (in this case 혈관내 is better)'; every 혈관 경유 row she saw came back PARTIAL.
+    evidence: ["run:4e0bdfa92d98", "run:b2e80cefddb3"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Tt]ransluminal'
+      target_regex: '혈관\s?경유'
+
+  - id: r3-cutting-balloon-jeoldan
+    description: Drop cutting-balloon pairs rendered 절단 풍선 (round-3 canonical 칼날 풍선).
+    rationale: Reviewer glossary, round 3.
+    evidence: ["run:4e0bdfa92d98"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Cc]utting balloon'
+      target_regex: '절단\s?풍선'
+
+  - id: r3-intrathecal-gonggan
+    description: >-
+      Drop intrathecal pairs whose Korean uses 수막공간내 (round-3 canonical
+      수막내) — includes the 'Intrathecal route (qualifier value)' row served
+      as reference in run 274572a407ae.
+    rationale: Reviewer, round 3 — 공간 is an unnecessary word.
+    evidence: ["run:4e0bdfa92d98", "run:274572a407ae"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Ii]ntrathecal'
+      target_regex: '수막공간내'
+
+  - id: r3-plain-xray-bare-dansun
+    description: >-
+      Drop plain-X-ray pairs rendered as BARE 단순 촬영 (no 방사선): round 3
+      requires 일반/단순 방사선 촬영 (or the x선 spellings). Mirror image of
+      the retired deprecated-xray-form rule above.
+    rationale: Reviewer, round 3 — every bare 단순 촬영 row corrected.
+    evidence: ["run:4e0bdfa92d98", "run:b2e80cefddb3"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Pp]lain ([xX]-?ray|[Rr]adiograph|[Ff]ilm)'
+      target_regex: '단순\s?촬영'
+
+  - id: r3-ecg-gating-loan
+    description: Drop gated-study pairs using the loan 게이팅 (round-3 canonical 심전도 동기).
+    rationale: Reviewer glossary, round 3.
+    evidence: ["run:4e0bdfa92d98"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Gg]ated'
+      target_regex: '게이팅'
+
+  - id: r3-cone-wonchu
+    description: Drop cone-beam pairs rendered 원추형 (round-3 canonical 원뿔).
+    rationale: Reviewer glossary, round 3.
+    evidence: ["run:4e0bdfa92d98"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '\b[Cc]one\b'
+      target_regex: '원추형'
+
+  - id: r3-mammography-chwalyeongsul
+    description: Drop mammography pairs rendered 유방 촬영술 (round-3 canonical 유방 방사선 촬영).
+    rationale: Reviewer correction, round 3.
+    evidence: ["run:4e0bdfa92d98"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '[Mm]ammograph|[Mm]ammogram'
+      target_regex: '유방\s?촬영술'
+
+  # --- Retrieval-slot hygiene (run-274572a407ae prompt audit) ---------------
+  # Rows that cannot teach procedure structure yet occupy scarce top-5
+  # exemplar slots for exactly the long compositional terms that need a
+  # structural example most: Dantron (a laxative), 'Stand (physical object) →
+  # 대', 'water for injection → 중외주사용수 20밀리리터'. Scoped by semantic
+  # tag / package-string pattern, NOT by source — a blanket EDI drop was
+  # already considered and rejected (see edi-bracketed-billing-qualifier).
+
+  - id: r3-nonclinical-semantic-tags
+    description: >-
+      Drop rows whose English is tagged as a non-procedure, non-substance
+      hierarchy that cannot inform a procedure translation: physical object,
+      qualifier value, intended site, environment, record artifact.
+      Substance/product rows are KEPT — tracer and drug names legitimately
+      help translate 'using [substance]' terms.
+    rationale: >-
+      Prompt audit of run 274572a407ae: 'Stand (physical object) → 대',
+      'Intrathecal route (qualifier value)', 'Subcutaneous (intended site)'
+      served as reference for procedure terms.
+    evidence: ["run:274572a407ae"]
+    action: drop
+    enabled: true
+    match:
+      en_regex: '\((physical object|qualifier value|intended site|environment|record artifact|navigational concept)\)\s*$'
+
+  - id: r3-edi-drug-package-strings
+    description: >-
+      Drop EDI rows whose Korean is a drug-package string (brand + dose +
+      package unit) rather than a term: 주사용수/주사액/N밀리리터/N밀리그램/
+      N주 forms. These are billing listings for products, not translations.
+    rationale: >-
+      Prompt audit of run 274572a407ae: 'water for injection → 중외주사용수
+      20밀리리터' and a branded 18F-FDG package string retrieved as reference
+      for a nerve-block and a PET term respectively.
+    evidence: ["run:274572a407ae"]
+    action: drop
+    enabled: true
+    match:
+      source_in: ["EDI"]
+      target_regex: '(주사용수|주사액|[0-9]+\s*밀리리터|[0-9]+\s*밀리그램|[0-9]+\s*주\s*$)'
 
   # --- Documented but NOT enabled ------------------------------------------
 

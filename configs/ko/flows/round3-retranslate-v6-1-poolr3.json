@@ -1,0 +1,155 @@
+{
+  "id": "round3-retranslate-v6-1-poolr3",
+  "name": "round3_retranslate_v6_1_poolr3",
+  "description": "Arm B of the round-3 residual-cause test: identical to round3-retranslate-v6-1 (production cascade, guide v6.1, her references) except the exemplar pool is the round-3 curated variant (pooled_curated_eval_r3: stale-convention pairs dropped, retrieval-slot junk filtered). Both arms also carry the new exemplar-precedence clause in the system prompt template, so arm A (old pool) isolates the clause and this arm adds the pool. Compare against run 274572a407ae (no clause, old pool).",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "data_object": "ko_sme_round3_terms"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated_eval_r3"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_1.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "round3_v61_poolr3",
+        "function": "translate_consistency",
+        "request_timeout_seconds": 300
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": true,
+        "max_attempts": 3,
+        "concurrency": 8,
+        "output_tag": "round3_v61_poolr3",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "cascade:translations",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 240.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "round3_v61_poolr3",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "round3_v61_poolr3_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate:metrics"
+      }
+    },
+    {
+      "id": "promote_out",
+      "type": "promote",
+      "pos": {
+        "x": 1240.0,
+        "y": 240.0
+      },
+      "params": {
+        "name": "ko_round3_retranslation_v61_poolr3",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "cascade:translations"
+      }
+    }
+  ]
+}
