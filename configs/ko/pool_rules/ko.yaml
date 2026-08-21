@@ -209,20 +209,27 @@ rules:
 
   - id: r3-nonclinical-semantic-tags
     description: >-
-      Drop rows whose English is tagged as a non-procedure, non-substance
-      hierarchy that cannot inform a procedure translation: physical object,
-      qualifier value, intended site, environment, record artifact.
-      Substance/product rows are KEPT — tracer and drug names legitimately
-      help translate 'using [substance]' terms.
+      Drop rows whose English is tagged as a hierarchy that cannot inform a
+      procedure translation: qualifier value, intended site, environment,
+      record artifact, navigational concept. Substance/product rows are KEPT
+      (tracer and drug names help translate 'using [substance]' terms) and —
+      since 2026-08-21 — so are PHYSICAL OBJECT rows: the A/B (runs
+      274572a407ae vs 9c13c80665e7) traced a break directly to dropping
+      'Catheter (physical object) → 카테터', whose freed slot admitted an EDI
+      row teaching 도뇨기구 for a catheter-insertion term. Device rows carry
+      vocabulary that device-mentioning procedures need; the original
+      offender ('Stand → 대') is rare and low-harm by comparison.
     rationale: >-
-      Prompt audit of run 274572a407ae: 'Stand (physical object) → 대',
-      'Intrathecal route (qualifier value)', 'Subcutaneous (intended site)'
-      served as reference for procedure terms.
-    evidence: ["run:274572a407ae"]
+      Prompt audit of run 274572a407ae: 'Intrathecal route (qualifier
+      value)', 'Subcutaneous (intended site)' served as reference for
+      procedure terms. physical object removed from the list after the arm-B
+      collateral trace — the same over-generalisation shape as the first
+      upper-limb rule, this time in the retrieval layer.
+    evidence: ["run:274572a407ae", "run:9c13c80665e7"]
     action: drop
     enabled: true
     match:
-      en_regex: '\((physical object|qualifier value|intended site|environment|record artifact|navigational concept)\)\s*$'
+      en_regex: '\((qualifier value|intended site|environment|record artifact|navigational concept)\)\s*$'
 
   - id: r3-edi-drug-package-strings
     description: >-
