@@ -1,0 +1,72 @@
+sctid,preferred_term,translation
+241218003,Angiography of common carotid artery,온목동맥 혈관 조영
+241262007,Angiography of internal iliac artery,속엉덩동맥 혈관 조영
+312730001,Angiography of external iliac artery,바깥엉덩동맥 혈관 조영
+418827006,Fluoroscopic angiography with contrast and embolization of internal iliac artery,조영제 사용 투시 혈관 조영 및 속엉덩동맥 색전 형성
+419857009,Fluoroscopic angiography of external iliac artery with contrast,조영제 사용 바깥엉덩동맥 투시 혈관 조영
+434436004,Percutaneous transluminal cutting balloon angioplasty of internal iliac artery using fluoroscopic guidance with contrast,조영제 사용 투시 유도하 피부 경유 혈관내 속엉덩동맥 칼날 풍선 혈관 성형
+438414005,Percutaneous transluminal temporary balloon occlusion of internal iliac artery using fluoroscopic guidance with contrast,조영제 사용 투시 유도하 피부 경유 혈관내 속엉덩동맥 일시적 풍선 폐색
+433686009,Percutaneous transluminal cutting balloon angioplasty of common femoral artery using fluoroscopic guidance with contrast,조영제 사용 투시 유도하 피부 경유 혈관내 온넓다리동맥 칼날 풍선 혈관 성형
+432803007,Percutaneous embolization of superficial femoral artery using fluoroscopic guidance with contrast,조영제 사용 투시 유도하 피부 경유 얕은 넓다리 동맥 색전술
+702570008,Fluoroscopic ureterography,투시 요관 조영
+711000087105,Fluoroscopic ureterography of left ureter,왼쪽 요관 투시 요관 조영
+721000087102,Fluoroscopic ureterography of right ureter,오른쪽 요관 투시 요관 조영
+711367004,Biopsy of rib using computed tomography guidance,컴퓨터 단층 촬영 유도하 갈비뼈 생검
+5701000087106,Fluoroscopic antegrade pyelography of bilateral renal pelvis,양측 신우 투시 순행 신우 조영
+418462009,Fluoroscopic antegrade pyelography,투시 순행 신우 조영
+6421000087103,Fluoroscopic antegrade pyelography of right renal pelvis,오른쪽 신우 투시 순행 신우 조영
+431219006,Antegrade insertion of ureteric stent using fluoroscopic guidance,투시 유도하 순행 요관 스텐트 삽입
+710130007,Fluoroscopic venography of vena cava with contrast,조영제 사용 대정맥 투시 정맥 조영
+725929003,Dynamic magnetic resonance imaging of wrist with contrast,조영제 사용 손목 동적 자기 공명 영상
+764970007,Retrospectively electrocardiogram gated computed tomography angiography of coronary artery with contrast,조영제 사용 관상 동맥 후향적 심전도 동기 컴퓨터 단층 촬영 혈관 조영
+765113006,Prospectively electrocardiogram gated computed tomography angiography of coronary artery with contrast,조영제 사용 관상 동맥 전향적 심전도 동기 컴퓨터 단층 촬영 혈관 조영
+241366008,Radionuclide direct micturating cystogram,방사성 핵종 직접 배뇨 방광 조영
+168663008,Plain X-ray head of femur,넓적다리뼈 머리 단순 방사선 촬영
+430243000,Magnetic resonance imaging of breast for radiotherapy planning,방사선 치료 계획을 위한 유방 자기 공명 영상
+14371000087101,Injection of left sacroiliac joint using ultrasonographic guidance,초음파 유도하 왼쪽 엉치엉덩 관절 주사
+14381000087104,Injection of right sacroiliac joint using ultrasonographic guidance,초음파 유도하 오른쪽 엉치엉덩 관절 주사
+14711000087107,Injection of bilateral sacroiliac joints using ultrasonographic guidance,초음파 유도하 양측 엉치엉덩 관절 주사
+17141000087101,Plain X-ray of bilateral sacroiliac joints,양측 엉치엉덩 관절 단순 방사선 촬영
+3721000087104,Plain X-ray of left sacroiliac joint,왼쪽 엉치엉덩 관절 단순 방사선 촬영
+3731000087102,Plain X-ray of right sacroiliac joint,오른쪽 엉치엉덩 관절 단순 방사선 촬영
+417931001,Radionuclide study of sacroiliac joints,엉치엉덩 관절 방사성 핵종 검사
+418618007,Computed tomography of sacroiliac joints,엉치엉덩 관절 컴퓨터 단층 촬영
+429870001,Fluoroscopic arthrography of sacroiliac joint with contrast,조영제 사용 엉치엉덩 관절 투시 관절 조영
+430433001,Injection of sacroiliac joint using computed tomography guidance,컴퓨터 단층 촬영 유도하 엉치엉덩 관절 주사
+431458003,Injection of sacroiliac joint using fluoroscopic guidance,투시 유도하 엉치엉덩 관절 주사
+702523007,Computed tomography of lumbar spine and sacroiliac joints,요추 및 엉치엉덩 관절 컴퓨터 단층 촬영
+709547001,Computed tomography of sacroiliac joint with contrast,조영제 사용 엉치엉덩 관절 컴퓨터 단층 촬영
+709653005,Magnetic resonance imaging of lumbar spine and sacroiliac joint with contrast,조영제 사용 허리 척추 및 엉치엉덩 관절 자기 공명 영상
+709698004,Computed tomography of lumbar spine and sacroiliac joint with contrast,조영제 사용 요추 및 엉치엉덩 관절 컴퓨터 단층 촬영
+713682006,Injection of sacroiliac joint using ultrasonographic guidance,초음파 유도하 엉치엉덩 관절 주사
+448197009,Radiofrequency ablation of nerve of sacroiliac joint using fluoroscopic guidance,투시 유도하 엉치엉덩 관절 신경의 고주파 절제
+783627007,Plain X-ray of sacroiliac joint,엉치엉덩 관절 단순 방사선 촬영
+439101006,X-ray tomography,단층 촬영
+441284005,Multidirectional X-ray tomography,다방향 단층 촬영
+716830000,X-ray tomography of cervical spine,목뼈 단층 촬영
+716846008,X-ray tomography of skull,머리뼈 단층 촬영
+717906006,X-ray tomography of femur,넓적다리뼈 단층 촬영
+717912001,X-ray tomography of spine,척추 단층 촬영
+717957005,X-ray tomography of upper limb,팔 단층 촬영
+718020004,X-ray tomography of sternum,복장뼈 단층 촬영
+718324001,X-ray tomography of temporomandibular joint,턱관절 단층 촬영
+718337003,X-ray tomography of internal auditory canal,내이도 단층 촬영
+718540002,X-ray tomography of facial bone,얼굴뼈 단층 촬영
+718541003,X-ray tomography of pelvis and hip,골반과 엉덩 관절 단층 촬영
+718542005,X-ray tomography of lumbar spine,허리 척추 단층 촬영
+718543000,X-ray tomography of pelvis,골반 단층 촬영
+718545007,X-ray tomography of thoracic spine,흉추 단층 촬영
+719484006,X-ray tomography of shoulder,어깨 단층 촬영
+719485007,X-ray tomography of abdomen,복부 단층 촬영
+724086003,X-ray tomography of right femur,오른쪽 넓적다리뼈 단층 촬영
+724087007,X-ray tomography of left upper limb,왼쪽 팔 단층 촬영
+724088002,X-ray tomography of pelvis and left hip,골반 및 왼쪽 엉덩 관절 단층 촬영
+724089005,X-ray tomography of left rib,왼쪽 갈비뼈 단층 촬영
+724168003,X-ray tomography of left femur,왼쪽 넓적다리뼈 단층 촬영
+724169006,X-ray tomography of left shoulder,왼쪽 어깨 단층 촬영
+724216002,X-ray tomography of right shoulder,오른쪽 어깨 단층 촬영
+724217006,X-ray tomography of right lower limb,오른쪽 다리 단층 촬영
+724218001,X-ray tomography of left lower limb,왼쪽 다리 단층 촬영
+724219009,X-ray tomography of pelvis and right hip,골반 및 오른쪽 엉덩 관절 단층 촬영
+724222006,X-ray tomography of right rib,오른쪽 갈비뼈 단층 촬영
+725153005,X-ray tomography of right upper limb,오른쪽 팔 단층 촬영
