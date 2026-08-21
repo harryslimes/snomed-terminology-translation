@@ -204,10 +204,29 @@ def index_source(spec: DataSourceSpec, language_code: str, qdrant_url: str,
                  len(pairs), spec.id, collection)
         store.recreate_hybrid_collection(collection, embedder.dense_size)
 
+    # An embedding is a pure function of (text, embedder model), so vectors
+    # already computed for the SAME English text in any compatible existing
+    # collection — an earlier content version of this pool, or another pool
+    # variant — are reusable verbatim. Only genuinely new texts (and each
+    # duplicate text once) hit the embedder.
+    needed = {r["en"] for r in pairs[skip:]}
+    reused_vectors = _harvest_donor_vectors(store, needed, collection,
+                                            embedder.dense_size)
+
     batch_size = embedder.config.batch_size
+    n_reused = n_embedded = 0
     for start in range(skip, len(pairs), batch_size):
         batch = pairs[start:start + batch_size]
-        dense, sparse = embedder.encode_documents([r["en"] for r in batch])
+        missing = [r["en"] for r in batch if r["en"] not in reused_vectors]
+        if missing:
+            uniq = list(dict.fromkeys(missing))
+            m_dense, m_sparse = embedder.encode_documents(uniq)
+            for en, d, s in zip(uniq, m_dense, m_sparse):
+                reused_vectors[en] = (d, s)
+            n_embedded += len(uniq)
+        dense = [reused_vectors[r["en"]][0] for r in batch]
+        sparse = [reused_vectors[r["en"]][1] for r in batch]
+        n_reused += len(batch) - len(missing)
         store.upsert_hybrid_points(
             collection,
             list(range(start + 1, start + 1 + len(batch))),
@@ -221,8 +240,72 @@ def index_source(spec: DataSourceSpec, language_code: str, qdrant_url: str,
         done = start + len(batch)
         log.info("  indexed %d/%d", done, len(pairs))
 
+    log.info("Index %r complete: %d point(s) from reused vectors, "
+             "%d text(s) freshly embedded", collection, n_reused, n_embedded)
     _drop_stale_siblings(store, spec, language_code, collection)
     return {"collection": collection, "points": len(pairs)}
+
+
+def _harvest_donor_vectors(store, needed: set, target: str,
+                           dense_size: int) -> dict:
+    """Collect (dense, sparse) vectors for ``needed`` EN texts from every
+    compatible existing collection.
+
+    Compatibility = a named dense vector of the same dimensionality; the
+    payload must carry lang="en" and the text. Dense vectors are held as
+    float32 numpy arrays (~4KB each) so half a million fit in ~2GB; the
+    upsert path accepts any sequence. Returns {text: (dense, sparse)}.
+    """
+    import numpy as np
+    from agent.qdrant_store import DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
+    from qdrant_client import models as qmodels
+
+    out: dict = {}
+    if not needed:
+        return out
+    try:
+        collections = [c.name for c in store.client.get_collections().collections]
+    except Exception:
+        return out
+    for name in collections:
+        if name == target or len(out) >= len(needed):
+            continue
+        try:
+            info = store.client.get_collection(collection_name=name)
+            vec_cfg = info.config.params.vectors
+            size = (vec_cfg.get(DENSE_VECTOR_NAME).size
+                    if isinstance(vec_cfg, dict) and DENSE_VECTOR_NAME in vec_cfg
+                    else None)
+        except Exception:
+            continue
+        if size != dense_size:
+            continue
+        harvested_before = len(out)
+        offset = None
+        while True:
+            points, offset = store.client.scroll(
+                collection_name=name, limit=2048, offset=offset,
+                with_payload=True, with_vectors=True)
+            for p in points:
+                payload = p.payload or {}
+                text = payload.get("text")
+                if (payload.get("lang") != "en" or not text
+                        or text not in needed or text in out):
+                    continue
+                vectors = p.vector or {}
+                d, s = vectors.get(DENSE_VECTOR_NAME), vectors.get(SPARSE_VECTOR_NAME)
+                if d is None or s is None:
+                    continue
+                if isinstance(s, dict):
+                    s = qmodels.SparseVector(indices=s.get("indices", []),
+                                             values=s.get("values", []))
+                out[text] = (np.asarray(d, dtype=np.float32), s)
+            if offset is None or len(out) >= len(needed):
+                break
+        if len(out) > harvested_before:
+            log.info("Reusing %d vector(s) harvested from %r (total %d/%d)",
+                     len(out) - harvested_before, name, len(out), len(needed))
+    return out
 
 
 def _drop_stale_siblings(store, spec: DataSourceSpec, language_code: str,
