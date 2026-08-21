@@ -311,6 +311,11 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
 
     ko_col = str(params.get("ko_col") or "translation")
     gold_col = str(params.get("gold_col") or "ko_reference")
+    # The machine-row provenance label. Hardcoding "machine_v6_0" survived one
+    # full re-translation: the v6.1 re-run shipped rows labelled v6_0, and the
+    # sampler filters on the same literal, so a stale label would silently
+    # empty the blinded sample too.
+    machine_label = str(params.get("machine_label") or "machine_v6_0")
 
     # An adjudicated answer is authoritative but NOT immortal: a later ruling
     # supersedes an earlier row. All 7 gold rows rendering plain radiography as
@@ -353,7 +358,7 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
                 n_high += 1
         else:
             translation = (r.get(ko_col) or "").strip()
-            syns, source = [], "machine_v6_0"
+            syns, source = [], machine_label
             p = priority.get(sctid)
             # Disagreement is the strongest single predictor we have of an
             # incorrect row (unanimous 57.7% exact vs 14.6% when the samples
@@ -406,7 +411,7 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
     if per_tier:
         by_tier = defaultdict(list)
         for row in rows:
-            if row.get("translation_source") == "machine_v6_0":
+            if row.get("translation_source") == machine_label:
                 by_tier[row.get("review_priority")].append(row)
         picked = set()
         for tier in ("high", "medium", "low"):
@@ -429,7 +434,7 @@ def package_deliverable(ctx: RunContext, inputs: dict[str, Any],
     if params.get("xlsx"):
         xlsx_path = out.with_suffix(".xlsx")
         try:
-            xlsx_info = _write_review_xlsx(out, xlsx_path, fields)
+            xlsx_info = _write_review_xlsx(out, xlsx_path, fields, machine_label)
         except Exception as exc:  # noqa: BLE001 — the CSV is the artifact of record
             log.warning("package_deliverable: xlsx rendering failed (%s); "
                         "the CSV is unaffected", exc)
@@ -476,7 +481,8 @@ def _label_checks(value: str) -> str:
     return "; ".join(dict.fromkeys(out))
 
 
-def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> dict:
+def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str],
+                       machine_label: str = "machine_v6_0") -> dict:
     """Render the review pack as a workbook a reviewer can actually work in.
 
     The CSV is the machine-readable artifact; this is the human one. Reviewers
@@ -592,7 +598,7 @@ def _write_review_xlsx(csv_path: Path, xlsx_path: Path, fields: list[str]) -> di
         ["Column", "Meaning"],
         ["translation_ko", "The proposed Korean term. This is what needs checking."],
         ["synonyms_ko", "Additional accepted forms already on record."],
-        ["translation_source", "machine_v6_0 = newly generated. sme_approved = your previously accepted wording, unchanged. sme_partial = you rated it PARTIAL before, so it is back for another look."],
+        ["translation_source", f"{machine_label} = newly generated. sme_approved = your previously accepted wording, unchanged. sme_partial = you rated it PARTIAL before, so it is back for another look."],
         ["review_priority", "Where our automated checks think the risk is: high, medium, low. done = previously accepted, no action needed."],
         ["flagged_checks", "Which check fired, when one did. hierarchy-inconsistency = rendered differently from its own parent concept."],
         ["n_distinct", "How many different answers the model gave across 5 attempts. 1 = it was consistent; 4-5 = it was unsure."],

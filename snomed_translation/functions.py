@@ -1373,6 +1373,8 @@ package_deliverable_spec = FunctionSpec(
         ParamSpec(name="sample_per_tier", label="Stratified review sample per priority tier",
                   kind="number", default=0),
         ParamSpec(name="seed", label="Sample seed", kind="number", default=20260812),
+        ParamSpec(name="machine_label", label="Provenance label for machine rows",
+                  kind="text", default="machine_v6_0"),
     ],
     runner="snomed_translation.batch_selection:package_deliverable",
 )

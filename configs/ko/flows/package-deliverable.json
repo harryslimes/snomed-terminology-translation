@@ -150,7 +150,8 @@
         "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
         "xlsx": true,
         "sample_per_tier": 40,
-        "seed": 20260821
+        "seed": 20260821,
+        "machine_label": "machine_v6_1"
       },
       "inputs": {
         "translations": "deliverable",
