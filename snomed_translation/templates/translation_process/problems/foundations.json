@@ -1,0 +1,11 @@
+{
+  "id": "foundations",
+  "title": "Foundations: pool, retrieval, seed guide",
+  "prose": "Phase 0-1. Source the gating inputs (licensed RF2 snapshot; a bilingual exemplar pool — the single biggest quality determinant; a committed SME; a domain slice of ~5k concepts). Curate the pool declaratively (drop non-clinical rows, rewrite export artifacts — the raw pool is never edited; each curated version gets its own retrieval index, and embedding vectors are reused across versions). Seed the style guide minimally: script, spacing, formatting. Do not guess editorial policy — the SME rounds will write it.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "snomed-translation"
+}

@@ -1,0 +1,66 @@
+{
+  "id": "{{code}}-tier-separation",
+  "name": "{{code}}_tier_separation",
+  "description": "The pre-registered analysis for a returned blinded sample: does review_priority predict what the SME rejects? Joins the ingested ratings to the pack carrying the (blinded) tier labels and runs the linear-by-linear trend test, binary and ordinal. The sample was blinded and stratified precisely so this run is meaningful; record the result as a conclusion every round.",
+  "project": "{{project}}",
+  "nodes": [
+    {
+      "id": "reviewed",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 140.0
+      },
+      "params": {
+        "data_object": "{{code}}_round_sample"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "pack",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 320.0
+      },
+      "params": {
+        "data_object": "{{code}}_review_pack"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "separation",
+      "type": "function",
+      "pos": {
+        "x": 380.0,
+        "y": 220.0
+      },
+      "params": {
+        "tier_col": "review_priority",
+        "rating_col": "sme_rating",
+        "output_tag": "round",
+        "function": "priority_tier_separation"
+      },
+      "inputs": {
+        "reviewed": "reviewed",
+        "pack": "pack"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 720.0,
+        "y": 220.0
+      },
+      "params": {
+        "expression": "trend_z_ordinal",
+        "output_name": "tier_trend_z_ordinal",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "separation:metrics"
+      }
+    }
+  ]
+}

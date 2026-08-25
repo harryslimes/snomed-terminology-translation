@@ -1,0 +1,199 @@
+{
+  "id": "{{code}}-package-review",
+  "name": "{{code}}_package_review",
+  "description": "Build the reviewer-facing pack from {{code}}_deliverable: detector family -> qa_gate worklist -> package. Adjudicated renderings overlay the machine output (done / back-for-confirmation), review_priority comes from the worklist plus sampling disagreement, and a BLINDED stratified sample (40 machine rows per tier, deterministic seed — advance the seed each round) is drawn so the claim that priority predicts error is testable. Reviewed rows leave the sample pool by construction once merged into the gold. Bump machine_label whenever the generating configuration changes. Promotes {{code}}_review_pack.",
+  "project": "{{project}}",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "data_object": "{{code}}_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 440.0
+      },
+      "params": {
+        "source": "{{code}}_sme_adjudicated"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rules",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 40.0
+      },
+      "params": {
+        "rules_file": "{{configs_dir}}/hard_rules/{{code}}.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "pack",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 200.0
+      },
+      "params": {
+        "rf2_relationship_file": "{{rf2_relationship_file}}",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "pack",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "dupes",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 360.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "pack",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 200.0
+      },
+      "params": {
+        "max_blockers": 0,
+        "fail_if_not_shippable": false,
+        "output_tag": "pack",
+        "function": "qa_gate"
+      },
+      "inputs": {
+        "findings1": "rules:findings",
+        "findings2": "hierarchy:findings",
+        "findings3": "dupes:findings"
+      }
+    },
+    {
+      "id": "pack",
+      "type": "function",
+      "pos": {
+        "x": 1040.0,
+        "y": 200.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "gold_col": "ko_reference",
+        "output_name": "{{code}}_review_pack_v1",
+        "function": "package_deliverable",
+        "rules_file": "{{configs_dir}}/hard_rules/{{code}}.yaml",
+        "xlsx": true,
+        "sample_per_tier": 40,
+        "seed": 1,
+        "machine_label": "machine_v1"
+      },
+      "inputs": {
+        "translations": "deliverable",
+        "gold": "gold",
+        "priority": "gate:worklist"
+      }
+    },
+    {
+      "id": "verify",
+      "type": "function",
+      "pos": {
+        "x": 1380.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "{{configs_dir}}/hard_rules/{{code}}.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation_ko",
+        "output_tag": "packed",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "pack:deliverable"
+      }
+    },
+    {
+      "id": "dupes_final",
+      "type": "function",
+      "pos": {
+        "x": 1380.0,
+        "y": 280.0
+      },
+      "params": {
+        "ko_col": "translation_ko",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "packed",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "pack:deliverable"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1720.0,
+        "y": 120.0
+      },
+      "params": {
+        "expression": "n_rows_with_blocker",
+        "output_name": "packed_blocker_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "verify:metrics"
+      }
+    },
+    {
+      "id": "promote_pack",
+      "type": "promote",
+      "pos": {
+        "x": 1720.0,
+        "y": 280.0
+      },
+      "params": {
+        "name": "{{code}}_review_pack",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "pack:deliverable"
+      }
+    }
+  ]
+}

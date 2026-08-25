@@ -1,0 +1,25 @@
+{
+  "name": "translation_process",
+  "title": "SNOMED translation process (full method)",
+  "description": "The formalised method from the EN->Korean project (docs/language_project_guide_2026-08-25.md): phase problem tree, gated plan, the SME round-loop flows, seed rule files, and the nine standing laws as conclusions. Seeds a project that starts with the method installed rather than rediscovered.",
+  "placeholders": [
+    "{{code}}",
+    "{{lang_name}}",
+    "{{data_dir}}",
+    "{{pool_source}}",
+    "{{seed_guide}}",
+    "{{model_key}}",
+    "{{project}}",
+    "{{configs_dir}}",
+    "{{rf2_relationship_file}}"
+  ],
+  "seeds": {
+    "problems": 8,
+    "plan_tasks": 14,
+    "gates": 5,
+    "flows": 9,
+    "sources": 2,
+    "conclusions": 9,
+    "files": 2
+  }
+}

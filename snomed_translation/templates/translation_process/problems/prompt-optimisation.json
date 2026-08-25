@@ -1,0 +1,11 @@
+{
+  "id": "prompt-optimisation",
+  "title": "Prompt optimisation (GEPA)",
+  "prose": "Phase 4. Run AFTER deterministic fold-ins saturate — the optimiser spends its budget on what rules cannot express (compositional word order), not on rediscovering the glossary. Prerequisites: a leak-free split of the adjudicated gold (retrieval must not see eval rows); a metric the SME's judgements validate; hard rules frozen AND enforced in the metric; a promotion gate — the optimised prompt ships only if it beats the current guide held-out.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "snomed-translation"
+}
