@@ -1,0 +1,97 @@
+{
+  "id": "kog-merge-gold",
+  "name": "kog_merge_gold",
+  "description": "Merge a review round into the adjudicated gold set with supersession — the single place 'currently adjudicated' is decided. Recency wins: a new round replaces older rows for the same concept, and older rows whose text violates the CURRENT rule file are withheld to the superseded output (the reviewer's confirmation list — never a silent drop). The newest round is never rule-checked away; its contradictions with older rulings go to the editorial-rulings ledger. After merging, copy the merged output over the kog_sme_adjudicated source CSV (or repoint lock/overlay datasources at the promoted object) so the lock and overlay follow. Promotes kog_adjudicated_merged + kog_superseded.",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "gold",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 120.0
+      },
+      "params": {
+        "source": "kog_sme_adjudicated"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "round",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 300.0
+      },
+      "params": {
+        "data_object": "kog_round_sample"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "merge",
+      "type": "function",
+      "pos": {
+        "x": 380.0,
+        "y": 200.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "severities": "blocker,warning",
+        "batch_label": "round",
+        "output_tag": "merge",
+        "function": "merge_adjudicated_gold"
+      },
+      "inputs": {
+        "gold": "gold",
+        "round": "round"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 720.0,
+        "y": 100.0
+      },
+      "params": {
+        "expression": "n_merged",
+        "output_name": "adjudicated_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "merge:metrics"
+      }
+    },
+    {
+      "id": "promote_merged",
+      "type": "promote",
+      "pos": {
+        "x": 720.0,
+        "y": 240.0
+      },
+      "params": {
+        "name": "kog_adjudicated_merged",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "merge:merged"
+      }
+    },
+    {
+      "id": "promote_superseded",
+      "type": "promote",
+      "pos": {
+        "x": 720.0,
+        "y": 380.0
+      },
+      "params": {
+        "name": "kog_superseded",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "merge:superseded"
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "id": "kog-curate-pool",
+  "name": "kog_curate_pool",
+  "description": "Declarative, tracked curation of the exemplar pool: raw pool -> rules file -> NEW versioned CSV (the raw pool is never edited; each variant gets its own retrieval index, and embedding vectors are reused across versions so re-curation costs minutes). Add rules as failure modes surface: non-clinical rows, export artifacts, pairs teaching superseded forms. Prefer drop over rewrite for reference data. After a run, register the output CSV as a source and repoint translate flows at it explicitly — an A/B is a flow edit.",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "raw_pool",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "kog_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "curate",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/pool_rules/kog.yaml",
+        "output_csv": "data/languages/kog/pool/curated/pool_curated_v1.csv",
+        "function": "curate_exemplar_pool",
+        "include_additions": false
+      },
+      "inputs": {
+        "pool": "raw_pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "rows_out",
+        "output_name": "curated_pool_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "curate:metrics"
+      }
+    }
+  ]
+}

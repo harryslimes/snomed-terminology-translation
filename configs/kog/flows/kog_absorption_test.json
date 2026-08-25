@@ -1,0 +1,139 @@
+{
+  "id": "kog-absorption-test",
+  "name": "kog_absorption_test",
+  "description": "Feedback-absorption check: re-translate the round's reviewed rows in EXACTLY the production configuration after folding rulings into the guide/rules, and score against the reviewer's effective references (correction where given, else the text she rated). Measures whether the prompt encoded what she said — NOT generalisation (the rulings came from these rows); the next round's fresh sample measures that. Change ONE variable per run, and remember: single-run exact-match deltas at production temperature sit inside sampling noise — read the per-row traces, not just the headline.",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "data_object": "kog_round_terms"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "kog_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/kog/style_guide_kog_seed.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "absorption",
+        "function": "translate_consistency",
+        "request_timeout_seconds": 300
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": false,
+        "concurrency": 8,
+        "output_tag": "absorption",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "cascade:translations",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 220.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "absorption",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "absorption_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate:metrics"
+      }
+    }
+  ]
+}

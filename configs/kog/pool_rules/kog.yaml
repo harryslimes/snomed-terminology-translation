@@ -1,0 +1,14 @@
+# Korean (greenfield demo) exemplar-pool curation rules.
+#
+# Seeded empty by the translation_process template. The raw pool is never
+# edited in place: curation is declarative and tracked — each rule drops or
+# rewrites matching pairs into a NEW versioned CSV with its own retrieval
+# index. Add rules as failure modes surface (non-clinical rows, export
+# artifacts, pairs teaching superseded forms). Prefer `drop` over `rewrite`
+# for reference data: a rewritten pair is a translation no human validated.
+# Schema and worked examples: the Korean file (configs/ko/pool_rules/ko.yaml).
+
+language: kog
+version: 1
+
+rules: []

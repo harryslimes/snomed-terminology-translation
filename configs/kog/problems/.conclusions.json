@@ -1,0 +1,103 @@
+{
+  "conclusions": [
+    {
+      "id": "law-1",
+      "statement": "Numbers come from tracked runs.",
+      "detail": "If a metric was computed ad hoc, it does not exist. Notes and conclusions hold the qualitative read and LINK to runs.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-2",
+      "statement": "The SME lock is absolute, and supersession is explicit.",
+      "detail": "A machine never overwrites an adjudicated row; a newer human ruling supersedes an older one via the gold merge, and every superseded row goes to the reviewer as a confirmation list, never silently.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-3",
+      "statement": "Canonical forms come from adjudicated sources, not batch frequency.",
+      "detail": "Three Korean rules over-fired before this was learned; one 'repaired' 13 rows away from the reviewer's own approved answer.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-4",
+      "statement": "Repair by minimal substitution; re-translate only for structure.",
+      "detail": "Free re-translation takes the licence it is given — it once cleared a rule while deleting 'emission' from a SPECT term. A substitution touches exactly the offending span.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-5",
+      "statement": "Blind and pre-register the experiments.",
+      "detail": "The Korean priority-validation result is credible because the sample was stratified and blinded and the analysis was written down before the reviewer saw the file.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-6",
+      "statement": "Expect the reviewer to supersede herself.",
+      "detail": "Rulings evolve (plain X-ray reversed between rounds; hip went three ways in one file). Confirmation lists and adjudication questions metabolise this.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-7",
+      "statement": "Pair-level detectors catch what row-level checks cannot.",
+      "detail": "Duplicate-translation found wrong-vessel and wrong-organ errors every other detector passed — in both generations of the Korean text.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-8",
+      "statement": "Single-run A/Bs at production temperature are not decision evidence.",
+      "detail": "Sampling noise flips ~7-8% of rows between identical runs; per-row causal traces (retained prompts) are the usable evidence at small scale.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    },
+    {
+      "id": "law-9",
+      "statement": "Derived data is never edited in place.",
+      "detail": "Pools, gold sets, and deliverables version through tracked runs with content digests, so rollback is always one flow away.",
+      "kind": "methodological",
+      "status": "established",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [],
+      "proposed_by": "template:translation_process"
+    }
+  ]
+}

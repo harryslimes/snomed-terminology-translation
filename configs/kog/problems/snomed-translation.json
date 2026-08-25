@@ -1,0 +1,10 @@
+{
+  "id": "snomed-translation",
+  "title": "SNOMED translation — EN->Korean (greenfield demo)",
+  "prose": "Root problem for the EN->Korean (greenfield demo) translation project, run under the formalised process (docs/language_project_guide_2026-08-25.md). The system is a drafting + QA pipeline: it does not replace expert review, it concentrates expert time on the rows that need it and converts every expert ruling into machinery (rules, prompt instructions, reference data) so the same mistake is never reviewed twice. Durable outputs: the versioned deliverable, the adjudicated gold set with supersession history, the rule file + style guide (the compounding asset), and the provenance trail.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": []
+}

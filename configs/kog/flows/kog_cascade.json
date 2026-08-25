@@ -1,0 +1,158 @@
+{
+  "id": "kog-cascade",
+  "name": "kog_cascade",
+  "description": "PRODUCTION cascade over the Korean (greenfield demo) domain slice. gemma4-26b-qat samples 5 per concept at temp 0.7 under the current style guide and curated pool; concepts whose samples agree keep the local answer; the rest are re-translated BLIND by the escalation model (edit the cascade node for your provider). The disagreement count (n_distinct) doubles as the review-priority signal. validate_translations is ADVISORY here — this flow is step 1 of a mandatory cascade -> rule-repair -> package chain with its own gates. Promotes kog_deliverable (content-addressed; rollback is one flow away).",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "kog_domain_terms"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "kog_pool"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/kog/style_guide_kog_seed.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "cascade",
+        "function": "translate_consistency",
+        "request_timeout_seconds": 300
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": false,
+        "max_attempts": 3,
+        "concurrency": 8,
+        "output_tag": "cascade",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "cascade",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "dupes",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 220.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "cascade",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "escalation_rate_pct",
+        "output_name": "escalation_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "cascade:metrics"
+      }
+    },
+    {
+      "id": "promote_out",
+      "type": "promote",
+      "pos": {
+        "x": 1240.0,
+        "y": 220.0
+      },
+      "params": {
+        "name": "kog_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "cascade:translations"
+      }
+    }
+  ]
+}

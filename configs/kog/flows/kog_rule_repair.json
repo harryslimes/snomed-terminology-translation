@@ -1,0 +1,157 @@
+{
+  "id": "kog-rule-repair",
+  "name": "kog_rule_repair",
+  "description": "Batch repair of kog_deliverable against the rule file, by MINIMAL substitution: each rule's forbidden form replaced by its canonical one, touching only the offending span — the conservative alternative to re-translation, which takes the licence it is given. Adoption is gated: the SME lock refuses adjudicated rows, the patch-safety gate refuses any change introducing a blocker, and validate + duplicates re-run on the spliced result so acceptance is Pareto. Re-promotes kog_deliverable.",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "data_object": "kog_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sme_labels",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 440.0
+      },
+      "params": {
+        "source": "kog_sme_adjudicated"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "before",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "before",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "substitute",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 120.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "ko_col": "translation",
+        "severities": "warning,blocker",
+        "output_tag": "repair",
+        "function": "rule_substitute"
+      },
+      "inputs": {
+        "translations": "deliverable",
+        "findings": "before:findings"
+      }
+    },
+    {
+      "id": "apply",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 200.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "repaired",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {
+        "base": "deliverable",
+        "patch": "substitute:translations",
+        "sme_labels": "sme_labels"
+      }
+    },
+    {
+      "id": "after",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 80.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "after",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "apply:translations"
+      }
+    },
+    {
+      "id": "dupes_after",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 240.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "after",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "apply:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1540.0,
+        "y": 80.0
+      },
+      "params": {
+        "expression": "n_warnings",
+        "output_name": "warnings_after",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "after:metrics"
+      }
+    },
+    {
+      "id": "promote",
+      "type": "promote",
+      "pos": {
+        "x": 1540.0,
+        "y": 240.0
+      },
+      "params": {
+        "name": "kog_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "apply:translations"
+      }
+    }
+  ]
+}

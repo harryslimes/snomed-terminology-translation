@@ -1,0 +1,255 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Source the gating inputs (RF2, exemplar pool, SME, domain slice)",
+      "rationale": "RF2 licence, a bilingual pool, a committed SME, and a ~5k-concept domain gate everything downstream.",
+      "problem": "foundations",
+      "addresses": [],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-2",
+      "title": "Curate the exemplar pool (declarative rules, new versioned CSV)",
+      "rationale": "Reference data must not teach noise or superseded forms; curation is tracked, the raw pool is never edited.",
+      "problem": "foundations",
+      "addresses": [],
+      "depends_on": [
+        "task-1"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-3",
+      "title": "Index exemplars (automatic on first use; vectors reuse across pool versions)",
+      "rationale": "Per-concept retrieval needs the pool indexed; reuse makes re-curation cheap.",
+      "problem": "foundations",
+      "addresses": [],
+      "depends_on": [
+        "task-2"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-4",
+      "title": "Seed the style guide (script/spacing/formatting only)",
+      "rationale": "Editorial policy comes from SME rounds, not guesses.",
+      "problem": "foundations",
+      "addresses": [],
+      "depends_on": [
+        "task-1"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-5",
+      "title": "Baseline cascade over the domain",
+      "rationale": "Local sampling + escalation on disagreement; the disagreement signal doubles as review priority.",
+      "problem": "baseline-and-qa",
+      "addresses": [],
+      "depends_on": [
+        "task-2",
+        "task-3",
+        "task-4"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-6",
+      "title": "Detector sweep + QA gate on the baseline",
+      "rationale": "One prioritised worklist from rules + hierarchy + duplicate-translation; blockers repaired before any pack ships.",
+      "problem": "baseline-and-qa",
+      "addresses": [],
+      "depends_on": [
+        "task-5"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-7",
+      "title": "Package round-1 review pack with a blinded stratified sample",
+      "rationale": "The sample is the round's experiment — it measures whether priority predicts error. Pre-register the analysis.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-6"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-8",
+      "title": "SME reviews round 1 (sample + adjudication questions)",
+      "rationale": "Rate every sample row including the fine ones; a handful of well-chosen questions settles many rows.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-7"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-9",
+      "title": "Ingest the returned round + measure tier separation",
+      "rationale": "One tracked ingest run; then the pre-registered trend test across priority tiers.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-8"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-10",
+      "title": "Fold rulings in, deterministic first (rules -> guide -> pool -> gold merge)",
+      "rationale": "Rulings become machine-checkable rules and prompt text; the gold merge applies supersession with a confirmation list.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-9"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-11",
+      "title": "Absorption test on the reviewed rows",
+      "rationale": "Re-translate the same rows under the new configuration to measure feedback absorption before touching production.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-10"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-12",
+      "title": "Repair or re-translate, audit, package round 2",
+      "rationale": "Minimal substitution for term defects; full re-translation for structural mass; pre-send audit with a high-confidence fix patch.",
+      "problem": "sme-round-1",
+      "addresses": [],
+      "depends_on": [
+        "task-10",
+        "task-11"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-13",
+      "title": "GEPA re-optimisation on the residue",
+      "rationale": "After deterministic fold-ins saturate: leak-free split, SME-validated metric, rules frozen, promotion-gated.",
+      "problem": "prompt-optimisation",
+      "addresses": [],
+      "depends_on": [
+        "task-12"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    },
+    {
+      "id": "task-14",
+      "title": "Delivery gates + promote the deliverable",
+      "rationale": "Blinded-sample error below target, zero unreviewed blockers, SME sign-off.",
+      "problem": "delivery",
+      "addresses": [],
+      "depends_on": [
+        "task-12"
+      ],
+      "status": "todo",
+      "proposed_by": "template"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-1",
+      "kind": "manual",
+      "description": "Gating inputs sourced: RF2 licence, exemplar pool, SME commitment, domain slice",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "threshold": null,
+      "source": "",
+      "artifact": "",
+      "problems": [
+        "foundations"
+      ],
+      "requires_signoff": false
+    },
+    {
+      "id": "gate-2",
+      "kind": "manual",
+      "description": "Baseline measured: cascade run + detector sweep recorded as tracked runs",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "threshold": null,
+      "source": "",
+      "artifact": "",
+      "problems": [
+        "baseline-and-qa"
+      ],
+      "requires_signoff": false
+    },
+    {
+      "id": "gate-3",
+      "kind": "manual",
+      "description": "Round-1 tier separation measured on the blinded sample (pre-registered analysis)",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "threshold": null,
+      "source": "",
+      "artifact": "",
+      "problems": [
+        "sme-round-1"
+      ],
+      "requires_signoff": false
+    },
+    {
+      "id": "gate-4",
+      "kind": "manual",
+      "description": "Optimised prompt beats the current guide on the held-out set (promotion gate)",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "threshold": null,
+      "source": "",
+      "artifact": "",
+      "problems": [
+        "prompt-optimisation"
+      ],
+      "requires_signoff": false
+    },
+    {
+      "id": "gate-5",
+      "kind": "manual",
+      "description": "SME sign-off on the deliverable",
+      "status": "open",
+      "rationale": "",
+      "metric": "",
+      "op": ">=",
+      "threshold": null,
+      "source": "",
+      "artifact": "",
+      "problems": [
+        "delivery"
+      ],
+      "requires_signoff": true
+    }
+  ]
+}
