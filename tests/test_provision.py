@@ -166,6 +166,54 @@ def test_instantiate_template_wires_valid_flows(tmp_path):
     assert all(t["problem"] in prob_ids for t in plan["tasks"])
 
 
+def test_instantiate_translation_process_template(tmp_path):
+    from pipelines.flow import FlowSpec
+
+    cfgroot = tmp_path / "configs"
+    (cfgroot / "xx").mkdir(parents=True)
+    res = P.instantiate_template(
+        code="xx",
+        name="Example language",
+        configs_root=cfgroot,
+        template="translation_process",
+        model_key="example-model",
+        rf2_relationship_file="data/rf2/relationships.txt",
+    )
+    assert res["counts"] == {
+        "problems": 8,
+        "flows": 9,
+        "sources": 2,
+        "plan_tasks": 14,
+        "conclusions": 9,
+        "files": 2,
+    }
+
+    project = cfgroot / "xx"
+    for flow_file in (project / "flows").glob("*.json"):
+        FlowSpec(**json.loads(flow_file.read_text()))
+
+    rendered = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in project.rglob("*")
+        if path.is_file()
+    )
+    assert "{{" not in rendered
+    assert "__code__" not in rendered
+    assert (project / "hard_rules" / "xx.yaml").is_file()
+    assert (project / "pool_rules" / "xx.yaml").is_file()
+
+    plan = json.loads((project / "problems" / ".plan.json").read_text())
+    assert len(plan["gates"]) == 5
+
+    second = P.instantiate_template(
+        code="xx",
+        name="Example language",
+        configs_root=cfgroot,
+        template="translation_process",
+    )
+    assert second["counts"]["conclusions"] == 0
+
+
 def test_instantiate_unknown_template(tmp_path):
     with pytest.raises(ValueError, match="unknown template"):
         P.instantiate_template(code="et", name="x", configs_root=tmp_path, template="nope")
