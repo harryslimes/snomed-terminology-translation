@@ -2393,6 +2393,170 @@
       "proposed_by": "agent",
       "author": "",
       "ts": "2026-08-19"
+    },
+    {
+      "id": "conclusion-79",
+      "statement": "One deterministic fold-in of the round-3 rulings (style guide v6.1 + 8 source-conditional rules) moved the 120-row sample from 42.5% to 60.8% exact agreement with the reviewer's wording under the unchanged production cascade, eliminating every systematic convention class (0 hits on all 8 round-3 rules) without increasing escalation.",
+      "detail": "Run 274572a407ae: 38/70 PARTIAL rows now produce her correction verbatim (was 1/70); 35/50 ACCEPTABLE rows unchanged; ~10 more rows are variants she plausibly accepts. Residual error mass: word order on long multi-modifier terms (the natural GEPA target), glossary gaps, 3-4 minor new regressions, and reviewer self-inconsistency (hip is three-way inconsistent within her own return). Measures feedback ABSORPTION, not generalisation — rulings were derived from these rows, though corrections were not retrievable as exemplars.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "4e0bdfa92d98",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-19"
+    },
+    {
+      "id": "conclusion-80",
+      "statement": "The round-3 convention classes covered ~15% of the full deliverable (815 warning findings over 5,012 rows), and minimal-substitution repair cleared 97.7% of them in one pass (815→19) with zero new blockers and collisions unchanged — every residual finding sits on an SME-locked row whose adjudicated text predates the reviewer's own round-3 rulings.",
+      "detail": "Run b2e80cefddb3: 461 투시-유도하, 123 transluminal, 119 plain-xray, 46 cutting-balloon, 32 mammography, 21 cone-beam, 8 intrathecal, 5 ecg-gated before; 753 rows patched under the SME lock (18 refusals) and blocker gate (0 refusals). The 120-row sample's systematic classes generalised to the whole batch at ~6x scale. The residue converts the lock's refusals into the next reviewer question list: 18 of her own earlier renderings now violate her own new rules — adjudicated gold needs supersession mechanics, not just immutability.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "b2e80cefddb3",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-19"
+    },
+    {
+      "id": "conclusion-81",
+      "statement": "Single-run exact-match A/Bs on the 120-row set at production temperature are underpowered for the effects being tested: two runs differing only by an inert prompt clause flipped 9 rows (temp-0.7 sampling noise), the same magnitude as the pool intervention's net change — per-row causal traces through the retained prompts, not aggregate deltas, are the usable evidence at this scale.",
+      "detail": "Runs 274572a407ae (60.8%), eb21b1697f04 (58.3%, clause only, same pool — 3 fixed/6 broken vs baseline), 9c13c80665e7 (56.7%, clause + r3 pool — 6 fixed/11 broken). One arm-B break had a byte-identical exemplar slate. The traces did localise real mechanisms in both directions: the curated pool fixed the audited structural-copy rows (gated/rest order, route-before-site, 정적 placement) and one hygiene filter over-reached — dropping 'Catheter (physical object) → 카테터' admitted an EDI row teaching 도뇨기구 — reversed same day. Decision evidence for pool/prompt changes needs replicates, a larger set, or the next SME round.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "eb21b1697f04",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9c13c80665e7",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-21"
+    },
+    {
+      "id": "conclusion-82",
+      "statement": "Retrieval-slot hygiene has the same over-generalisation trap as output rules: the physical-object drop removed device vocabulary (카테터) that procedure terms need, breaking a previously-correct row — curation filters must be scoped by traced evidence and verified per-row, exactly like hard rules.",
+      "detail": "Third instance of the pattern (upper-limb rule, deprecated-xray-form, now r3-nonclinical-semantic-tags). Filter narrowed and pool rebuilt (runs 07f5ed61593e → 33c59e9f868d, 497,491 rows). A variant-preference problem also surfaced — SNOMED_synonyms rows (관혈류) displacing canonical SNOMED rows (관류) for the same concept — a dedup-prefer-canonical curation rule is the natural next block. Also for the adjudication ledger: her round-3 arthrogram correction uses 조영상, contradicting her own batch-2 ruling that images never end 조영상.",
+      "kind": "methodological",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "9c13c80665e7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "33c59e9f868d",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-21"
+    },
+    {
+      "id": "conclusion-83",
+      "statement": "Supersession now lives at the gold-set level: merge_adjudicated_gold decides what is currently adjudicated (recency wins, rule-violating older rows withheld to a reviewer confirmation list, the newest round never rule-checked away), and the SME lock, the repair loop, and the reviewer overlay all inherit that decision — releasing the previously-frozen stale rows for repair (deliverable warnings 19→8) while keeping every withheld row visible for confirmation.",
+      "detail": "Runs fbdbf6910666 (200+120→305 merged, 15 withheld: 조영상 6, 투시-유도하 3, transluminal 3, mammography 2, cone-beam 1), 420c462b708b (re-repair under the new lock), 70020b413e84 (round-4 pack: 285-row overlay, fresh seed-20260821 blinded sample with zero overlap with the reviewed 120 — the sampler excludes overlaid rows by construction, enabling an independent replication of the tier-validation test).",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "fbdbf6910666",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "420c462b708b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "70020b413e84",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-21"
+    },
+    {
+      "id": "conclusion-84",
+      "statement": "Re-translating the full 5,012-concept batch under the round-3 configuration (guide v6.1 + precedence clause + curated pool) produced output with 15 rule findings where the v6.0 first pass had 815 warnings + 35 blockers — a ~50x reduction in convention defects at generation time, with an identical 45% escalation profile and zero errors — confirming that reviewer rulings folded into the prompt are absorbed at source rather than needing post-hoc repair.",
+      "detail": "Runs d7897383b0e7 (cascade), f536ec8c1f1a (repair: 15→4), 937128939e28 (pack). 2,784/5,012 rows changed vs the previously reviewed pack; 0 machine rows misuse 투시 유도하. Cost of fresh text: collisions regenerate (9 hand-fixed → 39 groups/84 rows) and hierarchy inconsistency ticks up (495→548 pairs) — pair-level and structural properties the prompt cannot see, now the dominant residual defect classes, both detector-flagged in the pack. Round-4 blinded sample: fresh draw, all machine_v6_1, zero overlap with reviewed rows.",
+      "kind": "empirical",
+      "status": "provisional",
+      "confidence": "high",
+      "problems": [
+        "integrating-round-3-sme-feedback-imaging-review-pack"
+      ],
+      "evidence": [
+        {
+          "to_kind": "run",
+          "to_id": "d7897383b0e7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "f536ec8c1f1a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "937128939e28",
+          "label": ""
+        }
+      ],
+      "proposed_by": "agent",
+      "author": "",
+      "ts": "2026-08-21"
     }
   ]
 }

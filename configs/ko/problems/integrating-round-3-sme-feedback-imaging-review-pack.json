@@ -39,6 +39,228 @@
       ],
       "author": "agent",
       "ts": "2026-08-19T19:13:03"
+    },
+    {
+      "id": "note-2",
+      "body": "FEEDBACK-ABSORPTION TEST (run 274572a407ae, investigation round3_feedback_absorption_v1): re-translated the 120 round-3 rows in the exact production-cascade configuration with ONE change — style guide v6.1 (round-3 fold-in). Reference = her correction where given, else the text she rated ACCEPTABLE. Prior attempt f64039836116 failed at evaluate's compile check (promoted data objects lacked a target-role alias for ko_reference; fixed in graph.py).\n\nRUN METRICS: exact match vs her references 60.8% (73/120; the no-change baseline is 42.5% definitional — 50 ACCEPTABLE + 1 correction that equals the machine text modulo spacing), chrF 86.3. Rule compliance: 0 hits on all 8 new round-3 rules, 1 warning total across 120 (images-end-yeongsang). Escalation rate 46.7% vs 49% under v6.0 on the same rows, so the gain is not from routing more to Qwen.\n\nARTIFACT-LEVEL BREAKDOWN (from the run's cascade/eval CSVs): of 70 PARTIAL rows, 38 now produce her wording verbatim (was 1). Of 50 ACCEPTABLE rows, 35 unchanged.\n\nSUBJECTIVE READ of the 32 non-verbatim PARTIALs: ~10 are variants she'd plausibly accept (spacing, forms she lists as acceptable, or arguably better than her correction — e.g. 433633006 keeps 복부 대동맥 where her correction dropped it); ~15 improved but retain one residual defect, almost always WORD ORDER on multi-modifier terms (심전도 동기/심근 휴식기 swaps, 정적 placement) or one term outside the glossary (허리 척추 for lumbar spine, 주사 vs 주입); ~4 missed or newly garbled (434245001 puts the site after the procedure; 1251639001 discography still tangled; 442989006 unchanged).\n\nREGRESSIONS on ACCEPTABLE rows: 3-4 real but minor — 723818004 endopyelotomy → 내신우 절개 (wrong), 449287000 cervical nerve → 목뼈 신경 (wrong), 252820003 adds 검사 not in source, 433238008 주사→주입. Two register shifts she may or may not mind (가슴→흉부, 후두개→뒤오목). Three apparent 'regressions' are actually HER round-3 rulings applied against her older acceptances (CT hip 엉덩이→엉덩 관절; two fluoroscopic-angiography rows losing 유도하).\n\nREVIEWER-INCONSISTENCY LEDGER exposed by the test (needs adjudication, cannot be optimised away): (1) HIP is now three-way inconsistent within her own round-3 return — the rating accepts 오른쪽 엉덩이 컴퓨터 단층 촬영, the prose ruling says imaging-of-hip = hip joint = 엉덩 관절/고관절, and her one correction writes 엉덩이 관절; (2) tibial artery = 경골동맥 (Sino) in one correction, 앞정강뼈동맥 (native) in another; (3) 사용/이용 for tracers goes both ways (갈륨 이용 in her correction vs her own 사용-rule); (4) serialography loses 술 in one row, keeps it in the neighbouring accepted row.\n\nREAD: the deterministic fold-in (guide + glossary + 8 rules) absorbed the bulk of the round-3 defect mass in one step. The residual is (a) word-order/composition on long multi-modifier terms — the right GEPA target; (b) glossary gaps discoverable only from more feedback; (c) reviewer self-inconsistency — a governance question, not a modelling one. CAVEAT: this is absorption, not generalisation — rulings were derived from these rows (her corrections were NOT retrievable as exemplars). Generalisation check = v6.0-vs-v6.1 detector-count diff on unseen rows, or the next review round.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "f64039836116",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d03bf813c13d",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "round3_feedback_absorption_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-19T19:38:04"
+    },
+    {
+      "id": "note-3",
+      "body": "BATCH REPAIR of the 5,012 deliverable against the round-3 rules (run b2e80cefddb3, investigation round3_batch_repair_v1; flow round3-rule-repair, commit-tracked).\n\nBEFORE: 815 warnings across 5,012 rows — fluoro-adjectival-not-guidance 461, transluminal 123, plain-xray 119, cutting-balloon 46, mammography 32, cone-beam 21, intrathecal 8, ecg-gated 5 (+2 pre-existing blocker rows, both SME-locked). So the round-3 systematic classes covered ~15% of the whole deliverable — the 120-row sample generalised.\n\nREPAIR: minimal substitution only (rule_substitute gained a severities param — the round-3 rules are warnings by design — and ordered multi-step transforms: 투시 유도하 is MOVED next to the study noun with a delete fallback, matching the reviewer's corrections verbatim; 심전도 게이팅 rewrites the bigram first so the canonical cannot double 심전도). 772 target rows, 771 patched (1 unfixable: the Tc^99m^ caret row, no canonical, SME-locked anyway). Splice: 753 adopted, 18 refused by the SME lock, 0 refused for introducing a blocker.\n\nAFTER: 815 → 19 warnings (97.7% cleared). Collisions unchanged 9→9; hierarchy 496/1774 pairs flagged across 427 rows; blockers unchanged (2, both locked). EVERY residual finding — all 21, spanning 20 rows — is on an SME-ADJUDICATED row: her own earlier text now violates her own round-3 rulings (투시 유도하 fluoroscopic angiography incl. 420034009 SMA, one of the two stale gold rows already identified; bare 단순 촬영 plain X-rays; 유방 촬영술; 절단 풍선/혈관 경유; 원추형 빔; 위팔 for upper extremity; the caret row). The lock held exactly as designed — a repair may never overwrite an adjudicated row — so this residue is not a defect list, it is the SUPERSESSION QUESTION LIST for the reviewer: 'these 18 renderings are yours from earlier rounds; your new rules imply they should change — confirm and we apply the same fix.'\n\nNEXT: (1) rebuild the review pack (package-deliverable) if a fresh xlsx is wanted; (2) put the 18-row supersession list + the hip three-way inconsistency in the next reviewer email; (3) gold merge of round-3 (with supersession mechanics — a lock that can never be updated by a NEWER ruling would now preserve 20 known-stale rows); (4) held-out generalisation check of v6.1.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "b2e80cefddb3",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "round3_batch_repair_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-19T20:02:13"
+    },
+    {
+      "id": "note-4",
+      "body": "PACK REBUILT from the repaired deliverable (run de583b50cc76, promotes ko_imaging_review_pack; staged at data/languages/ko/sme_review/2026-08-19/production_imaging_review_pack_v2.xlsx/.csv).\n\nState of the pack: 5,012 rows; priorities low 2,415 / medium 2,036 / high 479 / done 82; overlay 177 SME rows (82 approved-done + 95 partial). Detector state after repair: 19 rule warnings (all SME-locked rows), collisions 9 pre-overlay → 7 in the packed file, hierarchy 496/1,774 pairs across 427 rows, contrast 4, transliteration 1. Packed-file verify: 1 blocker (the reviewer's own (RFID) row, untranslated-latin — known) + 12 warnings, mostly her locked rows under old conventions. qa_gate says NOT SHIPPABLE on 2 pre-overlay blocker rows; both are SME-locked (Tc^99m^ caret, 위팔 venography) — they are reviewer questions, not machine defects.\n\nTWO CAVEATS BEFORE THIS GOES TO THE REVIEWER:\n1. The blinded sample sheet reproduces the round-3 sample EXACTLY (120/120 overlap). Mechanically correct: the draw is deterministic in (seed, sctid, tier) on purpose, the seed is unchanged, and repair barely moved tier membership. But the tier-validation experiment for these rows is already answered; sending this sheet would re-ask her the same 120.\n2. Her round-3 ratings are not yet in the pack: the 120 reviewed rows still show translation_source=machine_v6_0 with empty sme columns, because the round-3 gold merge into sme_adjudicated is pending. 33 of those 120 rows carry text changed by the batch repair since she saw them.\n\nBoth caveats resolve with the same next step: merge round-3 into the adjudicated set (with supersession mechanics), then repackage — the overlay will mark her reviewed rows, and the sampler (which draws only translation_source=machine_v6_0 rows) will exclude them from the next blinded sample by construction; a new seed then gives round 4 a fresh draw. This pack is the correct canonical data product of the repair; it is not yet the round-4 review request.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "de583b50cc76",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "b2e80cefddb3",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-19T21:03:46"
+    },
+    {
+      "id": "note-5",
+      "body": "RESIDUAL-CAUSE A/B (investigation round3_residual_causes_v1): pool curation + exemplar-precedence clause, tested on the 120-row set against baseline run 274572a407ae.\n\nBUILT: (1) round-3 pool rules — 8 supersession drops + 2 retrieval-slot hygiene filters; deprecated-xray-form RETIRED (it enforced the batch-2 x-ray ruling round 3 reversed, and was dropping correct DXA pairs); same stale transform removed from RULING_UPDATES in pool_curation.py. (2) Exemplar-precedence clause in translate_system.md — the prompt previously never said the guide outranks the examples. (3) New derived source pooled_curated_eval_r3 (curation run 07f5ed61593e: 514,756→495,973; rebuilt 33c59e9f868d after filter narrowing: →497,491; existing pooled_curated_eval untouched).\n\nRESULTS: baseline 60.8% exact / arm A (clause only, run eb21b1697f04) 58.3% / arm B (clause + r3 pool, run 9c13c80665e7) 56.7%. NOISE FLOOR: base→armA share an identical pool yet flip 9 rows (3 fixed, 6 broken) — pure temp-0.7 sampling variance — so NO ARM SHOWS A DETECTABLE AGGREGATE EFFECT at n=120 with single runs. Aggregate exact-match cannot resolve these interventions; replicates, a bigger set, or the next SME round are needed.\n\nPER-ROW CAUSAL TRACES (the real findings):\n+ Arm B fixed the audited structural-copy rows: 434267000 (gated/rest order, now her wording), 716748002 (route-before-site), 303867000 (정적 placement, also fixed in arm A), and undid 3 of the v6.1 regressions (신우절개술, 목신경, particle 의).\n− Arm B collateral, traced in the prompts: dropping 'Catheter (physical object) → 카테터' let an EDI row teach 도뇨기구 (432587002) — the physical-object drop was over-broad, REVERSED 2026-08-21 (filter narrowed, pool rebuilt); a SNOMED_synonyms variant 관혈류 displaced the canonical 관류 row (433111008); a LOINC 'Bile → 쓸개즙' row displaced a 담즙-compatible slate (241330007). One break (168968001) had an IDENTICAL exemplar slate — pure noise.\nNEW LEDGER ENTRY: her round-3 correction for arthrogram (303778002) is 척추 관절 조영상 — contradicting her own batch-2 ruling 'images end 영상, never 조영상' which is both a hard rule and a pool drop. Add to the adjudication list.\n\nSTANDING LESSONS: (a) retrieval-slot hygiene has the same over-generalisation trap as output rules — scope by evidence, expect collateral, trace before trusting; (b) a variant-preference problem is now visible (SNOMED_synonyms rows displacing canonical SNOMED rows for the same concept, e.g. 관혈류) — a dedup-prefer-canonical curation rule is the natural next block; (c) single-run exact-match A/Bs at production temperature are underpowered for ±5-row effects — stop running them as decision evidence.\n\nDISPOSITION: precedence clause + supersession drops + narrowed hygiene filters ADOPTED (they remove contradictions and cost nothing; the structural fixes they enabled are visible per-row). The next translation run that uses pooled_curated_eval_r3 builds its collection lazily (~90 min one-off).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "07f5ed61593e",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "eb21b1697f04",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9c13c80665e7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "33c59e9f868d",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "round3_residual_causes_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-21T09:53:28"
+    },
+    {
+      "id": "note-6",
+      "body": "GOLD MERGE + ROUND-4 PACK (investigation round3_gold_merge_v1).\n\nMERGE (run fbdbf6910666, new merge_adjudicated_gold node): 200 batch-1/2 gold + 120 round-3 → 305 adjudicated rows, promoted as ko_sme_adjudicated_v2 (sme_gold_all.csv untouched). Supersession law implemented at the gold-set level, the single place 'currently adjudicated' is decided: recency wins; 15 older rows withheld to ko_sme_superseded_r3 (조영상 6, 투시-유도하 3, transluminal 3, mammography 2, cone-beam 1) — the reviewer's CONFIRMATION LIST, staged at data/languages/ko/sme_review/2026-08-21/superseded_rows_for_confirmation.csv; 0 sctid conflicts between rounds; round-3 rows never rule-checked away (the arthrogram 조영상 contradiction stays on the adjudication ledger and shows as the pack's one 조영상 warning). Corrections: first line = reference, later lines admitted as synonyms only when explicitly annotated '(… synonym)'; ACCEPTABLE-with-correction keeps machine text as accepted synonym; 조용제 typo fixed.\n\nRE-REPAIR UNDER THE NEW LOCK (run 420c462b708b): the 15 superseded rows' machine text became repairable — deliverable warnings 19 → 8 (9 more rows adopted; the remaining 8 warnings + 2 blockers sit on rows still legitimately locked, whose clean GOLD text overlays in the pack). ko_imaging_deliverable re-promoted.\n\nROUND-4 PACK (run 70020b413e84, seed 20260821, output production_imaging_deliverable_v3, promoted ko_imaging_review_pack; staged at data/languages/ko/sme_review/2026-08-21/production_imaging_review_pack_round4.xlsx): 5,012 rows; overlay now 285 SME rows (127 approved marked done, 158 partial back for second look — the 120 round-3 rows land exactly as 50 sme_approved + 70 sme_partial carrying her corrected text, spot-checked); priorities 2,378 low / 2,004 medium / 503 high / 127 done; packed collisions 7; packed verify 4 findings (the (RFID) blocker she wrote herself, the ledger 조영상 row, 2 fluoro warnings on still-locked gold). NEW BLINDED SAMPLE: 120 rows, ZERO overlap with the reviewed 120 — the merged overlay removed them from the machine_v6_0 sampling pool by construction, and the new seed gives a fresh draw for a second, independent tier-validation test.\n\nREADY FOR THE ROUND-4 EMAIL, which needs: the fresh 120-row sample ask (replication of the tier test), the 15-row supersession confirmation list, and the adjudication questions (hip three-way; arthrogram 조영상 vs the batch-2 ban; 요추 vs 허리 척추; gated/rest ordering; 사용/이용 for tracers).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "fbdbf6910666",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "420c462b708b",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "70020b413e84",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "round3_gold_merge_v1",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-21T10:21:48"
+    },
+    {
+      "id": "note-7",
+      "body": "EMBEDDING REUSE + REVISED RE-RUN COST (follow-up to note-5).\n\nThe user challenged the ~90-min re-index estimate: the pool change was pure deletion, and embeddings are a pure function of (text, model), so re-embedding ~497k unchanged texts is waste. Correct on both counts, plus two discoveries while fixing it:\n\n1. FORKED MODULE: the repo split left two index_source implementations — engine pipelines/exemplars.py and plugin snomed_translation/exemplars.py — and the runtime imports the PLUGIN one. The first reuse patch (engine afe0381) was dormant; run 3d2405812def therefore did a full fresh embed. Ported to the plugin (commit 9b8e4b1). Refactor debt: reunify the fork.\n2. THE 90-MIN ESTIMATE WAS WRONG ANYWAY: extrapolated from a first-minute rate measured while the GPU was still serving LLM calls. The uncontended fresh embed of 497,491 pairs took ~10 minutes (run 3d2405812def log, ~850 rows/s).\n\nReuse implemented in both copies: before embedding, harvest (dense, sparse) vectors for needed EN texts from any compatible existing collection (same dense dimensionality, lang=en payload), embed only genuinely new texts, dedupe duplicate texts within a build. Point ids/payloads unchanged. VERIFIED directly: a 2,000-row subset pool built its collection entirely from vectors harvested from the pooled_legacy collection — 0 freshly embedded.\n\nRun 3d2405812def also repeats arm B on the narrowed-filter pool: 55.8% exact / chrF 84.5 / 0 rule warnings — inside the established noise band (55.8–60.8 across four same-config-family runs), consistent with conclusion 81: these single-run aggregates are not decision evidence.\n\nFull 5,012 re-run cost is now: index build minutes (reuse) + ~30 min gemma sampling + qwen escalation on ~45%. Awaiting go-ahead.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "3d2405812def",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9c13c80665e7",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-21T11:37:08"
+    },
+    {
+      "id": "note-8",
+      "body": "FULL v6.1 PRODUCTION RE-RUN complete (investigation production_rerun_v61): cascade run d7897383b0e7 → repair run f536ec8c1f1a → pack runs ba46bab3439d/937128939e28 (re-cut for the machine_v6_1 provenance label — the hardcoded machine_v6_0 label survived a full re-translation and the blinded-sample filter keys on it; now a package_deliverable param).\n\nCASCADE (d7897383b0e7): 5,012 concepts × 5 gemma samples (25,060 calls, 0 errors, 23 min), 44.95% escalated blind to Qwen — identical routing profile to v6.0. THE HEADLINE: fresh v6.1 output has 15 rule findings total (11 blockers — 10 upper-limb 위팔, 1 repeated-token — and 4 warnings) versus v6.0's first pass which needed 815 warning repairs + 35 blocker repairs. The round-3 conventions are now absorbed AT GENERATION, not patched afterwards. Contrast 8, transliteration 1. The index build was skipped entirely (collection already complete from the reuse-verified build).\n\nREPAIR (f536ec8c1f1a): 15 → 4 findings (14/14 substitutions, 0 unfixable, 3 refused by the merged lock — their clean gold overlays anyway).\n\nPACK (937128939e28, staged at data/languages/ko/sme_review/2026-08-21/production_imaging_review_pack_round4.xlsx/.csv, promoted ko_imaging_review_pack): 5,012 rows, 4,727 machine_v6_1 + 285 adjudicated overlay (127 done, 158 partial); priorities 2,335 low / 2,014 med / 536 high / 127 done; fresh blinded 120 sample, all machine_v6_1, ZERO overlap with the reviewed 120; packed verify 4 findings (her own (RFID) row + the ledger 조영상 row + 2 fluoro on locked gold). 2,784 of 5,012 rows changed text vs the pack she reviewed; 0 machine rows use 투시 유도하 without source guidance.\n\nTRADE-OFFS OF FRESH TEXT, both flagged in the pack for the reviewer: collisions 39 groups / 84 rows (the v6.0 deliverable had been hand-fixed down to 9 — new text regenerates the collision pattern; duplicate-translation flags feed priority); hierarchy inconsistency 548 pairs / 489 rows (was 495/426). Both are known detector-visible classes with established handling (collision disambiguation next cycle or reviewer rulings).\n\nSTATUS: round-4 pack is ready to send pending the covering email (fresh-sample ask + 15-row supersession confirmation list + adjudication questions: hip three-way, arthrogram 조영상, 요추/허리 척추, gated-order, 사용/이용).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "d7897383b0e7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "f536ec8c1f1a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "937128939e28",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "ba46bab3439d",
+          "label": ""
+        },
+        {
+          "to_kind": "investigation",
+          "to_id": "production_rerun_v61",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-21T18:14:13"
+    },
+    {
+      "id": "note-9",
+      "body": "FINAL PRE-SEND AUDIT + AUDIT FIXES + ROUND-4 EMAIL DRAFT (investigation production_rerun_v61).\n\nAUDIT of the v6.1 pack (artifact-level, over pack run 937128939e28): structure/blinding/labels/overlay all clean (285 adjudicated rows byte-identical to gold, 0 mismatches; sample blinded, 40/40/40, zero overlap with reviewed rows). The re-translation FIXED 4 of the 7 previously-known machine errors (both MRA-as-CT rows, SPECT-as-PET, the 제방향 typo) but the collision detector exposed real fresh-text errors: common carotid AND common femoral AND internal/external iliac all rendered 온엉덩동맥 (wrong vessel identity — the worst class), sacroiliac joint rendered as hip joint (엉덩 관절, 18 rows), X-ray tomography collapsed into plain-film or CT-adjacent wordings (29 rows), ureterography-as-urethrography and rib-as-bone recurring, antegrade-as-retrograde, dropped distinguishing modifiers (vena cava, dynamic, retro/prospective gated, direct micturating, head of femur), one invented 조영제 미사용. Also explained the two fluoro warnings on locked rows: 418135007/433780006 entered gold via her round-3 ACCEPTABLE ratings (recency-protected against her own prose rule — adjudication-ledger class, not a merge bug).\n\nAUDIT FIXES (run afba43a0697a, patch collision_fix_patch_r4, flow apply-collision-fixes-r4): 71 high-confidence minimal edits, 71/71 adopted under lock+gate, blinded-sample rows excluded as measurands (717720005 left wrong on purpose). Collisions 39→11 groups (remaining 11 are the deliberate reviewer questions), hierarchy 548→515.\n\nFINAL PACK (run cfae2e7a339c, re-staged data/languages/ko/sme_review/2026-08-21/production_imaging_review_pack_round4.xlsx): all audit fixes verified in-file; packed findings down to 4 (her (RFID) row, the ledger 조영상 row, 2 recency-protected 투시 유도하 rows); priorities 519 high / 127 done; sample re-verified.\n\nEMAIL DRAFTED (covering_email_draft_round4.md, same dir): reports what her feedback achieved (tier validation + rules built in + full re-translation, ~2,800 rows changed), asks for the fresh 120-row sample (tier replication), attaches the 15-row supersession confirmation list, and asks FIVE adjudication questions (hip three-way; 조영상 vs the images rule; 요추/허리 척추; gated order; IV/oral contrast route). Notes-for-us section carries the full audit record, the measurands, and the deliberate leftovers. [Name] placeholders remain for the user's voice; NOT sent.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "cfae2e7a339c",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "afba43a0697a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "937128939e28",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "d7897383b0e7",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-21T19:47:05"
     }
   ],
   "plan": {

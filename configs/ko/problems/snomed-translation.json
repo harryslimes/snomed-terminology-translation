@@ -142,6 +142,38 @@
       ],
       "author": "agent",
       "ts": "2026-07-06T14:21:15"
+    },
+    {
+      "id": "note-4",
+      "body": "PROCESS FORMALISATION + PROJECT GUIDE (2026-08-25, commit 5878157).\n\nThe Korean project's working method is now written up as a formal, language-agnostic process: docs/language_project_guide_2026-08-25.md (also published as a shareable page for management). Structure: Phase 0 provisioning (wizard) → Phase 1 foundations (pool curation, index, seed guide) → Phase 2 baseline cascade + detector family → Phase 3 the SME round loop (package-with-blinded-sample → review → ingest → measure tier separation + absorption → fold in deterministic-first → repair-or-retranslate under lock/gates → audit → next pack) → Phase 4 GEPA (post-saturation, leak-free, rule-frozen, promotion-gated) → Phase 5 delivery gates. Nine standing laws distilled from three rounds of mistakes and fixes.\n\nFORMALISATION PROPOSAL: ship the process as a PROJECT TEMPLATE (seed_project_template + flow-cloning): pre-created problems per phase, gated plan tasks, the ten language-parameterised flows, standing conclusions carrying the laws. A new language then starts with the method installed rather than rediscovered.\n\nRESOURCE MODEL (all anchors from tracked runs): SME 2-4 h/round, 3-5 rounds, 10-20 h per ~5k-concept domain (+50% greenfield); API = concepts × escalation_rate × 7.5k input tokens per pass (measured 16.87M tokens / 2,253 calls on run d7897383b0e7 → ~$17-51/pass at $1-3/M), 2-3 passes/project, repair passes free; one GPU workstation, full chain <1 h wall-clock; escalation rate doubles as a language-support health metric; calendar dominated by SME turnaround (~2-3 months at 2-week rounds).",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "d7897383b0e7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9faf1d8ef3f7",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "274572a407ae",
+          "label": ""
+        }
+      ],
+      "author": "agent",
+      "ts": "2026-08-25T08:35:42"
+    },
+    {
+      "id": "note-5",
+      "body": "PROCESS TEMPLATE BUILT + GREENFIELD DEMO INSTANTIATED (2026-08-25).\n\n`translation_process` template (snomed_translation/templates/translation_process, commit-tracked): the guide's method as installable machinery — 8 phase problems (root, foundations, baseline+QA, SME-round-loop parent, round-1, editorial-rulings ledger, GEPA, delivery), a 14-task plan with 5 gates (inputs-sourced, baseline-measured, tier-separation-measured, prompt-promotion, SME sign-off w/ requires_signoff), 9 language-parameterised flows (cascade, qa-gate, rule-repair, package-review, ingest-review, tier-separation, merge-gold, absorption-test, curate-pool), forward-declared domain/adjudicated sources, seed hard-rule + pool-rule YAMLs, and the nine laws as pre-installed conclusions. instantiate_template extended: {{configs_dir}}/{{rf2_relationship_file}} placeholders, conclusions merge (append/dedup, never clobber), verbatim files/ payload with __code__ path substitution. seed_project_template MCP tool exposes template + rf2 params.\n\nDEMO: project `kog` \"Korean (greenfield demo)\" — scaffolded cold-start (no target RF2 extension, EMPTY pool, EMPTY gold; domain = the same 5,012 imaging concepts EN-side), template seeded, registered (app port 8102, MCP port 8767, server snomed-research-kog, systemd units live). Verified over HTTP: all 8 problems, all 9 flows, the populated plan, and the 9 laws render in the instance. The demo shows exactly what a new language starts with: the method installed, plan task-1 = source the gating inputs, and the greenfield reality visible (first cascade run needs a pool; the first SME round doubles as the language's first gold).",
+      "attached_to": "",
+      "links": [],
+      "author": "agent",
+      "ts": "2026-08-25T09:05:39"
     }
   ],
   "plan": {
