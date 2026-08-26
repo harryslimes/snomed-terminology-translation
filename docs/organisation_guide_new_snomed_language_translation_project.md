@@ -12,6 +12,8 @@ The machine produces translation drafts; the SME remains the authority for canon
 
 The reusable `translation_process` project template installs this method into every new language project. It provides the project structure, gated plan, translation and review flows, starter rules, data-source definitions, and methodological safeguards. Teams therefore begin with a repeatable process rather than designing a translation workflow from scratch.
 
+The same platform can be offered in two complementary ways: as an open-source, self-hosted solution that customers connect to their own models, and as a managed service in which we operate the platform and supply cloud inference. The managed option should combine a base service charge with metered usage and separately scoped optimisation or human services so that inference, operations, support, and SME costs are all recoverable.
+
 At a high level, the cycle is:
 
 ```text
@@ -249,7 +251,208 @@ The final deliverable should not be promoted until agreed gates are satisfied. A
 
 The app retains the run identifiers and content digests required to rebuild the release candidate and its review pack.
 
-## 11. Roles and responsibilities
+## 11. Making the platform available to users
+
+There are two primary ways to make the translation platform available, plus a useful hybrid configuration. They can share the same codebase and project template; the difference is who operates the infrastructure, supplies the models, carries the inference cost, and supports the user.
+
+| Delivery model | Who operates the app? | Who supplies inference? | Best suited to |
+|---|---|---|---|
+| **Open-source, self-hosted** | The customer | The customer, using local models or its own API accounts | Technically capable organisations, strict data-residency requirements, and users wanting maximum control |
+| **Managed service** | Us | Us, through cloud-hosted or managed model services | Customers wanting the quickest route to a supported service without ML infrastructure |
+| **Managed service with customer models** | Us | The customer connects an approved endpoint or account | Customers that want managed operations but already have a model contract or mandated cloud platform |
+
+### 11.1 Open-source, self-hosted distribution
+
+Under this model, users receive the complete application, the `translation_process` template, deployment material, documentation, and the language-plugin mechanism. They install it in their own environment and connect the models of their choice.
+
+The model interface is intentionally configurable. A customer could use:
+
+- an open-weight translation model running on its own GPU infrastructure;
+- a model hosted in its existing cloud account;
+- a commercial model API for uncertain or difficult concepts; or
+- a confidence-routed combination of local and commercial models.
+
+The customer would be responsible for:
+
+- obtaining and managing its licensed SNOMED CT release;
+- supplying bilingual translation pairs and confirming their reuse rights;
+- providing the target-language SME;
+- deploying the app, vector database, object storage, embedding service, and model endpoints;
+- operating security, backups, monitoring, upgrades, and incident response; and
+- paying its own infrastructure and model-provider costs.
+
+This option gives customers the strongest control over data location, provider choice, and cost. It also means that deployment quality will vary. Good documentation, supported reference configurations, automated health checks, and a clear compatibility policy for models and plugins would be important parts of an open-source release.
+
+Open source does not make SNOMED CT content or third-party bilingual data freely redistributable. Each user remains responsible for the applicable terminology and data licences. SNOMED International's current vendor guidance says that organisations developing or distributing products or services containing SNOMED CT generally need the appropriate Affiliate or sub-licensing arrangements; national-extension terms may add further requirements. Legal review is therefore required before choosing the software licence or bundling any terminology data.
+
+Possible organisational support around the open-source edition could include:
+
+- a public issue tracker, documentation, and community discussion;
+- paid installation and onboarding;
+- enterprise support and maintenance subscriptions;
+- validated deployment images for common cloud platforms; and
+- paid terminology-project services without supplying the inference platform.
+
+### 11.2 Fully managed service with supplied inference
+
+Under the managed-service model, we host the application and its supporting services, operate the semantic index, connect and pay for the approved inference providers, monitor runs, and provide upgrades and support. The customer supplies its licensed terminology, bilingual sources, style guide, and SME access through a controlled onboarding process.
+
+This is the lowest-friction route for a customer. It provides a consistent configuration and lets us measure quality and usage across projects. It also creates responsibilities that do not exist in the self-hosted edition:
+
+- we become responsible for availability, monitoring, backups, recovery, and support;
+- we must meter model, storage, indexing, and platform use accurately;
+- we carry model-price changes, failed-run costs, and customer credit risk;
+- data-processing agreements, retention, deletion, security, and data-residency controls are required;
+- model-provider terms must permit the proposed terminology processing; and
+- service levels and the boundary between automated drafting and SME responsibility must be explicit.
+
+The managed service could use public model APIs, managed cloud model platforms such as Amazon Bedrock, Google Vertex AI or Microsoft Foundry, or a model deployed into our own cloud account. A routed architecture is commercially useful: a lower-cost or open model handles the routine bulk work, while a stronger endpoint is used only where model disagreement indicates uncertainty.
+
+Customers should not need to understand token accounting. We should meter tokens and cloud resources internally but present a comprehensible commercial unit externally—for example translated-concept runs, project rounds, or an included usage allowance with overage charges.
+
+### 11.3 Managed service with customer-supplied models
+
+A hybrid option allows a managed customer to connect an approved model endpoint in its own cloud or provide credentials for an existing account. We still operate the workflow, semantic index, review cycle, and QA system, while the customer holds the inference contract.
+
+This can help with procurement, data residency, or a mandated cloud strategy, but it introduces a shared-support boundary. The service contract must say who diagnoses model failures, rate limits, endpoint changes, and output-quality regressions.
+
+### 11.4 Recommended product approach
+
+The strongest overall proposition is **open core with an optional managed service**:
+
+1. publish the engine, project template, plugin interfaces, and deployment guidance so customers can self-host and connect their own models;
+2. offer a supported managed service for customers that value rapid adoption and predictable operations;
+3. make customer-supplied endpoints a managed-service configuration rather than a separate product; and
+4. charge primarily for the maintained workflow, quality assurance, provenance, support, and expert process—not merely for reselling tokens.
+
+This approach serves both residency-constrained organisations and customers without ML infrastructure, while keeping the project template and quality method consistent across deployments.
+
+## 12. Costs, resources, and a managed-service charging model
+
+The cost of a translation project has two very different parts:
+
+- **machine and platform costs**, which scale with concepts, model calls, optimisation experiments, storage, and service operation; and
+- **human expert costs**, which scale with review rounds, corrections, adjudication questions, and project support.
+
+SME availability is usually the binding resource. API inference is visible and easy to meter, but it is not normally the largest component of the end-to-end project.
+
+### 12.1 Measured inference baseline
+
+The Korean imaging project provides a useful planning anchor. One full run translated 5,012 concepts and escalated 2,253 concepts—approximately 45%—to the stronger model. The escalated requests consumed 16.87 million input tokens and approximately 33,000 output tokens. The short output is inexpensive; the retrieved context and style guide make input the main cost.
+
+The direct API formula is:
+
+```text
+API cost =
+    (input tokens ÷ 1,000,000 × input price)
+  + (output tokens ÷ 1,000,000 × output price)
+```
+
+Illustrative direct costs for the measured full pass are shown below. They use representative list-price bands visible on official provider pricing pages on 26 August 2026 and exclude negotiated discounts, taxes, cloud-platform charges, and our service margin.
+
+| Illustrative API rate per million tokens | Calculated direct cost for the measured 5,012-concept pass |
+|---|---:|
+| $1 input / $6 output | approximately **$17** |
+| $2.50 input / $15 output | approximately **$43** |
+| $3 input / $15 output | approximately **$51** |
+| $5 input / $30 output | approximately **$85** |
+
+These figures apply the full input rate to every measured token and are therefore conservative where prompt caching receives a discount. The measured run reported substantial cached input. Provider rates, model names, region premiums, context-length rules, and cache pricing change over time, so a production quotation must recalculate from current prices.
+
+A typical project may need two or three broad translation passes: a baseline plus one or two re-translations after feedback has been absorbed. Small 100–120-row pilot or absorption runs cost only a fraction of a full pass. Deterministic QA and rule-based repair usually require no paid model call.
+
+### 12.2 Local or cloud-hosted model cost
+
+The confidence-routed cascade can run its bulk samples on an open-weight model. In the measured project, 5,012 concepts × five local samples took approximately 23 minutes on one GPU workstation. This replaces a large number of paid API calls with GPU time.
+
+For a managed service, the equivalent cost depends on whether GPU capacity is:
+
+- purchased on demand for each run;
+- reserved for predictable usage;
+- shared across multiple customer projects; or
+- avoided by using a low-cost managed endpoint instead.
+
+The commercial model should use measured GPU-hours multiplied by the current regional cloud rate, including idle time and failed or repeated jobs. A shared queued service is likely to be more economical than a permanently running GPU for each customer.
+
+The semantic index also has a compute cost, but it is mainly an onboarding or pool-versioning cost. The measured fresh index of roughly 500,000 pairs took about ten minutes on local compute, and unchanged embeddings can be reused across later pool versions.
+
+### 12.3 GEPA prompt-optimisation cost
+
+GEPA evaluates many prompt candidates and should have its own budget and approval gate. Its cost depends on the number of candidates, development-set size, reflection model, evaluation model, and stopping rule.
+
+As a rough planning envelope, a campaign may consume about 10–50 times the model budget of one evaluation pass. At the illustrative API rates above, an initial controlled allowance in the **hundreds to low thousands of US dollars** is reasonable, with a hard spend cap and early stopping. This is not a quotation: the operator should show the proposed candidate count, dataset size, model rates, and maximum token budget before each campaign.
+
+GEPA is occasional optimisation work, not a cost attached to every translated concept. It should be run only when there is enough adjudicated data and simpler rule, guide, and pool changes have saturated.
+
+### 12.4 SME and project-team resource
+
+The standard review sample is approximately 100–120 concepts. Planning assumptions from the completed Korean rounds are:
+
+| Activity | Planning assumption |
+|---|---|
+| Rating-only review | approximately 2–4 concepts per minute |
+| Review with written canonical corrections | approximately 1–2 concepts per minute |
+| One standard review round | approximately 2–4 SME hours, including adjudication questions |
+| Rounds for a roughly 5,000-concept domain | approximately 3–5 rounds |
+| Total SME effort | approximately 10–20 hours for a language with usable reference data |
+| Greenfield allowance | plan roughly 50% additional SME effort and one or two additional rounds |
+| Operator effort | approximately one setup week, then 1–2 operator days per round |
+
+The financial plan should apply the organisation's loaded rates:
+
+```text
+human delivery cost =
+    SME hours × loaded SME hourly rate
+  + operator days × loaded operator day rate
+  + project, governance, security, and support time
+```
+
+The customer may supply its own SME, contract one through us, or use a mixed arrangement. SME services should be shown separately because language, clinical domain, availability, and market rates vary substantially.
+
+### 12.5 Other costs a managed service must recover
+
+Inference is only one line in the managed-service cost base. Pricing also needs to cover:
+
+- service onboarding, project configuration, and data validation;
+- application compute, database, vector storage, object storage, backups, and network traffic;
+- monitoring, logging, support, incident management, and service-level commitments;
+- security reviews, vulnerability management, identity, tenant isolation, and audit evidence;
+- software maintenance, model qualification, regression testing, and provider migrations;
+- failed and repeated runs, free trials, non-payment, and model-price volatility;
+- terminology licensing administration and data-governance work where applicable;
+- customer success, invoicing, tax, procurement, and contract management; and
+- a contingency and margin appropriate to the service obligations.
+
+These costs should be measured during one or more service pilots before publishing a fixed public price.
+
+### 12.6 Suggested customer charging structure
+
+A clear managed-service price can combine:
+
+1. **Onboarding fee** — project setup, data validation, source registration, style-guide preparation, and initial index build.
+2. **Platform subscription** — hosted application, storage allowance, maintenance, security, support, and access to the maintained workflow and QA capability.
+3. **Usage allowance and overage** — a number of translated-concept runs or project rounds, with additional use billed at a published rate. Internally this must reconcile to tokens, GPU-hours, and cloud resources.
+4. **Optimisation package** — optional GEPA campaign with an agreed dataset, models, maximum spend, and promotion report.
+5. **Professional services** — operator-led curation, custom integrations, additional QA, migration, training, or project management.
+6. **SME services** — separately priced when we source or subcontract the reviewer.
+
+One possible commercial formula is:
+
+```text
+customer charge =
+    onboarding
+  + subscription for the service period
+  + metered usage above the included allowance
+  + optional optimisation and professional services
+  + SME services, where supplied
+  + applicable taxes
+```
+
+Billing purely at cost-per-token would be difficult for customers to predict and would underprice the workflow, assurance, and support. A concept- or round-based customer unit is easier to budget, while internal token and GPU metering protects the service from cost drift.
+
+Before launch, the organisation should decide whether it is willing to become a data processor, which territories and cloud regions it will support, what availability it will promise, how model-price changes can be passed through, and whether customers retain or contribute language assets created through the service.
+
+## 13. Roles and responsibilities
 
 | Role | Main responsibilities |
 |---|---|
@@ -261,7 +464,7 @@ The app retains the run identifiers and content digests required to rebuild the 
 
 The project lead should agree decision rights at the outset. In particular, the terminology SME must be recognised as the authority for canonical target-language terminology, while technical staff remain responsible for faithfully encoding and testing those decisions.
 
-## 12. Durable outputs from the project
+## 14. Durable outputs from the project
 
 A successful project produces more than a translated spreadsheet. Its reusable outputs are:
 
@@ -276,7 +479,7 @@ A successful project produces more than a translated spreadsheet. Its reusable o
 
 These assets make subsequent domains and later SNOMED CT releases cheaper to translate. The style guide, exemplar pool, gold set, and rules compound across the life of the language service.
 
-## 13. Operating principles
+## 15. Operating principles
 
 The following principles protect quality and auditability:
 
@@ -290,7 +493,7 @@ The following principles protect quality and auditability:
 - **Prompt changes require held-out evidence.** A plausible prompt is not promoted merely because it looks better.
 - **SME sign-off remains the final delivery gate.** Automated metrics and detectors support, but do not replace, expert approval.
 
-## 14. Project readiness checklist
+## 16. Project readiness checklist
 
 Before approving the first pilot run, confirm that:
 
@@ -308,3 +511,17 @@ Before approving the first pilot run, confirm that:
 - [ ] the quality thresholds and final sign-off route are documented.
 
 Once these items are satisfied, the project template provides the operational structure for running and repeating the translation–review–improvement cycle.
+
+## 17. Sources and pricing notes
+
+Internal process and resource figures come from tracked runs in the 5,012-concept Korean imaging project and are planning anchors, not guarantees for another language or domain.
+
+External pricing and licensing references were checked on 26 August 2026:
+
+- [OpenAI API pricing](https://platform.openai.com/pricing) — model-specific input, cached-input, and output token rates.
+- [Anthropic model price list](https://www-cdn.anthropic.com/files/4zrzovbb/website/5678bc2f5978e5bcd4f1fe7c14b2c72284dcf9f8.pdf) — list prices across direct API and major cloud platforms.
+- [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) — provider- and model-dependent managed inference, including batch and on-demand options.
+- [SNOMED International vendor licensing guidance](https://docs.snomed.org/snomed-ct-practical-guides/vendor-introduction-to-snomed-ct/7-licensing) — Affiliate, sub-licence, national-licence, and distribution considerations.
+- [SNOMED International: Get SNOMED CT](https://www.snomed.org/get-snomed) — current access and licensing routes for Member and non-Member territories.
+
+Provider prices and licensing terms can change. Any customer proposal must refresh these inputs and receive commercial, legal, security, and information-governance review.
