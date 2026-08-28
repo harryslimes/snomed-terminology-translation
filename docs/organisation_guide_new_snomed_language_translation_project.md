@@ -338,26 +338,30 @@ SME availability is usually the binding resource. API inference is visible and e
 
 ### 12.1 Measured inference baseline
 
-The Korean imaging project provides a useful planning anchor. One full run translated 5,012 concepts and escalated 2,253 concepts—approximately 45%—to the stronger model. The escalated requests consumed 16.87 million input tokens and approximately 33,000 output tokens. The short output is inexpensive; the retrieved context and style guide make input the main cost.
+The Korean imaging project provides a useful planning anchor. One full run translated 5,012 concepts and escalated 2,253 concepts—approximately 45%—to Qwen 3.8 Max. The escalated requests contained 16.87 million input tokens and approximately 33,000 output tokens. Crucially, about 55% of the input was served from the provider's prompt cache. A useful cost model must separate cached and uncached input rather than pricing the entire token count at the ordinary input rate.
 
 The direct API formula is:
 
 ```text
 API cost =
-    (input tokens ÷ 1,000,000 × input price)
+    (uncached input tokens ÷ 1,000,000 × ordinary input price)
+  + (cache-read tokens ÷ 1,000,000 × cache-read price)
+  + (cache-creation tokens ÷ 1,000,000 × cache-creation price)
   + (output tokens ÷ 1,000,000 × output price)
 ```
 
-Illustrative direct costs for the measured full pass are shown below. They use representative list-price bands visible on official provider pricing pages on 26 August 2026 and exclude negotiated discounts, taxes, cloud-platform charges, and our service margin.
+Applying the Qwen 3.8 Max international list prices published on 28 August 2026 gives the following estimate for the measured full pass. The figures exclude negotiated discounts, taxes, cloud-platform charges, and our service margin.
 
-| Illustrative API rate per million tokens | Calculated direct cost for the measured 5,012-concept pass |
-|---|---:|
-| $1 input / $6 output | approximately **$17** |
-| $2.50 input / $15 output | approximately **$43** |
-| $3 input / $15 output | approximately **$51** |
-| $5 input / $30 output | approximately **$85** |
+| Billing class | Measured volume | List rate per million tokens | Estimated cost |
+|---|---:|---:|---:|
+| Uncached input | approximately 7.59M | $2.00 | $15.18 |
+| Implicit-cache input | approximately 9.28M | $0.25 | $2.32 |
+| Output | approximately 0.033M | $6.00 | $0.20 |
+| **Measured full pass** |  |  | **approximately $17.70** |
 
-These figures apply the full input rate to every measured token and are therefore conservative where prompt caching receives a discount. The measured run reported substantial cached input. Provider rates, model names, region premiums, context-length rules, and cache pricing change over time, so a production quotation must recalculate from current prices.
+Pricing all 16.87 million input tokens at the ordinary rate would produce an incorrect estimate of approximately $33.94 for this configuration—almost twice the cache-aware amount. The measured deployment should therefore be presented as an approximately **$18 full pass**, not as a broad cross-provider price range.
+
+Prompt caching is therefore an architectural and commercial requirement, not an incidental discount. Stable content such as system instructions, the style guide, rules, and other repeated context should be placed at the start of the prompt to maximise reusable prefixes. The platform should record uncached, cache-read, cache-creation, and output tokens separately, expose the cache-hit ratio on the run dashboard, and derive customer quotations from that telemetry. Explicit caching can lower repeat-read prices further where supported, although cache-creation charges and expiry must also be modelled.
 
 A typical project may need two or three broad translation passes: a baseline plus one or two re-translations after feedback has been absorbed. Small 100–120-row pilot or absorption runs cost only a fraction of a full pass. Deterministic QA and rule-based repair usually require no paid model call.
 
@@ -380,7 +384,7 @@ The semantic index also has a compute cost, but it is mainly an onboarding or po
 
 GEPA evaluates many prompt candidates and should have its own budget and approval gate. Its cost depends on the number of candidates, development-set size, reflection model, evaluation model, and stopping rule.
 
-As a rough planning envelope, a campaign may consume about 10–50 times the model budget of one evaluation pass. At the illustrative API rates above, an initial controlled allowance in the **hundreds to low thousands of US dollars** is reasonable, with a hard spend cap and early stopping. This is not a quotation: the operator should show the proposed candidate count, dataset size, model rates, and maximum token budget before each campaign.
+The operator should calculate the campaign ceiling before launch from the candidate count, development-set size, expected calls per candidate, model routing, and separate uncached, cache-read, cache-creation, and output rates. Repeated instructions and evaluation material should be structured for caching. Start with the smallest useful experiment, enforce a hard spend cap and early stopping, record the actual cache-hit ratio and provider charge, and expand only when the measured quality gain warrants it. A generic monetary range is not useful without those inputs.
 
 GEPA is occasional optimisation work, not a cost attached to every translated concept. It should be run only when there is enough adjudicated data and simpler rule, guide, and pool changes have saturated.
 
@@ -516,8 +520,10 @@ Once these items are satisfied, the project template provides the operational st
 
 Internal process and resource figures come from tracked runs in the 5,012-concept Korean imaging project and are planning anchors, not guarantees for another language or domain.
 
-External pricing and licensing references were checked on 26 August 2026:
+External pricing and licensing references were checked on 26 and 28 August 2026:
 
+- [Alibaba Cloud Qwen 3.8 Max pricing](https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max) — ordinary input, implicit-cache input, explicit-cache creation/read, and output rates for the model used in the measured pass.
+- [Alibaba Cloud context-cache billing](https://www.alibabacloud.com/help/en/model-studio/context-cache) — cache modes, billing rules, token reporting, expiry, and prompt-prefix guidance.
 - [OpenAI API pricing](https://platform.openai.com/pricing) — model-specific input, cached-input, and output token rates.
 - [Anthropic model price list](https://www-cdn.anthropic.com/files/4zrzovbb/website/5678bc2f5978e5bcd4f1fe7c14b2c72284dcf9f8.pdf) — list prices across direct API and major cloud platforms.
 - [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) — provider- and model-dependent managed inference, including batch and on-demand options.
