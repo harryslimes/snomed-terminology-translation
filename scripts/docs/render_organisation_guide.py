@@ -45,12 +45,13 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
     # Give the three document landmarks intentional print treatment.
     body = body.replace('<h2 id="executive-summary">', '<h2 id="executive-summary">', 1)
     body = re.sub(
-        r'(<h2 id="(?:11-making-the-platform-available-to-users|12-costs-resources-and-a-managed-service-charging-model|17-sources-and-pricing-notes)")',
+        r'(<h2 id="(?:6-ways-to-make-it-available|8-sources-and-notes|11-making-the-platform-available-to-users|12-costs-resources-and-a-managed-service-charging-model|17-sources-and-pricing-notes)")',
         r'\1 class="major-break"',
         body,
     )
     executive_start = body.find('<h2 id="executive-summary">')
-    first_section = body.find('<h2 id="1-what-the-app-does">')
+    first_numbered_section = re.search(r'<h2 id="1-[^"]+">', body)
+    first_section = first_numbered_section.start() if first_numbered_section else -1
     if executive_start >= 0 and first_section > executive_start:
         body = (
             body[:executive_start]
@@ -63,6 +64,10 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
     purpose = metadata.get("purpose", "")
     audience = metadata.get("audience", "")
     status = metadata.get("status", "Draft for organisational review")
+    subtitle = metadata.get(
+        "subtitle",
+        "A repeatable, expert-led method for creating, evaluating, and delivering a new SNOMED CT language translation.",
+    )
     css = css_path.read_text(encoding="utf-8")
 
     document = f"""<!doctype html>
@@ -79,7 +84,7 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
       <p class="cover-kicker">Translation programme guide</p>
       <h1>{html.escape(title)}</h1>
       <div class="cover-rule"></div>
-      <p class="cover-deck">A repeatable, expert-led method for creating, evaluating, and delivering a new SNOMED CT language translation.</p>
+      <p class="cover-deck">{html.escape(subtitle)}</p>
       <div class="cover-meta">
         <div><strong>Status</strong> {html.escape(status)}</div>
         <div><strong>Audience</strong> {html.escape(audience)}</div>
