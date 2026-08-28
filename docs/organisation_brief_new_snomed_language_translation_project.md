@@ -136,18 +136,20 @@ Compute is measurable and comparatively inexpensive. Expert review is the scarce
 
 ### Machine cost
 
-**Prompt caching is the main API cost control for this workload and must be included in the headline estimate.** The measured 5,012-concept production pass sent 16.87 million input tokens and about 33,000 output tokens to Qwen 3.8 Max, but approximately 55% of the input was served from the provider's prompt cache. The billable shape was therefore approximately:
+**Prompt caching is the main API cost control for this workload and must be included in the headline estimate.** The measured 5,012-concept production pass contained 16.87 million input tokens and about 33,000 output tokens. For planning purposes, assume that production prompt design and batching achieve a **90% cache-hit rate**:
 
-| Billing class | Measured volume | Current Qwen 3.8 Max international list rate | Estimated cost |
+| Billing class | Volume at 90% cache | Current Qwen 3.8 Max international list rate | Estimated cost |
 |---|---:|---:|---:|
-| Uncached input | 7.59M tokens | $2.00/M | $15.18 |
-| Implicit-cache input | 9.28M tokens | $0.25/M | $2.32 |
+| Uncached input | 1.687M tokens | $2.00/M | $3.37 |
+| Implicit-cache input | 15.183M tokens | $0.25/M | $3.80 |
 | Output | 0.033M tokens | $6.00/M | $0.20 |
-| **Measured full pass** |  |  | **about $17.70** |
+| **Full-pass planning estimate** |  |  | **about $7.37** |
 
-Those rates were checked on 28 August 2026. Charging every input token at the ordinary rate would incorrectly estimate the same pass at about $33.94—almost twice the cache-aware figure. The measured deployment should therefore be presented as an approximately **$18 full pass**, not as a broad cross-provider price range.
+Those rates were checked on 28 August 2026. The 90%-cached estimate is about 78% below the $33.94 all-uncached calculation. Actual billing will depend on the achieved cache-hit rate, so the run dashboard should report it alongside the cost.
 
-Future quotations should use the run's recorded uncached, cache-read, cache-creation, and output tokens separately. They should also state the expected cache-hit ratio and prompt ordering. Stable material—system instructions, the style guide, rules, and other repeated context—belongs at the beginning of the prompt so that the provider can reuse the longest possible prefix. Explicit caching may reduce repeat-read cost further where the provider and workload support it; lower-cost models or local inference can reduce API spend again.
+Qwen 3.8 Max is used here as a state-of-the-art frontier reference model. It is an API model rather than an open-weight release. The platform can instead use cheaper API endpoints or open-weight models running locally, including the Gemma-class model already used for bulk sampling. A local deployment has no per-token API charge, although its hardware and electricity remain operating costs.
+
+Future quotations should use the run's recorded uncached, cache-read, cache-creation, and output tokens separately. Stable material—system instructions, the style guide, rules, and other repeated context—belongs at the beginning of the prompt so that the provider can reuse the longest possible prefix.
 
 A project may need two or three broad passes, but small pilot and absorption runs cost a fraction of a full pass and deterministic repair requires no model call. API inference should therefore be presented as a small, measured operating cost; SME and service effort remain the material costs.
 

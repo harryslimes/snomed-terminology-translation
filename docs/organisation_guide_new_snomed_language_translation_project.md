@@ -336,9 +336,9 @@ The cost of a translation project has two very different parts:
 
 SME availability is usually the binding resource. API inference is visible and easy to meter, but it is not normally the largest component of the end-to-end project.
 
-### 12.1 Measured inference baseline
+### 12.1 Cache-aware inference planning baseline
 
-The Korean imaging project provides a useful planning anchor. One full run translated 5,012 concepts and escalated 2,253 concepts—approximately 45%—to Qwen 3.8 Max. The escalated requests contained 16.87 million input tokens and approximately 33,000 output tokens. Crucially, about 55% of the input was served from the provider's prompt cache. A useful cost model must separate cached and uncached input rather than pricing the entire token count at the ordinary input rate.
+The Korean imaging project provides a useful planning anchor. One full run translated 5,012 concepts and escalated 2,253 concepts—approximately 45%—to Qwen 3.8 Max. The escalated requests contained 16.87 million input tokens and approximately 33,000 output tokens. For planning purposes, the following calculation assumes that production prompt design and batching achieve a **90% cache-hit rate**. A useful cost model must separate cached and uncached input rather than pricing the entire token count at the ordinary input rate.
 
 The direct API formula is:
 
@@ -350,18 +350,20 @@ API cost =
   + (output tokens ÷ 1,000,000 × output price)
 ```
 
-Applying the Qwen 3.8 Max international list prices published on 28 August 2026 gives the following estimate for the measured full pass. The figures exclude negotiated discounts, taxes, cloud-platform charges, and our service margin.
+Applying the Qwen 3.8 Max international list prices published on 28 August 2026 gives the following planning estimate. The figures exclude negotiated discounts, taxes, cloud-platform charges, and our service margin.
 
-| Billing class | Measured volume | List rate per million tokens | Estimated cost |
+| Billing class | Volume at 90% cache | List rate per million tokens | Estimated cost |
 |---|---:|---:|---:|
-| Uncached input | approximately 7.59M | $2.00 | $15.18 |
-| Implicit-cache input | approximately 9.28M | $0.25 | $2.32 |
+| Uncached input | approximately 1.687M | $2.00 | $3.37 |
+| Implicit-cache input | approximately 15.183M | $0.25 | $3.80 |
 | Output | approximately 0.033M | $6.00 | $0.20 |
-| **Measured full pass** |  |  | **approximately $17.70** |
+| **Full-pass planning estimate** |  |  | **approximately $7.37** |
 
-Pricing all 16.87 million input tokens at the ordinary rate would produce an incorrect estimate of approximately $33.94 for this configuration—almost twice the cache-aware amount. The measured deployment should therefore be presented as an approximately **$18 full pass**, not as a broad cross-provider price range.
+At a 90% cache-hit rate, the estimate is about 78% below the $33.94 all-uncached calculation. Actual billing will depend on the cache-hit rate achieved in production, so that percentage must be reported with the run cost.
 
 Prompt caching is therefore an architectural and commercial requirement, not an incidental discount. Stable content such as system instructions, the style guide, rules, and other repeated context should be placed at the start of the prompt to maximise reusable prefixes. The platform should record uncached, cache-read, cache-creation, and output tokens separately, expose the cache-hit ratio on the run dashboard, and derive customer quotations from that telemetry. Explicit caching can lower repeat-read prices further where supported, although cache-creation charges and expiry must also be modelled.
+
+Qwen 3.8 Max is used here as a state-of-the-art frontier reference model. It is an API model rather than an open-weight release. The platform can instead use cheaper API endpoints or open-weight models running locally, including the Gemma-class model already used for bulk sampling. Local inference has no per-token API charge, although hardware, electricity, hosting, and operations still need to be recovered.
 
 A typical project may need two or three broad translation passes: a baseline plus one or two re-translations after feedback has been absorbed. Small 100–120-row pilot or absorption runs cost only a fraction of a full pass. Deterministic QA and rule-based repair usually require no paid model call.
 
