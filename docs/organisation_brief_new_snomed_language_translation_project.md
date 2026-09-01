@@ -149,7 +149,7 @@ The later project work strengthened both the method and the evidence:
 - systematic SME rulings were converted into guide changes and deterministic rules, sharply reducing recurring convention defects; and
 - blinded review, leakage-safe evaluation, explicit supersession, pair-level collision checks, and held-out promotion gates were added after weaknesses were found in earlier experiments.
 
-One early GEPA development result improved exact agreement from 28% to 42%, but later analysis found that the wider evaluation design allowed retrieval leakage. The correct lesson is not that optimisation automatically improves every language. It is that prompt evolution must be measured on a leak-free held-out set and promoted only when it beats the current guide under that stricter test.
+The latest optimisation and feedback-integration round has now been incorporated into the translation configuration, and a further blinded SME review is pending. That review will assess fresh, previously unseen concepts and provide stronger evidence of how much the changes improve translation quality in practice. Until the feedback is returned, the impact of the latest optimisation round should be treated as promising but not yet established.
 
 ## 5. Cost and resource shape
 
