@@ -218,12 +218,6 @@ Raw tokens should be metered internally, but a concept- or round-based customer 
 
 A managed customer could alternatively connect its own approved model endpoint. This helps with procurement or cloud policy but requires a clear shared-support boundary.
 
-### Recommended approach
-
-Offer **open core with an optional managed service**. The same maintained method supports customers that must self-host and those that need rapid adoption without ML infrastructure. The managed service should be priced for curation and assurance, not presented merely as token resale.
-
-Before launch, legal and governance teams must settle SNOMED CT licensing, bilingual-data ownership, generated-translation ownership, data residency, model-provider terms, retention, and whether language assets may be contributed back across projects.
-
 ## 7. Recommended rollout
 
 1. **Package a reference self-hosted edition.** Document one supported deployment, model interface, data-import path, and security baseline.
