@@ -1,5 +1,6 @@
-# SNOMED CT Translation Platform: Programme Brief
+# SNOMED CT Translation: From Research to Production
 
+**Cover:** title-only
 **Subtitle:** A concise guide to adapting, validating, and delivering a new language project  
 **Audience:** programme leaders, terminology teams, potential customers, subject-matter experts, and service owners  
 **Purpose:** summarise how the platform works, what a language project requires, and how the capability could be offered to users  

@@ -68,7 +68,25 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
         "subtitle",
         "A repeatable, expert-led method for creating, evaluating, and delivering a new SNOMED CT language translation.",
     )
+    title_only_cover = metadata.get("cover", "").lower() == "title-only"
     css = css_path.read_text(encoding="utf-8")
+
+    if title_only_cover:
+        cover_content = f"""<div class="cover-inner cover-inner-title-only">
+      <h1>{html.escape(title)}</h1>
+    </div>"""
+    else:
+        cover_content = f"""<div class="cover-inner">
+      <p class="cover-kicker">Translation programme guide</p>
+      <h1>{html.escape(title)}</h1>
+      <div class="cover-rule"></div>
+      <p class="cover-deck">{html.escape(subtitle)}</p>
+      <div class="cover-meta">
+        <div><strong>Status</strong> {html.escape(status)}</div>
+        <div><strong>Audience</strong> {html.escape(audience)}</div>
+        <div><strong>Purpose</strong> {html.escape(purpose)}</div>
+      </div>
+    </div>"""
 
     document = f"""<!doctype html>
 <html lang="en">
@@ -80,17 +98,7 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
 </head>
 <body>
   <section class="cover">
-    <div class="cover-inner">
-      <p class="cover-kicker">Translation programme guide</p>
-      <h1>{html.escape(title)}</h1>
-      <div class="cover-rule"></div>
-      <p class="cover-deck">{html.escape(subtitle)}</p>
-      <div class="cover-meta">
-        <div><strong>Status</strong> {html.escape(status)}</div>
-        <div><strong>Audience</strong> {html.escape(audience)}</div>
-        <div><strong>Purpose</strong> {html.escape(purpose)}</div>
-      </div>
-    </div>
+    {cover_content}
   </section>
   <section class="contents-page">
     <h2>Contents</h2>

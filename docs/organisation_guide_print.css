@@ -94,6 +94,18 @@ body {
   flex-direction: column;
 }
 
+.cover-inner-title-only {
+  top: 0;
+  bottom: 0;
+  justify-content: center;
+}
+
+.cover-inner-title-only h1 {
+  max-width: 145mm;
+  font-size: 35pt;
+  line-height: 1.1;
+}
+
 .cover-kicker {
   margin: 0 0 17mm;
   color: #cce8e6;
