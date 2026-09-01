@@ -454,6 +454,16 @@ tbody tr:nth-child(even) td { background: var(--pale); }
 .flow-promote strong { color: #0c625e; }
 .flow-promote b { color: var(--teal); font-size: 11pt; }
 
+/* Keep the concise brief's final delivery-model section together after its
+   optional rollout and sources appendices are omitted. */
+[id="6-ways-to-make-it-available"] { margin-top: 6mm; }
+[id="6-ways-to-make-it-available"] ~ h3 { margin: 5mm 0 2mm; }
+[id="6-ways-to-make-it-available"] ~ p { margin-bottom: 2.3mm; }
+[id="6-ways-to-make-it-available"] ~ pre {
+  margin: 3mm 0 3.5mm;
+  padding: 3.4mm 4.5mm;
+}
+
 .source-note {
   color: var(--muted);
   font-size: 8.2pt;

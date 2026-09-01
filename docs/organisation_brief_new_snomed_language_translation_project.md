@@ -217,13 +217,3 @@ onboarding fee
 Raw tokens should be metered internally, but a concept- or round-based customer unit is easier to budget and better reflects the value of the workflow, QA, provenance, and support. Pricing needs contingency for model-price volatility and failed or repeated runs.
 
 A managed customer could alternatively connect its own approved model endpoint. This helps with procurement or cloud policy but requires a clear shared-support boundary.
-
-## 7. Recommended rollout
-
-1. **Package a reference self-hosted edition.** Document one supported deployment, model interface, data-import path, and security baseline.
-2. **Run a managed-service pilot.** Capture real onboarding, infrastructure, support, SME, and inference costs rather than setting prices from token estimates alone.
-3. **Benchmark against a mature translation.** The deck proposes Spanish SNOMED CT as a useful case because a broad human translation already exists; legal access and an evaluation-safe split would need to be confirmed.
-4. **Compare total effort.** Evaluate one self-hosted and one managed adopter using the same quality gates, including customer and SME time.
-5. **Set the product boundary.** Decide supported territories, residency options, service levels, pricing units, open-source licence, contribution rules, and the quality claims the organisation is willing to publish.
-
-The immediate readiness test for any first customer is simple: a defined SNOMED CT scope, licensed source data, a usable seed pool or seeding plan, a draft guide, reserved SME time, approved model infrastructure, leakage-safe evaluation, and an agreed sign-off route.
