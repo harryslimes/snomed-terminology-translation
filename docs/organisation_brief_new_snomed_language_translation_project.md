@@ -227,19 +227,3 @@ A managed customer could alternatively connect its own approved model endpoint. 
 5. **Set the product boundary.** Decide supported territories, residency options, service levels, pricing units, open-source licence, contribution rules, and the quality claims the organisation is willing to publish.
 
 The immediate readiness test for any first customer is simple: a defined SNOMED CT scope, licensed source data, a usable seed pool or seeding plan, a draft guide, reserved SME time, approved model infrastructure, leakage-safe evaluation, and an agreed sign-off route.
-
-## 8. Sources and notes
-
-This brief combines the implemented `translation_process` method, the longer organisation guide, the project handover, and the shared-drive presentation **“SNOMED CT, in any language — translation workbench”** (`snomed-translation-deck.html`). Where early presentation claims conflicted with later project evidence, the later tracked findings and safeguards take precedence.
-
-External prices and licensing terms change. References checked for the detailed guide on 26 August 2026 include:
-
-- [OpenAI API pricing](https://platform.openai.com/pricing)
-- [Anthropic model pricing](https://www-cdn.anthropic.com/files/4zrzovbb/website/5678bc2f5978e5bcd4f1fe7c14b2c72284dcf9f8.pdf)
-- [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/)
-- [Alibaba Cloud Qwen 3.8 Max pricing](https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max)
-- [Alibaba Cloud context-cache billing](https://www.alibabacloud.com/help/en/model-studio/context-cache)
-- [SNOMED International vendor licensing guidance](https://docs.snomed.org/snomed-ct-practical-guides/vendor-introduction-to-snomed-ct/7-licensing)
-- [SNOMED International: Get SNOMED CT](https://www.snomed.org/get-snomed)
-
-Any customer proposal must refresh these inputs and receive commercial, legal, security, and information-governance review.

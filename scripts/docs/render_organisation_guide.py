@@ -45,7 +45,7 @@ def render(markdown_path: Path, css_path: Path, html_path: Path) -> None:
     # Give the three document landmarks intentional print treatment.
     body = body.replace('<h2 id="executive-summary">', '<h2 id="executive-summary">', 1)
     body = re.sub(
-        r'(<h2 id="(?:6-ways-to-make-it-available|8-sources-and-notes|11-making-the-platform-available-to-users|12-costs-resources-and-a-managed-service-charging-model|17-sources-and-pricing-notes)")',
+        r'(<h2 id="(?:8-sources-and-notes|11-making-the-platform-available-to-users|12-costs-resources-and-a-managed-service-charging-model|17-sources-and-pricing-notes)")',
         r'\1 class="major-break"',
         body,
     )
