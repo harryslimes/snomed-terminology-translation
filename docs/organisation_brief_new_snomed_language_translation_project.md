@@ -13,12 +13,14 @@ The platform is therefore built around a simple proposition:
 
 > **What transfers between languages is not one fixed prompt. It is a measured, auditable process for finding and validating the right translation approach.**
 
-Each language is treated as a small research programme followed by a controlled production run. Existing resources are imported and indexed for semantic search. A base translation guide seeds the agent. A representative subset is translated and reviewed by a terminology subject-matter expert (SME). The SME supplies canonical translations and quality ratings; those decisions become adjudicated gold data, rules, style-guide improvements, and better retrieval examples. GEPA can then optimise the remaining prompt-sensitive problems against separated training and held-out data.
+The SME feedback loop shown below is the platform's **default template and recommended starting point, not a fixed translation algorithm**. Treating each language as a research programme means the team can investigate a different or more complex end-to-end process when evidence supports it. Experiments may change the agentic design—for example, using separate drafting, critique, or adjudication roles—as well as model routing, the selection and presentation of supporting context, hierarchy-specific information, evaluators, quality checks, and repair stages. Prompt evolution through GEPA is one available optimisation method rather than the only kind of improvement.
+
+The supplied default begins by importing existing resources and indexing them for semantic search. A base translation guide seeds the agent. A representative subset is translated and reviewed by a terminology subject-matter expert (SME). The SME supplies canonical translations and quality ratings; those decisions become adjudicated gold data, rules, style-guide improvements, and better retrieval examples. Whatever process is investigated, competing flows are compared through tracked runs and held-out, SME-aligned evidence before one is promoted.
 
 The cycle repeats on fresh concepts until the agreed quality gate is met. Only then is the winning, version-pinned flow used at broader scale. The final output remains subject to SME review and sign-off.
 
 <figure class="feedback-flow" aria-labelledby="feedback-flow-title">
-  <figcaption id="feedback-flow-title">SME feedback loop for improving the translation agent</figcaption>
+  <figcaption id="feedback-flow-title">Default SME feedback loop for improving the translation agent</figcaption>
   <div class="flow-track">
     <div class="flow-step"><span class="flow-number">1</span><strong>Translate a fresh subset</strong><span>Use a representative, previously unseen concept sample.</span></div>
     <div class="flow-arrow" aria-hidden="true">→</div>
@@ -50,8 +52,8 @@ The workbench combines six functions that would otherwise be separate pieces of 
 1. **Project setup** — the reusable `translation_process` template installs the plan, gates, flows, starter rules, source definitions, and methodological safeguards.
 2. **Resource ingestion** — SNOMED CT content and available language resources are registered with their provenance and licence conditions.
 3. **Semantic retrieval** — bilingual pairs and other approved contextual material are indexed so the translation agent sees relevant examples at translation time.
-4. **Controlled translation experiments** — models, prompts, parameters, datasets, and flow designs are explicit and versioned.
-5. **SME feedback and prompt evolution** — review creates canonical gold data and editorial rulings; GEPA optimises prompt-level residue when its evidence requirements are satisfied.
+4. **Controlled translation research** — models, prompts, context construction, agent roles, routing, quality checks, parameters, datasets, and whole flow designs are explicit and versioned.
+5. **SME feedback and optimisation** — review creates canonical gold data and editorial rulings; the evidence can improve prompts, retrieval, rules, evaluators, or the wider agentic process.
 6. **Quality assurance and delivery** — automated detectors, blinded samples, audit trails, promotion gates, and SME sign-off protect the release.
 
 Every material number should come from a tracked run. Every promoted result should identify the source data, code, model, prompt, style guide, and rules that produced it.
@@ -78,7 +80,7 @@ Different parts of SNOMED CT may also be treated as separate research scopes. Pr
 
 Choose a coherent hierarchy section or clinical domain rather than beginning with the whole terminology. Record the SNOMED CT edition, release date, modules, relationships, target language, model configuration, and intended publication route.
 
-Seed the project from `translation_process`. Its first gate remains blocked until the terminology, usable translation resources, SME commitment, and domain slice are available.
+Seed the project from `translation_process`. This installs the default SME feedback workflow as a working reference that the research team can clone, extend, or replace with an evidence-backed alternative. Its first gate remains blocked until the terminology, usable translation resources, SME commitment, and domain slice are available.
 
 ### Step 2 — Bring the available language resources
 
