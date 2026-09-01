@@ -1,4 +1,4 @@
-# SNOMED CT Translation Workbench
+# SNOMED CT, in Any Language: AI-Assisted Translation with SME Feedback
 
 **Cover:** title-only
 **Subtitle:** A concise guide to adapting, validating, and delivering a new language project  
