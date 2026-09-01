@@ -17,6 +17,27 @@ Each language is treated as a small research programme followed by a controlled 
 
 The cycle repeats on fresh concepts until the agreed quality gate is met. Only then is the winning, version-pinned flow used at broader scale. The final output remains subject to SME review and sign-off.
 
+<figure class="feedback-flow" aria-labelledby="feedback-flow-title">
+  <figcaption id="feedback-flow-title">SME feedback loop for improving the translation agent</figcaption>
+  <div class="flow-track">
+    <div class="flow-step"><span class="flow-number">1</span><strong>Translate a fresh subset</strong><span>Use a representative, previously unseen concept sample.</span></div>
+    <div class="flow-arrow" aria-hidden="true">→</div>
+    <div class="flow-step"><span class="flow-number">2</span><strong>Run the translation agent</strong><span>Apply the current prompt, guide, rules, retrieval pool, and model.</span></div>
+    <div class="flow-arrow" aria-hidden="true">→</div>
+    <div class="flow-step flow-sme"><span class="flow-number">3</span><strong>SME review</strong><span>Rate quality, supply canonical translations, and explain recurring problems.</span></div>
+    <div class="flow-turn" aria-hidden="true">↓</div>
+    <div class="flow-step flow-gate"><span class="flow-number">6</span><strong>Held-out quality gate</strong><span>Test the revised agent on fresh concepts using SME-aligned measures.</span></div>
+    <div class="flow-arrow" aria-hidden="true">←</div>
+    <div class="flow-step"><span class="flow-number">5</span><strong>Improve the agent</strong><span>Apply deterministic fixes first; use GEPA for remaining prompt-sensitive issues.</span></div>
+    <div class="flow-arrow" aria-hidden="true">←</div>
+    <div class="flow-step"><span class="flow-number">4</span><strong>Convert feedback into assets</strong><span>Update gold data, rules, style guidance, glossary, and retrieval examples.</span></div>
+  </div>
+  <div class="flow-outcomes">
+    <div class="flow-loop"><strong>Quality gate not met</strong><span>Repeat from step 1 with another fresh subset.</span><b aria-hidden="true">↺</b></div>
+    <div class="flow-promote"><strong>Quality gate met</strong><span>Freeze the versioned flow</span><b aria-hidden="true">→</b><span>broader production run</span><b aria-hidden="true">→</b><span>final SME sign-off</span></div>
+  </div>
+</figure>
+
 The capability can be made available in two complementary ways:
 
 - an **open-source, self-hosted edition**, where customers receive the project and connect their own local or API models; and

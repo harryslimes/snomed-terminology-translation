@@ -308,6 +308,152 @@ tbody tr:nth-child(even) td { background: var(--pale); }
   margin-top: 0;
 }
 
+.feedback-flow {
+  margin: 6mm 0;
+  padding: 5mm;
+  border: .35mm solid var(--line);
+  border-radius: 1.5mm;
+  background: #f8fbfc;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.feedback-flow figcaption {
+  margin: 0 0 4mm;
+  color: var(--navy);
+  font-size: 11pt;
+  font-weight: 700;
+  text-align: center;
+}
+
+.flow-track {
+  display: grid;
+  grid-template-columns: 1fr 7mm 1fr 7mm 1fr;
+  gap: 2.2mm 1mm;
+  align-items: stretch;
+}
+
+.flow-step {
+  position: relative;
+  min-height: 27mm;
+  padding: 3.2mm 3mm 3mm 9mm;
+  border: .35mm solid #9eb7c4;
+  border-radius: 1.2mm;
+  background: white;
+}
+
+.flow-step strong,
+.flow-step span:not(.flow-number) {
+  display: block;
+}
+
+.flow-step strong {
+  margin-bottom: 1.2mm;
+  color: var(--navy);
+  font-size: 8.7pt;
+  line-height: 1.25;
+}
+
+.flow-step span:not(.flow-number) {
+  color: #4d5c68;
+  font-size: 7.35pt;
+  line-height: 1.32;
+}
+
+.flow-number {
+  position: absolute;
+  left: 2.4mm;
+  top: 3mm;
+  display: grid;
+  width: 5mm;
+  height: 5mm;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal);
+  color: white;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.flow-sme {
+  border-color: #c99a37;
+  background: #fffaf0;
+}
+
+.flow-sme .flow-number { background: #b47b13; }
+
+.flow-gate {
+  border-color: var(--teal);
+  background: #edf8f6;
+}
+
+.flow-arrow,
+.flow-turn {
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  font-size: 17pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.flow-turn {
+  grid-column: 5;
+  height: 6mm;
+}
+
+.flow-outcomes {
+  display: grid;
+  grid-template-columns: .9fr 1.7fr;
+  gap: 3mm;
+  margin-top: 3.5mm;
+}
+
+.flow-loop,
+.flow-promote {
+  min-height: 15mm;
+  padding: 3mm 3.5mm;
+  border-radius: 1.2mm;
+  font-size: 7.7pt;
+  line-height: 1.3;
+}
+
+.flow-loop {
+  position: relative;
+  padding-right: 10mm;
+  border: .35mm dashed #b47b13;
+  background: #fffaf0;
+}
+
+.flow-loop strong,
+.flow-loop span {
+  display: block;
+}
+
+.flow-loop strong { color: #805407; }
+
+.flow-loop b {
+  position: absolute;
+  right: 3mm;
+  top: 2.5mm;
+  color: #b47b13;
+  font-size: 18pt;
+}
+
+.flow-promote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2mm;
+  border: .35mm solid var(--teal);
+  background: #e8f5f3;
+  text-align: center;
+}
+
+.flow-promote strong { color: #0c625e; }
+.flow-promote b { color: var(--teal); font-size: 11pt; }
+
 .source-note {
   color: var(--muted);
   font-size: 8.2pt;
