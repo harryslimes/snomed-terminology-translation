@@ -1,4 +1,4 @@
-# SNOMED CT Translation: From Research to Production
+# SNOMED CT Translation: An Evidence-Led Approach
 
 **Cover:** title-only
 **Subtitle:** A concise guide to adapting, validating, and delivering a new language project  
