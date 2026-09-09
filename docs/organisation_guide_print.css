@@ -1,0 +1,496 @@
+@page {
+  size: A4;
+  margin: 17mm 16mm 19mm;
+
+  @bottom-left {
+    content: "SNOMED CT translation programme guide";
+    color: #5d6b78;
+    font-family: "DejaVu Sans", Arial, sans-serif;
+    font-size: 8pt;
+  }
+
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    color: #5d6b78;
+    font-family: "DejaVu Sans", Arial, sans-serif;
+    font-size: 8pt;
+  }
+}
+
+@page :first {
+  margin: 0;
+
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+:root {
+  --navy: #16324f;
+  --blue: #24577a;
+  --teal: #147b75;
+  --gold: #d4a23c;
+  --ink: #25313c;
+  --muted: #5d6b78;
+  --line: #cbd8df;
+  --pale: #eef5f6;
+  --paper: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-family: "DejaVu Sans", Arial, sans-serif;
+  color: var(--ink);
+  font-size: 9.6pt;
+  line-height: 1.48;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+}
+
+.cover {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  color: white;
+  background:
+    radial-gradient(circle at 91% 13%, rgba(255,255,255,.12) 0 18mm, transparent 18.3mm),
+    radial-gradient(circle at 91% 13%, transparent 0 30mm, rgba(255,255,255,.08) 30.3mm 31mm, transparent 31.3mm),
+    linear-gradient(145deg, #102b46 0%, #174762 55%, #147b75 100%);
+  page-break-after: always;
+}
+
+.cover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8mm;
+  height: 100%;
+  background: var(--gold);
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  right: -33mm;
+  bottom: -43mm;
+  width: 130mm;
+  height: 130mm;
+  border: 1.5mm solid rgba(255,255,255,.12);
+  transform: rotate(32deg);
+}
+
+.cover-inner {
+  position: absolute;
+  left: 28mm;
+  right: 24mm;
+  top: 38mm;
+  bottom: 26mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.cover-inner-title-only {
+  top: 0;
+  bottom: 0;
+  justify-content: center;
+}
+
+.cover-inner-title-only h1 {
+  max-width: 145mm;
+  font-size: 35pt;
+  line-height: 1.1;
+}
+
+.cover-kicker {
+  margin: 0 0 17mm;
+  color: #cce8e6;
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.cover h1 {
+  margin: 0;
+  max-width: 150mm;
+  color: white;
+  font-size: 31pt;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.02em;
+}
+
+.cover-rule {
+  width: 34mm;
+  height: 1.3mm;
+  margin: 13mm 0 10mm;
+  background: var(--gold);
+}
+
+.cover-deck {
+  max-width: 142mm;
+  margin: 0;
+  color: #e8f3f5;
+  font-size: 14pt;
+  line-height: 1.48;
+}
+
+.cover-meta {
+  margin-top: auto;
+  padding-top: 8mm;
+  border-top: .3mm solid rgba(255,255,255,.35);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4mm;
+  color: #e8f3f5;
+  font-size: 9pt;
+}
+
+.cover-meta strong {
+  display: inline-block;
+  min-width: 23mm;
+  color: white;
+}
+
+.contents-page {
+  min-height: 245mm;
+  page-break-after: always;
+}
+
+.contents-page h2 {
+  margin-top: 4mm;
+  font-size: 22pt;
+}
+
+.toc > ul {
+  margin: 4mm 0 0;
+  padding: 0;
+  list-style: none;
+  columns: 2;
+  column-gap: 13mm;
+}
+
+.toc ul ul {
+  margin: 1.8mm 0 2.5mm 4mm;
+  padding: 0;
+  list-style: none;
+}
+
+.toc li {
+  margin: 0 0 2.5mm;
+  break-inside: avoid;
+}
+
+.toc li li {
+  margin: 1.4mm 0 0 4mm;
+  font-size: 8.7pt;
+}
+
+.toc a {
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.document-body {
+  width: 100%;
+}
+
+h1, h2, h3, h4 {
+  color: var(--navy);
+  line-height: 1.22;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h2 {
+  margin: 10mm 0 4mm;
+  padding-bottom: 2mm;
+  border-bottom: .5mm solid var(--teal);
+  font-size: 17pt;
+  letter-spacing: -.01em;
+}
+
+h2:first-child { margin-top: 0; }
+
+h2.major-break {
+  page-break-before: always;
+  break-before: page;
+}
+
+h3 {
+  margin: 6.5mm 0 2.5mm;
+  color: var(--blue);
+  font-size: 12.3pt;
+}
+
+p {
+  margin: 0 0 3.2mm;
+  orphans: 3;
+  widows: 3;
+}
+
+ul, ol {
+  margin: 2mm 0 4mm 5.5mm;
+  padding-left: 4.5mm;
+}
+
+li { margin-bottom: 1.3mm; }
+
+strong { color: #1e3447; }
+
+a {
+  color: #0b6f83;
+  text-decoration: underline;
+  text-decoration-color: #8dbbc5;
+}
+
+blockquote {
+  margin: 5mm 0;
+  padding: 4mm 5mm;
+  border-left: 1.2mm solid var(--gold);
+  background: #fbf7ed;
+  color: #35434e;
+}
+
+pre {
+  margin: 4mm 0 5mm;
+  padding: 4mm 5mm;
+  border: .3mm solid #cad7de;
+  border-left: 1.2mm solid var(--teal);
+  border-radius: 1mm;
+  background: #f5f8fa;
+  color: #21313d;
+  font-family: "DejaVu Sans Mono", monospace;
+  font-size: 8pt;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+
+code {
+  font-family: "DejaVu Sans Mono", monospace;
+  font-size: .9em;
+  color: #174762;
+}
+
+table {
+  width: 100%;
+  margin: 4mm 0 6mm;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8.35pt;
+  page-break-inside: auto;
+}
+
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+
+th {
+  padding: 2.8mm 2.6mm;
+  border: .3mm solid #7894a7;
+  background: var(--navy);
+  color: white;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 700;
+}
+
+td {
+  padding: 2.5mm 2.6mm;
+  border: .3mm solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+tbody tr:nth-child(even) td { background: var(--pale); }
+
+.executive-summary {
+  margin: 0 0 7mm;
+  padding: 5mm 6mm 2mm;
+  border-top: 1.2mm solid var(--gold);
+  background: linear-gradient(180deg, #f6fafb, #ffffff);
+}
+
+.executive-summary h2 {
+  margin-top: 0;
+}
+
+.feedback-flow {
+  margin: 6mm 0;
+  padding: 5mm;
+  border: .35mm solid var(--line);
+  border-radius: 1.5mm;
+  background: #f8fbfc;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.feedback-flow figcaption {
+  margin: 0 0 4mm;
+  color: var(--navy);
+  font-size: 11pt;
+  font-weight: 700;
+  text-align: center;
+}
+
+.flow-track {
+  display: grid;
+  grid-template-columns: 1fr 7mm 1fr 7mm 1fr;
+  gap: 2.2mm 1mm;
+  align-items: stretch;
+}
+
+.flow-step {
+  position: relative;
+  min-height: 27mm;
+  padding: 3.2mm 3mm 3mm 9mm;
+  border: .35mm solid #9eb7c4;
+  border-radius: 1.2mm;
+  background: white;
+}
+
+.flow-step strong,
+.flow-step span:not(.flow-number) {
+  display: block;
+}
+
+.flow-step strong {
+  margin-bottom: 1.2mm;
+  color: var(--navy);
+  font-size: 8.7pt;
+  line-height: 1.25;
+}
+
+.flow-step span:not(.flow-number) {
+  color: #4d5c68;
+  font-size: 7.35pt;
+  line-height: 1.32;
+}
+
+.flow-number {
+  position: absolute;
+  left: 2.4mm;
+  top: 3mm;
+  display: grid;
+  width: 5mm;
+  height: 5mm;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal);
+  color: white;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.flow-sme {
+  border-color: #c99a37;
+  background: #fffaf0;
+}
+
+.flow-sme .flow-number { background: #b47b13; }
+
+.flow-gate {
+  border-color: var(--teal);
+  background: #edf8f6;
+}
+
+.flow-arrow,
+.flow-turn {
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  font-size: 17pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.flow-turn {
+  grid-column: 5;
+  height: 6mm;
+}
+
+.flow-outcomes {
+  display: grid;
+  grid-template-columns: .9fr 1.7fr;
+  gap: 3mm;
+  margin-top: 3.5mm;
+}
+
+.flow-loop,
+.flow-promote {
+  min-height: 15mm;
+  padding: 3mm 3.5mm;
+  border-radius: 1.2mm;
+  font-size: 7.7pt;
+  line-height: 1.3;
+}
+
+.flow-loop {
+  position: relative;
+  padding-right: 10mm;
+  border: .35mm dashed #b47b13;
+  background: #fffaf0;
+}
+
+.flow-loop strong,
+.flow-loop span {
+  display: block;
+}
+
+.flow-loop strong { color: #805407; }
+
+.flow-loop b {
+  position: absolute;
+  right: 3mm;
+  top: 2.5mm;
+  color: #b47b13;
+  font-size: 18pt;
+}
+
+.flow-promote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2mm;
+  border: .35mm solid var(--teal);
+  background: #e8f5f3;
+  text-align: center;
+}
+
+.flow-promote strong { color: #0c625e; }
+.flow-promote b { color: var(--teal); font-size: 11pt; }
+
+/* Keep the concise brief's final delivery-model section together after its
+   optional rollout and sources appendices are omitted. */
+[id="6-ways-to-make-it-available"] { margin-top: 6mm; }
+[id="6-ways-to-make-it-available"] ~ h3 { margin: 5mm 0 2mm; }
+[id="6-ways-to-make-it-available"] ~ p { margin-bottom: 2.3mm; }
+[id="6-ways-to-make-it-available"] ~ pre {
+  margin: 3mm 0 3.5mm;
+  padding: 3.4mm 4.5mm;
+}
+
+.source-note {
+  color: var(--muted);
+  font-size: 8.2pt;
+}
+
+@media screen {
+  body { background: #dfe7eb; }
+  .cover, .contents-page, .document-body {
+    max-width: 210mm;
+    margin: 0 auto;
+    background-color: white;
+  }
+  .contents-page, .document-body { padding: 17mm 16mm 19mm; }
+}
+
+@media print {
+  .contents-page, .document-body { padding: 0; }
+}
