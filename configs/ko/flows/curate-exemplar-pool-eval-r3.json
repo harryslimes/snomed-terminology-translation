@@ -1,0 +1,53 @@
+{
+  "id": "curate-exemplar-pool-eval-r3",
+  "name": "curate_exemplar_pool_eval_r3",
+  "description": "Round-3 EVAL-SAFE curated pool. Same recipe as curate-exemplar-pool-eval (additions disabled so SME gold never enters a benchmark pool) but under the round-3 rules file state: the batch-2 deprecated-xray-form drop RETIRED (round 3 reversed that ruling), eight r3-* supersession drops added (pairs teaching 투시 유도하 without guidance, 혈관 경유, 절단 풍선, bare 단순 촬영, 수막공간내, 게이팅, 원추형, 유방 촬영술), and two retrieval-slot hygiene filters (non-clinical semantic tags, EDI drug-package strings) motivated by the run-274572a407ae prompt audit. Writes a NEW csv — the existing pooled_curated_eval file is untouched; flows opt in by switching datasource to pooled_curated_eval_r3, and the new content digest gives it its own Qdrant collection.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "raw_pool",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "curate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/pool_rules/ko.yaml",
+        "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/pool/curated/all_bilingual_pairs_curated_eval_r3.csv",
+        "function": "curate_exemplar_pool",
+        "include_additions": false
+      },
+      "inputs": {
+        "pool": "raw_pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "rows_out",
+        "output_name": "curated_pool_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "curate:metrics"
+      }
+    }
+  ]
+}

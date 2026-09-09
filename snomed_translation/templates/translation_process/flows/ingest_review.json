@@ -1,0 +1,53 @@
+{
+  "id": "{{code}}-ingest-review",
+  "name": "{{code}}_ingest_review",
+  "description": "Canonical ingest of a returned SME review workbook: parses the sample sheet (repairing a damaged header row by position — it happens), normalises ratings, tallies the reviewer's own error categories, and emits both the reviewed rows and an eval-shaped terms set (reference = her correction where given, else the text she rated). SET xlsx_path to the returned file before running. Each round is ingested exactly once, by a tracked run — never re-parsed ad hoc. Promotes {{code}}_round_sample + {{code}}_round_terms.",
+  "project": "{{project}}",
+  "nodes": [
+    {
+      "id": "ingest",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "xlsx_path": "{{data_dir}}/sme_review/RETURNED_ROUND_FILE.xlsx",
+        "sheet": "Sample - please do these first",
+        "output_tag": "round",
+        "function": "ingest_review_pack"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "promote_reviewed",
+      "type": "promote",
+      "pos": {
+        "x": 380.0,
+        "y": 120.0
+      },
+      "params": {
+        "name": "{{code}}_round_sample",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "ingest:reviewed"
+      }
+    },
+    {
+      "id": "promote_terms",
+      "type": "promote",
+      "pos": {
+        "x": 380.0,
+        "y": 300.0
+      },
+      "params": {
+        "name": "{{code}}_round_terms",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "ingest:terms"
+      }
+    }
+  ]
+}

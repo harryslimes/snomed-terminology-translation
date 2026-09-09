@@ -1,0 +1,18 @@
+{
+  "id": "oracle-nbest-gemma",
+  "name": "oracle_nbest_gemma",
+  "description": "Headroom probe for a SELECTION-based review step: sample 5 gemma translations per concept at temperature 0.7 and measure the ORACLE ceiling (does ANY sample match gold?). If oracle@5 is close to greedy accuracy there is nothing for a reranker to find, and review-by-selection is dead before we build it.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "terms", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "sme_gold_all"}, "inputs": {}},
+    {"id": "exemplars", "type": "datasource", "pos": {"x": 40.0, "y": 200.0},
+     "params": {"source": "pooled_legacy"}, "inputs": {}},
+    {"id": "style", "type": "function", "pos": {"x": 40.0, "y": 340.0},
+     "params": {"path": "style_guide/style_guide_ko_v6_0.md", "function": "style_guide"}, "inputs": {}},
+    {"id": "sample", "type": "function", "pos": {"x": 340.0, "y": 60.0},
+     "params": {"model_key": "gemma4-26b-qat", "samples": 5, "temperature": 0.7,
+                "output_tag": "oracle_nbest_gemma", "function": "translate_consistency"},
+     "inputs": {"terms": "terms", "exemplars": "exemplars", "style_guide": "style:style_guide"}}
+  ]
+}

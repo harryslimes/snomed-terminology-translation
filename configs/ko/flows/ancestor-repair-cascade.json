@@ -1,0 +1,207 @@
+{
+  "id": "ancestor-repair-cascade",
+  "name": "ancestor_repair_cascade",
+  "description": "TARGETED REPAIR of the 342 production rows that are hierarchy-inconsistent with a TRUSTWORTHY ancestor. Same cascade as production-cascade (gemma samples 5 at temp 0.7, disagreement escalates blind to Qwen 3.8-Max) over the subset emitted by build-ancestor-context, with that ancestor's established Korean injected into the prompt. Context is injected at the SAMPLE node, not the escalation node, because escalation replays the sampled prompt verbatim — so both arms see it and routing is not confounded with conditioning. Warranted by a matched A/B on SME gold (run c6c3d40d310b vs b22048d53b05): +10.7 chrF on the 16 context-receiving concepts against +0.0 on the 184 identical-prompt controls, difference-in-differences p<0.0001. Exact match did not move (4/16 -> 5/16) and is far too underpowered at n=16 to; the gain is in phrase structure and term choice. 3 of 16 got worse, so this run is a CANDIDATE set for diffing, not an in-place overwrite. Ends with a promote node so the selective-adoption flow consumes this output by NAME from the content-addressed store, rather than via a datasource JSON hand-edited to a run-specific artifact path between runs.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "ancestor_repair_terms"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated_eval"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dict",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "source": "register_oracle_dict"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 480.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "ancestor_repair",
+        "function": "translate_consistency",
+        "request_timeout_seconds": 300,
+        "ancestor_context_json": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/derived/ancestor_context_production.json"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "normalize_spacing": true,
+        "gate_contrast": true,
+        "max_attempts": 3,
+        "concurrency": 8,
+        "output_tag": "production",
+        "function": "escalate_uncertain"
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "contrast_audit",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "contrast_fidelity_detect"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "translit_audit",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 220.0
+      },
+      "params": {
+        "echo_threshold": 0.7,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "label_col": "__none__",
+        "function": "transliteration_detect"
+      },
+      "inputs": {
+        "translations": "cascade:translations",
+        "dictionary": "dict"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "inconsistency_rate_pct",
+        "output_name": "repair_inconsistency_rate_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "hierarchy:metrics"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 380.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "validate_translations",
+        "output_tag": "repair"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 520.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "hierarchy_consistency",
+        "output_tag": "repair"
+      },
+      "inputs": {
+        "translations": "cascade:translations"
+      }
+    },
+    {
+      "id": "promote_patch",
+      "type": "promote",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "name": "ancestor_repair_patch",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "cascade:translations"
+      }
+    }
+  ]
+}

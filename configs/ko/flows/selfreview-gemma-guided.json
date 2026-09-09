@@ -1,0 +1,103 @@
+{
+  "id": "selfreview-gemma-guided",
+  "name": "selfreview_gemma_guided",
+  "description": "Second arm of the self-critique test: identical, except the reviewer is ALSO given style guide v6.0 (the same rulebook the translator had). Isolates whether gemma fails to self-correct because it lacks the rules or because it cannot apply them at review time.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_all"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "translate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "output_tag": "selfreview_gemma_guided",
+        "resume": false,
+        "request_timeout_seconds": 180,
+        "max_attempts": 3,
+        "function": "translate"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "review",
+      "type": "function",
+      "pos": {
+        "x": 620.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",
+        "base_url": "http://localhost:8086",
+        "concurrency": 16,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "function": "self_review"
+      },
+      "inputs": {
+        "translations": "translate:translations",
+        "gold": "terms",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 900.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "detection_rate_pct",
+        "output_name": "self_detection_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "review:metrics"
+      }
+    }
+  ]
+}

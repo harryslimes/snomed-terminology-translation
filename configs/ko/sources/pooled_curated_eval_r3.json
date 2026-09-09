@@ -1,0 +1,14 @@
+{
+  "id": "pooled_curated_eval_r3",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "Round-3 curated eval pool: pooled_curated_eval's recipe re-run with the round-3 supersession drops (stale 투시 유도하 / 혈관 경유 / 절단 풍선 / bare 단순 촬영 / 수막공간내 / 게이팅 / 원추형 / 유방 촬영술 pairs) and the retrieval-slot hygiene filters (non-clinical semantic tags, EDI drug-package strings). A NEW derived CSV — the existing pooled_curated_eval file is untouched, so raw-vs-r3 is a flow edit and each variant keeps its own Qdrant collection. Built by flow curate-exemplar-pool-eval-r3.",
+  "output_csv": "data/languages/ko/pool/curated/all_bilingual_pairs_curated_eval_r3.csv",
+  "csv_path": "data/languages/ko/pool/curated/all_bilingual_pairs_curated_eval_r3.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "EN",
+    "target": "KO",
+    "source": "source"
+  }
+}

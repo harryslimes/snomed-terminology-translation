@@ -1,0 +1,11 @@
+{
+  "id": "delivery",
+  "title": "Delivery",
+  "prose": "Phase 5. Deliverables are promoted, content-addressed objects; a reviewer pack is rebuildable byte-for-byte from its run id. Explicit gates: blinded-sample error rate below target; zero unreviewed blocker findings; SME sign-off.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "snomed-translation"
+}

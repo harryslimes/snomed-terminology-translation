@@ -1,0 +1,53 @@
+{
+  "id": "{{code}}-curate-pool",
+  "name": "{{code}}_curate_pool",
+  "description": "Declarative, tracked curation of the exemplar pool: raw pool -> rules file -> NEW versioned CSV (the raw pool is never edited; each variant gets its own retrieval index, and embedding vectors are reused across versions so re-curation costs minutes). Add rules as failure modes surface: non-clinical rows, export artifacts, pairs teaching superseded forms. Prefer drop over rewrite for reference data. After a run, register the output CSV as a source and repoint translate flows at it explicitly — an A/B is a flow edit.",
+  "project": "{{project}}",
+  "nodes": [
+    {
+      "id": "raw_pool",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "{{pool_source}}"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "curate",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "{{configs_dir}}/pool_rules/{{code}}.yaml",
+        "output_csv": "{{data_dir}}/pool/curated/pool_curated_v1.csv",
+        "function": "curate_exemplar_pool",
+        "include_additions": false
+      },
+      "inputs": {
+        "pool": "raw_pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "rows_out",
+        "output_name": "curated_pool_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "curate:metrics"
+      }
+    }
+  ]
+}

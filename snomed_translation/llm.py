@@ -103,9 +103,16 @@ def _complete_http(spec: ModelSpec, model_key: str, system: str | None,
 
 def complete(spec: ModelSpec, model_key: str, system: str | None, user: str,
              params: dict[str, Any] | None = None, *,
-             timeout: Any = (10, None), ctx: Any = None,
+             timeout: Any = (10, 300), ctx: Any = None,
              node: str | None = None) -> str:
     """Run one chat completion against ``spec``'s backend and return the text.
+
+    ``timeout`` is ``(connect, read)`` seconds. The read timeout MUST be finite:
+    with ``None`` a single wedged request blocks its worker thread forever, and
+    once every worker is blocked the run stops permanently with no error, no
+    timeout and no log line — the failure mode that silently killed two 25k-call
+    runs on 2026-08-11 (see conclusion 64). A finite value turns that into a
+    handful of retryable errors.
 
     ``params`` are the per-call ``llm_params`` (temperature/max_tokens/stop for
     HTTP; thinking/effort/max_thinking_tokens for the SDK). Unsupported keys for a

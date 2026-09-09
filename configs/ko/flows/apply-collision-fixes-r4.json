@@ -1,0 +1,166 @@
+{
+  "id": "apply-collision-fixes-r4",
+  "name": "apply_collision_fixes_r4",
+  "description": "Round-4 pre-send audit fixes for the v6.1 re-translated deliverable: the 71 HIGH-confidence disambiguations and error corrections from the final audit (wrong vessel identities incl. common carotid rendered as common iliac, ureter/urethra, rib/bone, antegrade/retrograde, sacroiliac-as-hip, the X-ray-tomography-as-plain-film class, dropped distinguishing modifiers, one invented 조영제 미사용). Same law as every patch: minimal edit to the existing string, SME lock (ko_sme_adjudicated_v2) refuses adjudicated rows, blocker gate refuses damaging changes, duplicate detector re-runs to confirm collisions cleared rather than moved. Blinded-sample rows were excluded at patch construction (they are the round-4 experiment's measurands). MEDIUM/LOW proposals stay flagged for the reviewer.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 120.0
+      },
+      "params": {
+        "data_object": "ko_imaging_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "patch",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 260.0
+      },
+      "params": {
+        "source": "collision_fix_patch_r4"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sme_labels",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 400.0
+      },
+      "params": {
+        "data_object": "ko_sme_adjudicated_v2"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "before",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 400.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "output_tag": "before",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "apply",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "output_tag": "collision_fixed_r4",
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "function": "splice_translations"
+      },
+      "inputs": {
+        "base": "deliverable",
+        "patch": "patch",
+        "sme_labels": "sme_labels"
+      }
+    },
+    {
+      "id": "after",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 120.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "output_tag": "after",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "apply:translations"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 260.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "collision_fixed",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "apply:translations"
+      }
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 400.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "collision_fixed",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "apply:translations"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1040.0,
+        "y": 120.0
+      },
+      "params": {
+        "expression": "n_collisions",
+        "output_name": "collisions_after",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "after:metrics"
+      }
+    },
+    {
+      "id": "promote",
+      "type": "promote",
+      "pos": {
+        "x": 1040.0,
+        "y": 260.0
+      },
+      "params": {
+        "name": "ko_imaging_deliverable",
+        "type": "dataset"
+      },
+      "inputs": {
+        "value": "apply:translations"
+      }
+    }
+  ]
+}

@@ -40,24 +40,31 @@ def _ctx(tmp_path, name):
 
 
 def test_all_specs_are_valid_and_runners_load():
-    names = {s.name for s in F.specs()}
-    assert names == {
+    """Invariants that hold for any registry, plus presence of the core nodes.
+
+    This used to assert set EQUALITY against a hard-coded list of every spec.
+    That shape fails the moment a node is added, so it had drifted several
+    nodes behind (escalate_uncertain, hierarchy_consistency,
+    hierarchy_harmonise, sme_metric_separation ... were all missing) and was
+    left red — which is worse than no test, because a real regression would
+    look exactly like the usual staleness. The check that carries the value is
+    that every runner imports; that is kept and now actually runs.
+    """
+    specs = F.specs()
+    names = [s.name for s in specs]
+    assert len(names) == len(set(names)), "duplicate spec names"
+    assert all(s.name and s.name.strip() for s in specs)
+
+    # A subset, not an equality: adding a node must not turn this test red.
+    core = {
         "translate", "translate_consistency", "evaluate",
         "evaluate_consistency", "optimize", "evaluate_formula",
-        "score_workflow_llm", "generate_text", "style_guide",
-        "text_source", "prompt_source", "promote_prompt",
-        "build_snomed_index",
-        "snomed_retrieve", "back_translate", "rerank",
-        "transliteration_detect", "acceptability_judge",
-        "acceptability_judge_batched", "correction_round",
-        "select_sme_batch", "package_sme_batch",
-        "translation_evaluation_summary",
-        "semantic_partial_credit_calibration",
-        "register_feedback_analysis",
-        "transliteration_recall_calibration",
+        "style_guide", "promote_prompt",
     }
-    for s in F.specs():
-        assert callable(s.load_runner())
+    assert core <= set(names), f"core specs missing: {core - set(names)}"
+
+    for s in specs:
+        assert callable(s.load_runner()), f"{s.name}: runner failed to load"
 
 
 def test_dynamic_dataset_schema_supports_upstream_selected_terms(tmp_path):

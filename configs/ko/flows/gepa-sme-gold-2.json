@@ -1,0 +1,66 @@
+{
+  "id": "gepa-sme-gold-2",
+  "name": "gepa_sme_gold_2",
+  "description": "GEPA round 2 on CLEANED gold: seed = the GEPA-v1 optimised guide (best on the corrected held-out test at 23.1%), train/dev = cleaned SME gold splits, Opus 5 reflection, hard-rule + contrast penalties. Gate: beat the corrected triple (GEPA-v1 23.1% / v6.0 17.9% on test-39; v6.0 30.0% on the 200-row set) before promotion.",
+  "project": "gepa_sme_gold_v1",
+  "nodes": [
+    {
+      "id": "train",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_train"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "dev",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "sme_gold_dev"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "seed",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_gepa_sme_gold_v1.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "gepa",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 160.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "reflection_model_key": "claude-opus",
+        "train_limit": 132,
+        "dev_limit": 29,
+        "output_tag": "gepa_sme_gold_v2",
+        "function": "optimize"
+      },
+      "inputs": {
+        "trainset": "train",
+        "devset": "dev",
+        "seed_style_guide": "seed:style_guide"
+      }
+    }
+  ]
+}

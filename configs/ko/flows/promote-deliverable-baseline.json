@@ -1,0 +1,13 @@
+{
+  "id": "promote-deliverable-baseline",
+  "name": "promote_deliverable_baseline",
+  "description": "Give the deliverable an IDENTITY. Promotes the shipped production-cascade output (run 65e53f071b45) as the named object `ko_imaging_deliverable` — content-addressed, sha'd, with provenance stamped on the manifest. Run ONCE to seed; thereafter every accepted change re-promotes the same name from ancestor-repair-selective, so the deliverable has a version history instead of being 'whichever run I remember'. Without this, when SME feedback returns against a CSV we cannot say which bytes they reviewed except by archaeology through run directories.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "shipped", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "production_cascade_output"}, "inputs": {}},
+    {"id": "promote", "type": "promote", "pos": {"x": 360.0, "y": 60.0},
+     "params": {"name": "ko_imaging_deliverable", "type": "dataset"},
+     "inputs": {"value": "shipped"}}
+  ]
+}

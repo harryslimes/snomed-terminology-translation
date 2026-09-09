@@ -1,0 +1,19 @@
+{
+  "id": "rollback-deliverable",
+  "name": "rollback_deliverable",
+  "description": "Roll ko_imaging_deliverable back to a pinned sha. Needed because promotion is an accept, and an accept can be wrong: run 8f1042ee69e2 promoted an LLM blocker-repair that cleared every rule while dropping 방출 (emission) from a SPECT term and replacing a DEXA term with an unrelated one — damage no detector in the family watches. Repointing the datasource is how you undo that, and pinning by content digest rather than by 'the previous run' is what makes the undo deterministic. Edit the source's csv_path to choose a different sha.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "pinned", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "deliverable_pre_blocker_repair"}, "inputs": {}},
+    {"id": "check", "type": "function", "pos": {"x": 340.0, "y": 60.0},
+     "params": {"rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+                "fail_on_blocker": false, "en_col": "preferred_term",
+                "ko_col": "translation", "output_tag": "rollback",
+                "function": "validate_translations"},
+     "inputs": {"translations": "pinned"}},
+    {"id": "promote", "type": "promote", "pos": {"x": 640.0, "y": 60.0},
+     "params": {"name": "ko_imaging_deliverable", "type": "dataset"},
+     "inputs": {"value": "pinned"}}
+  ]
+}

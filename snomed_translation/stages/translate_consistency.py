@@ -43,6 +43,7 @@ from snomed_translation.scoring import norm_text
 from snomed_translation.stages.translate import (
     _build_prompts,
     _load_eval_rows,
+    render_ancestor_context,
     render_user,
 )
 from snomed_translation.llm import complete, is_agent_sdk, recommended_concurrency
@@ -52,6 +53,8 @@ from scripts.translation.translate_korean_with_lookup import (
 )
 
 log = logging.getLogger(__name__)
+
+from snomed_translation.watchdog import progress_watchdog
 
 
 def _group_candidates(samples: list[str]) -> list[dict]:
@@ -78,10 +81,28 @@ def _group_candidates(samples: list[str]) -> list[dict]:
 
 def run(cfg: PipelineConfig, ctx: RunContext, *,
         samples: int = 5, temperature: float | None = None,
-        limit: int | None = None, resume: bool = False, **_) -> StageResult:
+        limit: int | None = None, resume: bool = False,
+        ancestor_context_json: str | None = None,
+        request_timeout_seconds: float = 300.0, **_) -> StageResult:
     """Translate every concept ``samples`` times; write a candidates CSV."""
     stage = "translate_consistency"
     samples = max(1, int(samples))
+
+    # Optional target-language context, same contract as the translate stage.
+    # Injecting it HERE rather than at the escalation node is deliberate: the
+    # cascade's escalation replays this stage's rendered prompt verbatim from
+    # the sidecar, so the context reaches both arms and the two arms stay
+    # comparable. Injecting downstream would give only the escalated rows the
+    # context and silently confound routing with conditioning.
+    ancestors: dict = {}
+    if ancestor_context_json:
+        anc_path = Path(ancestor_context_json)
+        if not anc_path.exists():
+            return StageResult(stage=stage, ok=False,
+                               message=f"ancestor_context_json not found: {anc_path}")
+        ancestors = json.loads(anc_path.read_text(encoding="utf-8"))
+        log.info("[%s] ancestor context loaded for %d concepts", stage,
+                 len(ancestors))
 
     # --- Model + prompt + endpoint setup (mirrors the translate stage). ---
     try:
@@ -134,14 +155,31 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
 
     remaining = [r for r in rows if r["sctid"] not in done_sctids]
     if not remaining:
+        # Still write the declared outputs, even empty. A stage that reports
+        # ok=True without producing its output makes every downstream node fail
+        # with a misleading "nothing wired" — which is how a repair flow with
+        # nothing left to repair failed as if it were misconfigured.
+        if not out_path.exists():
+            with out_path.open("w", encoding="utf-8", newline="") as f:
+                csv.DictWriter(f, fieldnames=[
+                    "sctid", "preferred_term", "ko_reference", "n_samples",
+                    "n_distinct", "candidates", "top_candidate"]).writeheader()
+        if not prompts_path.exists():
+            prompts_path.write_text(
+                json.dumps({"system_prompt": "", "model_key": model_key,
+                            "samples": samples, "user_prompts": {}},
+                           ensure_ascii=False), encoding="utf-8")
         return StageResult(stage=stage, ok=True,
                            outputs={"candidates_csv": out_path,
                                     "prompts_json": prompts_path},
                            output_paths=[out_path],
+                           metrics={"n_concepts": 0.0, "n_calls": 0.0},
                            message=f"Nothing to do ({len(rows)} already complete)")
 
     try:
-        lookup_cache = ensure_exemplars(cfg, remaining)
+        # ensure_exemplars returns (cache, self_exclusions) — the second element
+        # is the per-concept gold dropped by self-exclusion, unused here.
+        lookup_cache, _exclusions = ensure_exemplars(cfg, remaining)
     except ExemplarError as exc:
         return StageResult(stage=stage, ok=False,
                            message=f"exemplars unavailable: {exc}")
@@ -149,11 +187,21 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     # Render each concept's user prompt once; sample it N times. The rendered
     # prompt is stashed for the prompt sidecar so the judge can replay it.
     user_prompts: dict[str, str] = {}
+    n_with_context = 0
     for row in remaining:
         pairs = lookup_cache.get(row["sctid"], [])[: cfg.translation.lookup_topn]
-        user_prompts[row["sctid"]] = render_user(
+        prompt = render_user(
             user_template, paired_translations=format_pairs_table(pairs),
             english=row["preferred_term"], language_name=cfg.language.name)
+        if ancestors:
+            anc = render_ancestor_context(ancestors.get(row["sctid"], {}))
+            if anc:
+                prompt = anc + "\n\n" + prompt
+                n_with_context += 1
+        user_prompts[row["sctid"]] = prompt
+    if ancestors:
+        log.info("[%s] %d/%d prompts carry ancestor context", stage,
+                 n_with_context, len(remaining))
 
     # Flatten into (sctid, sample_index) tasks for even concurrency.
     tasks = [(row["sctid"], i) for row in remaining for i in range(samples)]
@@ -166,12 +214,15 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
     def call(sctid: str) -> str:
         try:
             return complete(model, model_key, system_prompt,
-                            user_prompts[sctid], llm_params)
+                            user_prompts[sctid], llm_params,
+                            timeout=(10, request_timeout_seconds))
         except Exception as exc:  # noqa: BLE001 — one bad sample mustn't kill the run
             log.error("%s sample -> ERROR %s", sctid[:12], exc)
             return f"ERROR: {exc}"
 
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+    with progress_watchdog(stage, stall_seconds=120.0,
+                           base_url=None if use_sdk else base_url) as _tick, \
+         ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {pool.submit(call, sctid): sctid for sctid, _ in tasks}
         for fut in as_completed(futures):
             if ctx.is_cancelled():
@@ -182,6 +233,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             with lock:
                 by_sctid[sctid].append(result)
                 completed[0] += 1
+                _tick()
                 if result.startswith("ERROR"):
                     errors[0] += 1
                 if completed[0] % 100 == 0:
@@ -235,6 +287,7 @@ def run(cfg: PipelineConfig, ctx: RunContext, *,
             "n_calls": float(completed[0]),
             "n_errors": float(errors[0]),
             "n_multi_candidate": float(n_multi),
+            "n_with_ancestor_context": float(n_with_context),
             "elapsed_seconds": elapsed,
         },
         message=(f"{len(by_sctid)} concepts × {samples} samples, "

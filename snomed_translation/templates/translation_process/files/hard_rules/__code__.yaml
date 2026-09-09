@@ -1,0 +1,39 @@
+# {{lang_name}} hard rules — non-negotiable translation constraints.
+#
+# Seeded by the translation_process template with the universal output-hygiene
+# invariants only. Language rules are ADDED as SME rounds produce rulings; a
+# canonical form must come from an adjudicated source, never batch frequency.
+# Per-rule switches (enabled / freeze / enforce / severity / when_source /
+# examples) are documented in the Korean file, the reference implementation.
+
+language: {{code}}
+
+rules:
+
+  - id: no-trailing-punctuation
+    description: Terms do not end in punctuation.
+    forbidden_regex:
+      - '[.,;:]\s*$'
+    enforce: true
+    severity: blocker
+    freeze: true
+    penalty: 0.25
+
+  - id: no-wrapping-quotes
+    description: Never wrap the translation in quotation marks.
+    forbidden_regex:
+      - '^\s*["“‘]'
+      - '["”’]\s*$'
+    enforce: true
+    severity: blocker
+    freeze: true
+    penalty: 0.25
+
+  - id: no-rf2-markup
+    description: RF2 caret markup (e.g. "Tl^201^") must never survive into a translation.
+    forbidden_regex:
+      - '\^[^^]*\^'
+    enforce: true
+    severity: blocker
+    freeze: true
+    penalty: 0.25

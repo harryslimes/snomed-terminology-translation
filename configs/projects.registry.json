@@ -24,6 +24,14 @@
       "direction": "EN→ES",
       "port": 8101,
       "description": "SNOMED CT terminology translation, English → Spanish."
+    },
+    {
+      "code": "kog",
+      "name": "Korean (greenfield demo)",
+      "direction": "EN→KO",
+      "port": 8102,
+      "description": "Greenfield demo of the translation_process template: the formalised method (phase problems, gated plan, round-loop flows, laws) laid down on a cold-start Korean project — imaging domain, empty pool, empty gold.",
+      "mcp_port": 8767
     }
   ]
 }

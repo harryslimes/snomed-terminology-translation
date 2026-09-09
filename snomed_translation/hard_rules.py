@@ -59,8 +59,41 @@ class HardRule:
     forbidden: list[str] = field(default_factory=list)
     # Regex patterns that must never match the output.
     forbidden_regex: list[str] = field(default_factory=list)
+    # Regex on the SOURCE term. When set, the rule only fires for concepts
+    # whose English matches — making the rule a statement about a MAPPING
+    # rather than about the target string alone.
+    #
+    # The most valuable defect class we have is source-conditional and cannot
+    # be expressed without this. 위팔 (upper arm) is correct Korean for "upper
+    # arm", for 위팔뼈 (humerus) and for 위팔동맥 (brachial artery); it is wrong
+    # only where the source says "upper limb". Banning the substring outright
+    # flagged 64 rows of which 40 were correct — 63% false positives — and
+    # would have refused correct translations forever after.
+    when_source: str = ""
+    # Worked examples: {"flag": [{source, target}, ...], "pass": [...]}.
+    # `flag` must violate the rule, `pass` must not. Checked by
+    # check_rule_examples and by the test suite, so a rule that stops firing —
+    # or starts over-firing — fails loudly instead of silently changing what
+    # ships. These rules gate both GEPA scoring and the deliverable, and the
+    # first version of upper-limb-not-upper-arm was 63% false positives, so
+    # "the regex looks right" is not good enough.
+    examples: dict = field(default_factory=dict)
     enforce: bool = True
     freeze: bool = True
+    # Master off switch. A rule kept in the file for documentation, or parked
+    # pending validation, sets enabled: false and is dropped at load time so
+    # NO consumer sees it. Previously `enforce: false` was doing double duty as
+    # this switch, which broke the moment the validator started checking
+    # non-enforced rules: example-native-body-site is disabled on purpose (an
+    # ablation found prescribing native body sites hurts) and would otherwise
+    # have started emitting warnings for 하지/상지.
+    enabled: bool = True
+    # How an OUTPUT violation is treated by validate_translations:
+    #   "blocker" — malformed or clinically wrong; gates the deliverable
+    #   "warning" — a style preference the SME accepts as synonymy; surfaces
+    #               in review priority but never blocks
+    # Independent of `penalty`, which is the optimiser's concern.
+    severity: str = "warning"
     penalty: float = DEFAULT_PENALTY
     # Optional hand-written prompt text; if absent the frozen block is composed
     # from description + canonical/forbidden.
@@ -84,8 +117,12 @@ class HardRule:
             canonical=_as_list(d.get("canonical")),
             forbidden=_as_list(d.get("forbidden")),
             forbidden_regex=_as_list(d.get("forbidden_regex")),
+            when_source=str(d.get("when_source", "")),
+            examples=dict(d.get("examples") or {}),
             enforce=bool(d.get("enforce", True)),
             freeze=bool(d.get("freeze", True)),
+            enabled=bool(d.get("enabled", True)),
+            severity=str(d.get("severity", "warning")).strip().lower(),
             penalty=float(d.get("penalty", DEFAULT_PENALTY)),
             text=str(d.get("text", "")),
         )
@@ -116,7 +153,8 @@ def load_hard_rules(src: "dict | Path | str | None") -> list[HardRule]:
         import yaml
         data = yaml.safe_load(Path(src).read_text(encoding="utf-8")) or {}
     raw_rules = data.get("rules") if isinstance(data, dict) else data
-    return [HardRule.from_dict(r) for r in (raw_rules or [])]
+    rules = [HardRule.from_dict(r) for r in (raw_rules or [])]
+    return [r for r in rules if r.enabled]
 
 
 def frozen_block(rules: list[HardRule]) -> str:
@@ -148,17 +186,38 @@ def frozen_block(rules: list[HardRule]) -> str:
 
 
 def find_violations(
-    candidate: str, rules: list[HardRule]
+    candidate: str, rules: list[HardRule], *, require_enforce: bool = True,
+    source: str = ""
 ) -> list[tuple[HardRule, str]]:
-    """Return (rule, message) for every enforce=True rule the candidate breaks.
+    """Return (rule, message) for every rule the candidate breaks.
 
     Surface-form matching only: a forbidden substring present, or a forbidden
     regex matching. Scope is not consulted here (see HardRule.scope).
+
+    ``require_enforce`` keeps the two switches independent, as the rules file
+    has always documented them: ``enforce`` decides whether the OPTIMISER
+    subtracts a penalty, ``severity`` decides whether a VALIDATOR treats the
+    violation as shipping-blocking. Callers that score for GEPA keep the
+    default; ``validate_translations`` passes False so an enforce=False rule
+    is still checked against output.
+
+    They were not actually independent before: this function skipped
+    enforce=False rules outright, so a rule written to gate the deliverable
+    without steering the prompt was silently a no-op. That is exactly the
+    combination sme-rejected-body-site needs — a prior ablation found that
+    PRESCRIBING native body sites hurts quality, so the terms must not enter
+    the prompt or the metric, while shipping them still has to be caught.
     """
     out: list[tuple[HardRule, str]] = []
     for r in rules:
-        if not r.enforce:
+        if require_enforce and not r.enforce:
             continue
+        if r.when_source:
+            # A source-conditional rule is INERT without a source term rather
+            # than firing blindly: callers that score a bare candidate (the
+            # GEPA metric) must not be handed violations they cannot evaluate.
+            if not source or not re.search(r.when_source, source, re.I):
+                continue
         for tok in r.forbidden:
             if tok and tok in candidate:
                 out.append((r, f"[{r.id}] forbidden form '{tok}' present"))
@@ -177,3 +236,36 @@ def penalty_for(violations: list[tuple[HardRule, str]]) -> float:
     for rule, _ in violations:
         seen[rule.id] = rule.penalty
     return sum(seen.values())
+
+
+def check_rule_examples(rules: list[HardRule]) -> list[str]:
+    """Verify each rule's worked examples. Returns a list of failure messages.
+
+    A rule file gates both GEPA scoring and what ships to a reviewer, so a
+    regex that quietly stops matching — or starts matching correct output — is
+    an expensive silent failure. The first version of upper-limb-not-upper-arm
+    banned the substring 위팔 outright and flagged 40 correct rows (위팔뼈 is
+    humerus, 위팔동맥 is the brachial artery); nothing caught it because a rule
+    that fires looks identical to a rule that fires *correctly*.
+
+    Rules without examples are skipped, not failed: backfilling every existing
+    rule is a separate job, and refusing to load them would take the
+    deliverable down.
+    """
+    failures: list[str] = []
+    for rule in rules:
+        for kind in ("flag", "pass"):
+            for ex in rule.examples.get(kind) or []:
+                target = str(ex.get("target", ""))
+                source = str(ex.get("source", ""))
+                hit = bool(find_violations(target, [rule], require_enforce=False,
+                                           source=source))
+                if kind == "flag" and not hit:
+                    failures.append(
+                        f"[{rule.id}] should FLAG but did not: "
+                        f"{source!r} -> {target!r}")
+                elif kind == "pass" and hit:
+                    failures.append(
+                        f"[{rule.id}] should PASS but was flagged: "
+                        f"{source!r} -> {target!r}")
+    return failures

@@ -575,6 +575,15 @@ translate_spec = FunctionSpec(
     outputs=[PortSpec(name="translations", kinds=["dataset"],
                       roles=["sctid", "en", "target"])],
     params=[
+        # Ancestor's established Korean rendering, keyed by sctid.
+        ParamSpec(name="ancestor_context_json", label="Ancestor context JSON",
+                  kind="text"),
+        # Optional SNOMED defining-attribute context, keyed by sctid.
+        ParamSpec(name="attributes_json", label="Concept attributes JSON",
+                  kind="text"),
+        # Force reasoning on/off per node across backends (Claude `thinking`,
+        # vLLM/DashScope `enable_thinking`); unset inherits the model default.
+        ParamSpec(name="thinking", label="Reasoning/thinking mode", kind="bool"),
         ParamSpec(name="model_key", label="Model", kind="model", required=True),
         ParamSpec(name="output_tag", label="Output tag", kind="text"),
         ParamSpec(name="limit", label="Row limit", kind="number"),
@@ -1332,6 +1341,44 @@ select_sme_batch_spec = FunctionSpec(
     runner="snomed_translation.batch_selection:select_sme_batch",
 )
 
+package_deliverable_spec = FunctionSpec(
+    name="package_deliverable", label="Package deliverable for review",
+    category="evaluate",
+    description="Assemble the reviewer-facing deliverable: overlay adjudicated "
+                "SME renderings and their synonyms over the machine output, "
+                "set review_priority from the qa_gate worklist, and drop dead "
+                "columns. Separate from package_sme_batch, which packages a "
+                "sampled batch around selection provenance a full deliverable "
+                "has no analogue for; the reviewer response columns are the "
+                "same so the spreadsheet is unchanged.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="gold", label="SME-adjudicated renderings", kinds=["dataset"]),
+        PortSpec(name="priority", label="qa_gate worklist", kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="deliverable", label="Review packet", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="gold_col", label="Gold translation column", kind="text",
+                  default="ko_reference"),
+        ParamSpec(name="drop_cols", label="Columns to omit (comma-separated)",
+                  kind="text"),
+        ParamSpec(name="output_name", label="Output file name", kind="text",
+                  default="deliverable"),
+        ParamSpec(name="xlsx", label="Also write an .xlsx review workbook",
+                  kind="bool", default=False),
+        ParamSpec(name="sample_per_tier", label="Stratified review sample per priority tier",
+                  kind="number", default=0),
+        ParamSpec(name="seed", label="Sample seed", kind="number", default=20260812),
+        ParamSpec(name="machine_label", label="Provenance label for machine rows",
+                  kind="text", default="machine_v6_0"),
+    ],
+    runner="snomed_translation.batch_selection:package_deliverable",
+)
+
 package_sme_batch_spec = FunctionSpec(
     name="package_sme_batch", label="Package SME review batch", category="evaluate",
     description="Join selection metadata to newly generated translations and emit "
@@ -1393,6 +1440,522 @@ semantic_partial_credit_calibration_spec = FunctionSpec(
     runner="snomed_translation.evidence_analysis:semantic_partial_credit_calibration",
 )
 
+curate_exemplar_pool_spec = FunctionSpec(
+    name="curate_exemplar_pool", label="Curate exemplar pool",
+    category="data",
+    description="Apply declarative, versioned curation rules to the raw "
+                "bilingual pool and emit a NEW csv (the raw pool is never "
+                "mutated). Each rule carries a rationale + evidence links; "
+                "per-rule match counts and the rules-file content hash are "
+                "reported as run metrics, so what changed and why is visible "
+                "in the ledger. Register the output as its own source to A/B "
+                "raw vs curated by editing a flow instead of a file.",
+    inputs=[
+        PortSpec(name="pool", label="Raw bilingual pool", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="pool", label="Curated pool", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        # false -> skip `additions` (e.g. SME gold), for an eval-safe pool.
+        ParamSpec(name="include_additions", label="Include additions",
+                  kind="bool", default=True),
+        ParamSpec(name="rules_file", label="Curation rules YAML", kind="text",
+                  required=True),
+        ParamSpec(name="output_csv", label="Curated output CSV", kind="text",
+                  required=True),
+    ],
+    runner="snomed_translation.pool_curation:curate_exemplar_pool",
+)
+
+validate_translations_spec = FunctionSpec(
+    name="validate_translations", label="Validate translations", category="detect",
+    description="Check a translations dataset against the hard rules and "
+                "output-hygiene checks (empty, ERROR, repeated token, "
+                "untranslated Latin). Splits findings into blockers and "
+                "warnings by each rule's `severity`. With fail_on_blocker the "
+                "node FAILS the run, gating a deliverable on rules we already "
+                "wrote down — the missing third consumer alongside the prompt "
+                "and the optimiser.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Validation findings", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="output_tag", label="Output tag (namespaces the findings file)",
+                  kind="text"),
+        ParamSpec(name="rules_file", label="Hard rules YAML", kind="text"),
+        ParamSpec(name="fail_on_blocker", label="Fail the run on blockers",
+                  kind="bool", default=False),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text"),
+    ],
+    runner="snomed_translation.validation:validate_translations",
+)
+
+hierarchy_consistency_spec = FunctionSpec(
+    name="hierarchy_consistency", label="Hierarchy consistency", category="detect",
+    description="Where a SNOMED ancestor's English term is contained in a "
+                "descendant's, the ancestor's translation should be reused. "
+                "Flags the ones that are not (spacing ignored). Doubles as a "
+                "wrong-referent detector: it surfaced 'sacrum' rendered as "
+                "엉덩뼈 (ilium) while the same concept's sibling was correct.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Inconsistent pairs", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="output_tag", label="Output tag (namespaces the findings file)",
+                  kind="text"),
+        ParamSpec(name="rf2_relationship_file", label="RF2 relationship snapshot",
+                  kind="text", required=True),
+        ParamSpec(name="max_depth", label="Ancestor depth", kind="number", default=4),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text"),
+    ],
+    runner="snomed_translation.validation:hierarchy_consistency",
+)
+
+hierarchy_harmonise_spec = FunctionSpec(
+    name="hierarchy_harmonise", label="Hierarchy harmonise", category="detect",
+    description="Deterministically rewrite descendants flagged by "
+                "hierarchy_consistency so they reuse their ancestor's Korean "
+                "rendering (descendant's own modifiers kept, ancestor's head "
+                "appended). No model in the loop, so it cannot hallucinate.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True),
+            PortSpec(name="findings", label="hierarchy_consistency findings",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="translations", label="Harmonised translations",
+                      kinds=["dataset"]),
+             PortSpec(name="audit", label="Before/after audit", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[ParamSpec(name="ko_col", label="Translation column", kind="text"),
+            ParamSpec(name="output_tag", label="Output tag", kind="text")],
+    runner="snomed_translation.validation:hierarchy_harmonise",
+)
+
+build_ancestor_context_spec = FunctionSpec(
+    name="build_ancestor_context", label="Build ancestor context", category="data",
+    description="Build the sctid -> ancestor-rendering map used by the "
+                "translate node's ancestor_context_json, admitting an ancestor "
+                "only if it was unanimous AND carries no blocker-severity "
+                "validation finding. Unanimity alone is confidence, not "
+                "correctness: a malformed but unanimous ancestor would "
+                "otherwise be allowed to teach its descendants.",
+    inputs=[
+        PortSpec(name="findings", label="hierarchy_consistency findings",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="translations", label="Translations (for routed/unanimity)",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="validation", label="validate_translations findings",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="context", label="Ancestor context JSON", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        # Teaching bar > shipping bar: also exclude ancestors that are
+        # themselves hierarchy-flagged or contain a repeated content token.
+        ParamSpec(name="strict_ancestor", label="Strict ancestor filter",
+                  kind="bool", default=True),
+        ParamSpec(name="output_json", label="Output JSON path", kind="text"),
+        ParamSpec(name="require_unanimous", label="Require unanimous ancestor",
+                  kind="bool", default=True),
+        ParamSpec(name="output_terms_csv", label="Repair work-list CSV", kind="text"),
+    ],
+    runner="snomed_translation.validation:build_ancestor_context",
+)
+
+splice_translations_spec = FunctionSpec(
+    name="splice_translations", label="Splice translations", category="data",
+    description="Overlay a patch translation set onto a base set by sctid, so "
+                "a targeted repair can be scored IN CONTEXT. A subset repair "
+                "scored on its own subset is misleading for anything "
+                "relational — hierarchy consistency over the 342 repaired "
+                "rows alone sees 31 of the batch's 1,774 containment pairs, "
+                "because a row's ancestor is usually outside the subset.",
+    inputs=[
+        PortSpec(name="base", label="Base translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="patch", label="Patch translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="restrict", label="Allow-list of sctids to apply",
+                 kinds=["dataset"]),
+        PortSpec(name="sme_labels", label="SME-adjudicated rows (locked)",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="translations", label="Spliced translations",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text",
+                  default="spliced"),
+        # When set, a patch row that introduces a blocker the base row did not
+        # have is refused. Pre-existing violations are left alone.
+        ParamSpec(name="rules_file", label="Hard rules file (patch safety)",
+                  kind="text"),
+    ],
+    runner="snomed_translation.validation:splice_translations",
+)
+
+diff_findings_spec = FunctionSpec(
+    name="diff_findings", label="Diff findings (before/after)", category="data",
+    description="Row-level before/after comparison of two findings sets: what "
+                "was fixed, what newly broke. A net count cannot distinguish "
+                "138 clean fixes from 200 fixes bought with 62 new breaks. "
+                "The `fixed` output doubles as the allow-list for a restricted "
+                "re-splice, so only changes that demonstrably helped ship.",
+    inputs=[
+        PortSpec(name="before", label="Findings before", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="after", label="Findings after", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[PortSpec(name="fixed", label="Fixed sctids", kinds=["dataset"]),
+             PortSpec(name="regressed", label="Newly broken sctids", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[ParamSpec(name="output_tag", label="Output tag", kind="text",
+                      default="diff")],
+    runner="snomed_translation.validation:diff_findings",
+)
+
+duplicate_translation_spec = FunctionSpec(
+    name="duplicate_translation", label="Duplicate translation detector",
+    category="detect",
+    description="Flag distinct concepts given the same target rendering. No "
+                "model call, one pass, and it catches what single-row checks "
+                "structurally cannot: a collision is a property of a PAIR. On "
+                "the 5,012-row batch it finds 22, including ureterography "
+                "rendered as urethrography and MR angiography as CT — "
+                "clinically wrong, and passed by every other detector. Warning "
+                "severity by default, since near-synonyms legitimately collide.",
+    inputs=[PortSpec(name="translations", label="Translations",
+                     kinds=["dataset"], required=True)],
+    outputs=[PortSpec(name="findings", label="Collision findings", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="en_col", label="Source term column", kind="text",
+                  default="preferred_term"),
+        ParamSpec(name="severity", label="Severity", kind="text", default="warning"),
+        ParamSpec(name="normalise", label="Ignore whitespace differences",
+                  kind="bool", default=True),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.validation:duplicate_translation",
+)
+
+qa_gate_spec = FunctionSpec(
+    name="qa_gate", label="QA gate (aggregate findings)", category="detect",
+    description="Aggregate every detector's findings into one ship/no-ship "
+                "verdict and one prioritised defect worklist. Replaces "
+                "eyeballing four CSVs, feeds packaging its sort order, and "
+                "makes repair acceptance Pareto: a repair optimised against "
+                "one detector cannot be accepted on that detector's own "
+                "evidence.",
+    inputs=[PortSpec(name=f"findings{i}", label=f"Findings {i}",
+                     kinds=["dataset"], required=(i == 1))
+            for i in range(1, 7)],
+    outputs=[PortSpec(name="worklist", label="Prioritised defect worklist",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="max_blockers", label="Blocker rows tolerated",
+                  kind="number", default=0),
+        ParamSpec(name="fail_if_not_shippable", label="Fail the run if not shippable",
+                  kind="bool", default=False),
+        ParamSpec(name="output_tag", label="Output tag", kind="text", default="qa"),
+    ],
+    runner="snomed_translation.validation:qa_gate",
+)
+
+rule_substitute_spec = FunctionSpec(
+    name="rule_substitute", label="Repair by minimal substitution",
+    category="translate",
+    description="Repair blocker rows by substituting a rule's forbidden form "
+                "with its canonical one, touching only the offending span. The "
+                "conservative alternative to re-translation, which takes the "
+                "licence it is given: asked to fix one term it has rewritten "
+                "whole phrases and dropped meaning (SPECT losing 방출). Rows "
+                "with a structural defect or no canonical form are left for "
+                "re-translation and reported as n_unfixable.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="findings", label="validate_translations findings",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[PortSpec(name="translations", label="Substituted patch",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="ko_col", label="Translation column", kind="text",
+                  default="translation"),
+        ParamSpec(name="severities", label="Finding severities to repair "
+                                           "(comma-separated)", kind="text",
+                  default="blocker"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text",
+                  default="patch"),
+    ],
+    runner="snomed_translation.validation:rule_substitute",
+)
+
+build_rule_repair_context_spec = FunctionSpec(
+    name="build_rule_repair_context", label="Build rule repair context",
+    category="data",
+    description="Turn rule violations into per-concept repair guidance in the "
+                "same context-map shape the translate node injects, plus the "
+                "work-list of rows to re-translate. The counterpart to "
+                "build_ancestor_context: it is what makes the repair loop "
+                "general, since a rules-based defect then reuses the existing "
+                "cascade, splice, diff and gate with no new machinery.",
+    inputs=[
+        PortSpec(name="findings", label="validate_translations findings",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="translations", label="Translations (for source terms)",
+                 kinds=["dataset"]),
+    ],
+    outputs=[PortSpec(name="context", label="Repair context JSON", kinds=["dataset"]),
+             PortSpec(name="terms", label="Rows to re-translate", kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="severities", label="Severities to repair", kind="text",
+                  default="blocker"),
+        ParamSpec(name="output_json", label="Context JSON path", kind="text"),
+        ParamSpec(name="output_terms_csv", label="Work-list CSV path", kind="text"),
+    ],
+    runner="snomed_translation.validation:build_rule_repair_context",
+)
+
+escalate_uncertain_spec = FunctionSpec(
+    name="escalate_uncertain", label="Escalate uncertain (cascade)",
+    category="translate",
+    description="Confidence-routed two-model cascade: keep the sampler's "
+                "answer where its samples agreed, and re-translate the "
+                "disagreeing rows with a stronger model that replays the "
+                "ORIGINAL prompt and optionally sees the first model's "
+                "candidates. Routes on n_distinct (AUC 0.755 for predicting "
+                "incorrectness) and generates rather than selects.",
+    inputs=[PortSpec(name="candidates", label="Candidates (translate_consistency)",
+                     kinds=["candidates"], required=True)],
+    outputs=[PortSpec(name="translations", label="Cascade translations",
+                      kinds=["dataset"]),
+             PortSpec(name="metrics", label="Metrics", kinds=["metrics"])],
+    params=[
+        ParamSpec(name="model", label="Escalation model id", kind="text", required=True),
+        ParamSpec(name="base_url", label="Base URL", kind="text", required=True),
+        ParamSpec(name="api_key_env", label="API key env var", kind="text"),
+        ParamSpec(name="min_distinct", label="Escalate when n_distinct >=",
+                  kind="number", default=2),
+        ParamSpec(name="show_candidates", label="Show the first model's candidates",
+                  kind="bool", default=True),
+        ParamSpec(name="max_escalate", label="Max rows to escalate (0 = all)",
+                  kind="number", default=0),
+        # Ignore 띄어쓰기 in the agreement vote (the SME rules spacing is never
+        # itself an error), so spacing-only variation never escalates.
+        ParamSpec(name="normalize_spacing", label="Spacing-normalised vote",
+                  kind="bool", default=True),
+        # Veto a revision that introduces a contrast-fidelity fault.
+        ParamSpec(name="gate_contrast", label="Contrast-fidelity gate",
+                  kind="bool", default=True),
+        ParamSpec(name="max_attempts", label="Escalation retries", kind="number",
+                  default=3),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number", default=8),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:escalate_uncertain",
+)
+
+self_review_spec = FunctionSpec(
+    name="self_review", label="Self review (model checks translations)",
+    category="evaluate",
+    description="Ask a model to review translations (typically its own) with a "
+                "deliberately neutral prompt that names no error class, then "
+                "measure it against gold: detection rate on wrong rows, "
+                "false-alarm rate on correct rows, repair and damage rates.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+        PortSpec(name="gold", label="Gold references", kinds=["dataset"]),
+        PortSpec(name="style_guide", label="Style guide (optional)",
+                 kinds=["style_guide", "text"]),
+    ],
+    outputs=[
+        PortSpec(name="reviews", label="Per-row reviews", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="model", label="Review model", kind="text", required=True),
+        ParamSpec(name="base_url", label="Base URL", kind="text",
+                  default="http://localhost:8086"),
+        ParamSpec(name="concurrency", label="Concurrency", kind="number"),
+        ParamSpec(name="max_tokens", label="Max tokens", kind="number", default=220),
+        ParamSpec(name="en_col", label="English column", kind="text"),
+        ParamSpec(name="ko_col", label="Korean column", kind="text"),
+        ParamSpec(name="system", label="Review system prompt", kind="textarea"),
+    ],
+    runner="snomed_translation.sme_feedback:self_review",
+)
+
+contrast_fidelity_detect_spec = FunctionSpec(
+    name="contrast_fidelity_detect", label="Contrast fidelity detect",
+    category="detect",
+    description="Deterministic source-conditional detector for contrast-phrase "
+                "mismatches: 조영제 사용/미사용 hallucinated when the source has "
+                "no contrast mention, wrong polarity, or a source contrast "
+                "modifier dropped. Top SME batch-2 'Wrong' class. Ambiguous "
+                "constructions ('contrast procedure') are skipped for precision.",
+    inputs=[
+        PortSpec(name="translations", label="Translations", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="flags", label="Contrast fidelity flags", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="en_col", label="English column", kind="text", default=""),
+        ParamSpec(name="ko_col", label="Korean column", kind="text", default=""),
+        ParamSpec(name="label_col", label="SME label column (optional)",
+                  kind="text", default="sme_rating"),
+    ],
+    runner="snomed_translation.sme_feedback:contrast_fidelity_detect",
+)
+
+sme_metric_separation_spec = FunctionSpec(
+    name="sme_metric_separation", label="SME metric separation",
+    category="evaluate",
+    description="Score SME-reviewed translations against the multi-reference "
+                "SME gold with candidate metrics (spacing-normalised exact, "
+                "chrF, BGE-M3 cosine) and measure how well each separates "
+                "Correct/Acceptable from Partial/Wrong (AUC, class means, best "
+                "cosine threshold). Picks the metric GEPA should optimise.",
+    inputs=[
+        PortSpec(name="labels", label="SME gold labels", kinds=["dataset"],
+                 required=True),
+    ],
+    outputs=[
+        PortSpec(name="audit", label="Per-row metric audit", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="candidate_col", label="Candidate column", kind="text",
+                  default="reviewed_ko"),
+        ParamSpec(name="reference_col", label="Canonical reference column",
+                  kind="text", default="ko_reference"),
+        ParamSpec(name="allrefs_col", label="All-references column",
+                  kind="text", default="ko_all"),
+        ParamSpec(name="label_col", label="Rating column", kind="text",
+                  default="sme_rating"),
+    ],
+    runner="snomed_translation.sme_feedback:sme_metric_separation",
+)
+
+ingest_review_pack_spec = FunctionSpec(
+    name="ingest_review_pack", label="Ingest returned SME review workbook",
+    category="evaluate",
+    description="Parse one sheet of the .xlsx a reviewer sent back into a "
+                "normalised dataset: repairs a damaged header row by position "
+                "against the canonical review-pack layout (round 3 came back "
+                "with sme_error_category overwritten by a duplicate "
+                "sme_corrected_ko, which a name-keyed reader silently drops), "
+                "normalises ratings, and tallies the reviewer's own error "
+                "categories. Each review round is ingested exactly once, by a "
+                "tracked run.",
+    inputs=[],
+    outputs=[
+        PortSpec(name="reviewed", label="Normalised reviewed rows", kinds=["dataset"]),
+        PortSpec(name="terms", label="Eval-shaped terms (sctid, preferred_term, "
+                                     "ko_reference = correction else rated text)",
+                 kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="xlsx_path", label="Returned workbook (.xlsx)", kind="text"),
+        ParamSpec(name="sheet", label="Sheet name", kind="text",
+                  default="Sample - please do these first"),
+        ParamSpec(name="typo_fixes", label="Reference typo fixes (wrong=right;...)",
+                  kind="text"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:ingest_review_pack",
+)
+
+priority_tier_separation_spec = FunctionSpec(
+    name="priority_tier_separation", label="Priority-tier separation",
+    category="evaluate",
+    description="Does review_priority predict what the SME rejects? Joins a "
+                "reviewed sample to the pack carrying the blinded tier labels "
+                "and tests whether rejection rises across ordered tiers with "
+                "the linear-by-linear association test (= Cochran-Armitage "
+                "for a binary outcome; also run keeping ACCEPTABLE < PARTIAL "
+                "< WRONG ordinal). The pre-registered analysis for the "
+                "round-3 blinded 120-row sample.",
+    inputs=[
+        PortSpec(name="reviewed", label="Ingested reviewed rows",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="pack", label="Pack with tier labels",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[
+        PortSpec(name="joined", label="Per-row tier/rating join", kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="tier_col", label="Tier column in pack", kind="text",
+                  default="review_priority"),
+        ParamSpec(name="rating_col", label="Rating column", kind="text",
+                  default="sme_rating"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:priority_tier_separation",
+)
+
+merge_adjudicated_gold_spec = FunctionSpec(
+    name="merge_adjudicated_gold", label="Merge review round into adjudicated gold",
+    category="evaluate",
+    description="Merge a new review round into the adjudicated gold set with "
+                "supersession: recency wins (a new row replaces an older row "
+                "for the same concept; an older row whose text violates the "
+                "current rule file is withheld and emitted on the superseded "
+                "output as the reviewer's confirmation list), and the newest "
+                "round is never rule-checked away — its contradictions with "
+                "older rulings go to the adjudication ledger. The merged set "
+                "is what the SME lock and the reviewer overlay both read, so "
+                "this is the single place where 'currently adjudicated' is "
+                "decided.",
+    inputs=[
+        PortSpec(name="gold", label="Existing adjudicated gold",
+                 kinds=["dataset"], required=True),
+        PortSpec(name="round", label="Ingested review round",
+                 kinds=["dataset"], required=True),
+    ],
+    outputs=[
+        PortSpec(name="merged", label="Merged adjudicated set", kinds=["dataset"]),
+        PortSpec(name="superseded", label="Withheld rows (confirmation list)",
+                 kinds=["dataset"]),
+        PortSpec(name="metrics", label="Metrics", kinds=["metrics"]),
+    ],
+    params=[
+        ParamSpec(name="rules_file", label="Hard rules file", kind="text"),
+        ParamSpec(name="severities", label="Rule severities that supersede",
+                  kind="text", default="blocker,warning"),
+        ParamSpec(name="batch_label", label="Batch label for new rows",
+                  kind="text", default="round3"),
+        ParamSpec(name="typo_fixes", label="Reference typo fixes (wrong=right;...)",
+                  kind="text"),
+        ParamSpec(name="output_tag", label="Output tag", kind="text"),
+    ],
+    runner="snomed_translation.sme_feedback:merge_adjudicated_gold",
+)
+
 register_feedback_analysis_spec = FunctionSpec(
     name="register_feedback_analysis",
     label="SME register feedback analysis",
@@ -1441,9 +2004,27 @@ def specs() -> list[FunctionSpec]:
         snomed_retrieve_spec, back_translate_spec, rerank_spec,
         transliteration_detect_spec, acceptability_judge_spec,
         acceptability_judge_batched_spec, correction_round_spec,
-        select_sme_batch_spec, package_sme_batch_spec,
+        select_sme_batch_spec, package_sme_batch_spec, package_deliverable_spec,
         translation_evaluation_summary_spec,
         semantic_partial_credit_calibration_spec,
+        curate_exemplar_pool_spec,
+        validate_translations_spec,
+        hierarchy_consistency_spec,
+        hierarchy_harmonise_spec,
+        build_ancestor_context_spec,
+        splice_translations_spec,
+        diff_findings_spec,
+        qa_gate_spec,
+        duplicate_translation_spec,
+        build_rule_repair_context_spec,
+        rule_substitute_spec,
+        self_review_spec,
+        escalate_uncertain_spec,
+        contrast_fidelity_detect_spec,
+        sme_metric_separation_spec,
+        ingest_review_pack_spec,
+        priority_tier_separation_spec,
+        merge_adjudicated_gold_spec,
         register_feedback_analysis_spec,
         transliteration_recall_calibration_spec,
     ]

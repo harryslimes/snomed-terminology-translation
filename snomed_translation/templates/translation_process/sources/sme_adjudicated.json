@@ -1,0 +1,13 @@
+{
+  "id": "{{code}}_sme_adjudicated",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "The adjudicated gold set — every reviewer-ruled row. Starts EMPTY for a greenfield language (headers only); merge-adjudicated-gold grows it each round and applies supersession. Wired as the SME lock (splice sme_labels) and the pack overlay, so what this file contains IS the system's definition of 'currently ruled'.",
+  "output_csv": "{{data_dir}}/evals/sme_gold_all.csv",
+  "csv_path": "{{data_dir}}/evals/sme_gold_all.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term",
+    "target": "ko_reference"
+  }
+}

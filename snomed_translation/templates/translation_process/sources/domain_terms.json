@@ -1,0 +1,12 @@
+{
+  "id": "{{code}}_domain_terms",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "The target domain slice (e.g. one hierarchy's active concepts): sctid + English preferred term. Populate data/languages/{{code}}/domain/domain_terms.csv before the first cascade run.",
+  "output_csv": "{{data_dir}}/domain/domain_terms.csv",
+  "csv_path": "{{data_dir}}/domain/domain_terms.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "preferred_term"
+  }
+}

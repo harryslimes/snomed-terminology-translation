@@ -91,6 +91,25 @@
       ],
       "author": "agent",
       "ts": "2026-07-03T17:52:58"
+    },
+    {
+      "id": "note-3",
+      "body": "Prompt audit from the production capture (run 6ba05d4eca9a, 5,012 rendered prompts; enabled by the new prompts_<tag>.jsonl artifact) — four concrete deficiencies, in impact order:\n\n1. RETRIEVED EXEMPLARS ACTIVELY CONTRADICT THE SME'S RULINGS. The exemplar pool is the legacy KR-extension register the SME has now overruled, so the style guide and the retrieved examples fight each other in the same prompt. Measured across production prompts: 4% show X-ray as x선/X선 and 2% as 방사선 영상 촬영 (ruling: 단순 촬영); 4% show -gram as 조영상 (ruling: 영상). Worked example — \"Plain X-ray orthodontic cephalogram\" received 5 exemplars of which FOUR taught deprecated forms (일반 방사선 영상 촬영, 일반 X선 촬영, 발목 x선) and the fifth (Orthodontic appliance → 치과 교정 장치) is where our spurious 치과 came from. We made this worse ourselves: adding batch-1 SME gold to the pool injected PRE-RULING forms (발목 x선 is tagged SME_gold_v1). Fixes: (a) exclude/rewrite deprecated-form pairs from the exemplar pool, (b) inject only the ruling-updated variants of batch-1 gold, (c) consider a post-retrieval filter that drops exemplars violating enforced hard rules.\n\n2. EDI BILLING-CODE NOISE. 7% of prompts carry bracketed EDI billing rows (e.g. \"Swallowing Difficulty Evaluation[Using X-ray]\" → 보행성식도다중채널임피던스산도검사[1일당]) — semantically unrelated, occupying a scarce top-5 slot. The \", NA\" cleanup removed one artifact class; the bracketed-qualifier class remains.\n\n3. NO CONCEPT CONTEXT — the user turn is exemplars + the bare English string. We already HOLD the SNOMED attributes for every one of these concepts (data/languages/ko/sme_review/2026-04-24/untranslated_imaging_attributes.json, 5,796 records: method_fsn, procedure_site_direct_fsn, …) and never put them in the prompt. This is precisely the information the SME said they lacked for obscure/inactive terms, and it would disambiguate the observed semantic failures (Gynecogram → 부인과 'gynaecology dept' instead of 여성생식기 'female genital tract'; 뇌 뇌실 조영 duplicating brain+ventricle).\n\n4. UNCOVERED SOURCE PATTERNS in the style guide: (a) \"Radiologic guidance for [procedure]\" — guidance as head noun; the model emits \"…을 위한 방사선 유도\" where the SME writes \"영상 유도하 …\"; (b) rare/novel roots get invented transliterations (tomosynthesis → 토모센테시스, which is also wrong — that reads 'tomocentesis'); the guide bans phonetic -graphy/-gram echoes but not this; (c) no lexicon for the \"conventional modern name\" rule (cineswallow → 비디오 투시 연하 검사) — a principle without a term list cannot be applied.\n\nAlso noted: the SME's own Q&A and their corrections disagree on angiography — Q&A says \"혈관 조영 when a specific artery/vein is named\" but their batch-2 correction for \"Angiography of artery of extremity\" drops 혈관 (사지 동맥 조영술) and their note says the 혈관+동맥 pairing is redundant. Worth a clarifying question in batch-3.",
+      "attached_to": "",
+      "links": [
+        {
+          "to_kind": "run",
+          "to_id": "6ba05d4eca9a",
+          "label": ""
+        },
+        {
+          "to_kind": "run",
+          "to_id": "9abf971be1df",
+          "label": ""
+        }
+      ],
+      "author": "",
+      "ts": "2026-08-10T10:28:14"
     }
   ],
   "plan": {

@@ -358,13 +358,17 @@ def instantiate_template(
     model_key: str = "gemma4-26b",
     data_dir: str | None = None,
     seed_guide: str | None = None,
+    rf2_relationship_file: str = "",
 ) -> dict:
     """Seed a scaffolded project with a curated template: the problem tree +
     ``.plan.json`` into ``configs/<code>/problems/``, the flows into
-    ``configs/<code>/flows/`` (as ``<code>_<flow>.json``), and the forward-declared
-    split sources into ``configs/<code>/sources/``. Placeholders are rebound to
-    THIS project's ids/paths so the flows are wired to its data. Each written file
-    is JSON-validated. Returns a summary of what was created."""
+    ``configs/<code>/flows/`` (as ``<code>_<flow>.json``), the forward-declared
+    sources into ``configs/<code>/sources/``, template conclusions (merged, never
+    clobbered) into ``.conclusions.json``, and any verbatim ``files/`` payload
+    (rule YAMLs etc. — ``__code__`` in a path is substituted) into the project
+    config dir. Placeholders are rebound to THIS project's ids/paths so the flows
+    are wired to its data. JSON files are validated before writing. Returns a
+    summary of what was created."""
     _validate_code(code)
     tdir = _TEMPLATES_DIR / template
     if not tdir.is_dir():
@@ -383,6 +387,8 @@ def instantiate_template(
         "{{seed_guide}}": seed_guide,
         "{{model_key}}": model_key,
         "{{project}}": code,
+        "{{configs_dir}}": str((Path(configs_root) / code).resolve()),
+        "{{rf2_relationship_file}}": rf2_relationship_file,
     }
 
     def _render(text: str) -> str:
@@ -418,6 +424,43 @@ def instantiate_template(
     for sf in sorted((tdir / "sources").glob("*.json")):
         _write_json(cfg / "sources" / f"{code}_{sf.name}", sf.read_text(encoding="utf-8"))
         counts["sources"] += 1
+
+    # Template conclusions ("the laws") merge into the project's conclusion
+    # store — appended, never clobbered, deduplicated by statement — so a new
+    # operator inherits the method's standing findings.
+    concl = tdir / "conclusions.json"
+    if concl.exists():
+        incoming = json.loads(_render(concl.read_text(encoding="utf-8"))).get("conclusions", [])
+        dest = cfg / "problems" / ".conclusions.json"
+        store = {"conclusions": []}
+        if dest.exists():
+            store = json.loads(dest.read_text(encoding="utf-8"))
+        have = {c.get("statement", "").strip().lower() for c in store["conclusions"]}
+        added = 0
+        for c in incoming:
+            if c.get("statement", "").strip().lower() in have:
+                continue
+            store["conclusions"].append(c)
+            added += 1
+        if added:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(json.dumps(store, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+            created.append(str(dest))
+        counts["conclusions"] = added
+
+    # Verbatim payload files (rule YAMLs, seed CSVs): rendered for placeholders,
+    # `__code__` in the relative path substituted, no JSON validation.
+    files_dir = tdir / "files"
+    if files_dir.is_dir():
+        counts["files"] = 0
+        for f in sorted(p for p in files_dir.rglob("*") if p.is_file()):
+            rel = str(f.relative_to(files_dir)).replace("__code__", code)
+            dest = cfg / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(_render(f.read_text(encoding="utf-8")), encoding="utf-8")
+            created.append(str(dest))
+            counts["files"] += 1
 
     return {"template": template, "counts": counts, "created": created}
 

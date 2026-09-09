@@ -1,0 +1,9 @@
+{
+  "id": "collision_fix_patch_r4",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "Round-4 pre-send audit fixes for the v6.1 re-translated deliverable (71 rows, HIGH-confidence only, minimal edits, machine rows only, blinded-sample rows excluded as measurands). Classes: wrong vessel identity (common carotid/common femoral/internal/external iliac all rendered 온엉덩동맥; superficial femoral as profunda), ureterography as urethrography, rib as bone, antegrade as retrograde/descending, sacroiliac joint as hip joint (엉덩 관절 -> 엉치엉덩 관절, 18 rows), X-ray tomography collapsed into plain-radiography or CT-adjacent wordings (-> 단층 촬영, 29 rows, reapplying the round-3-cycle canonical), dropped distinguishing modifiers (vena cava, dynamic, retro/prospective gated, direct micturating, head of femur), and one invented 조영제 미사용. MEDIUM/LOW proposals deliberately excluded and left flagged for the reviewer (IV/oral contrast route, biliary tract/bile duct, hips vs hip joints, special/specific ultrasound, bare/metal stent).",
+  "output_csv": "data/languages/ko/derived/collision_fix_patch_r4.csv",
+  "csv_path": "data/languages/ko/derived/collision_fix_patch_r4.csv",
+  "csv_columns": {"sctid": "sctid", "en": "preferred_term", "target": "translation"}
+}

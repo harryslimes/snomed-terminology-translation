@@ -325,6 +325,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-icd11", action="store_true")
     ap.add_argument("--only", choices=["athena", "snomed", "loinc", "icd11"])
+    ap.add_argument(
+        "--combine-only", action="store_true",
+        help="Re-derive all_bilingual_pairs.csv from the per-source CSVs "
+             "already on disk, without re-extracting them from Athena/RF2/"
+             "LOINC. The union is the reproducible part; use this to restore "
+             "the raw pool to its documented state.")
     args = ap.parse_args()
 
     all_counts: dict[str, int] = {}
@@ -338,6 +344,8 @@ def main():
 
     if args.only:
         steps = {args.only: steps[args.only]}
+    if args.combine_only:
+        steps = {}
 
     for name, fn in steps.items():
         print(f"\n=== {name} ===")

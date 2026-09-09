@@ -1,0 +1,53 @@
+{
+  "id": "curate-pool-no-edi",
+  "name": "curate_pool_no_edi",
+  "description": "ABLATION pool: eval-safe rules PLUS drop every EDI billing pair, to test whether billing strings contribute anything as exemplars.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "raw_pool",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "pooled_legacy"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "curate",
+      "type": "function",
+      "pos": {
+        "x": 320.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/pool_rules/ko_no_edi.yaml",
+        "output_csv": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/data/languages/ko/pool/curated/all_bilingual_pairs_no_edi.csv",
+        "function": "curate_exemplar_pool",
+        "include_additions": false
+      },
+      "inputs": {
+        "pool": "raw_pool"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 600.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "rows_out",
+        "output_name": "curated_pool_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "curate:metrics"
+      }
+    }
+  ]
+}

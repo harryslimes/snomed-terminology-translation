@@ -183,6 +183,42 @@
         "thinking": false
       },
       "notes": "Claude Fable 5 via the Claude Code Agent SDK. Endpoint-less (subscription auth). Used as the GEPA reflective-feedback judge (sparse, capped call budget)."
+    },
+    "qwen38-max-remote": {
+      "hf_id": "qwen3.8-max",
+      "port": 443,
+      "host": "dashscope-intl.aliyuncs.com/compatible-mode",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "notes": "Qwen 3.8 Max via Alibaba Model Studio (OpenAI-compatible, same endpoint/key as qwen37-max-remote). Host carries /compatible-mode so model_base_url() resolves correctly without a VLLM_BASE_URL override. Thinking model: llm_params pin enable_thinking=false (both top-level and chat_template_kwargs are accepted by DashScope) — WITHOUT this it emits ~2.8k reasoning tokens per translation and runs ~10x slower (measured 2026-08-10, run 25c52bbaa6ac). Auth via DASHSCOPE_API_KEY.",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "enable_thinking": false,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      }
+    },
+    "deepseek-v4-flash": {
+      "hf_id": "deepseek-v4-flash",
+      "port": 443,
+      "host": "api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "thinking_style": "reasoning_effort",
+      "llm_params": {
+        "max_tokens": 256,
+        "temperature": 0.0,
+        "stop": [
+          "\n\n",
+          "English:"
+        ],
+        "reasoning_effort": "none"
+      },
+      "notes": "DeepSeek-V4-Flash (284B total / 13B active, 1M ctx) via the official DeepSeek API, OpenAI-compatible at https://api.deepseek.com/v1. Auth: DEEPSEEK_API_KEY. REASONING IS ON BY DEFAULT and this API IGNORES `enable_thinking` silently (verified 2026-08-10: 123-180 reasoning tokens still emitted) — it honours `reasoning_effort: none` or `thinking: {type: disabled}`. Hence thinking_style=reasoning_effort and llm_params pinning reasoning_effort=none; with reasoning on, a 7-token translation costs ~130 completion tokens."
     }
   },
   "jobs": {

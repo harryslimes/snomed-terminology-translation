@@ -1,0 +1,11 @@
+{
+  "id": "baseline-and-qa",
+  "title": "Baseline cascade + detector family",
+  "prose": "Phase 2. Translation runs as a confidence-routed cascade: a local open-weight model samples each concept several times; agreement keeps the local answer; disagreement escalates to a frontier model. ~55% of the corpus stays on local compute, and the disagreement signal is the best single predictor of error (Korean: blinded-sample rejection 40/52.5/82.5% across low/med/high priority tiers). Every run is followed by the detector family — hard rules, SNOMED hierarchy consistency, duplicate-translation (a PAIR-level check that catches wrong-vessel/wrong-organ errors row-level checks miss) — aggregated by qa_gate into one prioritised worklist. Languages add their own error-class detectors as SME rounds surface failure modes.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "snomed-translation"
+}

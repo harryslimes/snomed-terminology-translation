@@ -1,0 +1,11 @@
+{
+  "id": "sme-round-1",
+  "title": "SME round 1",
+  "prose": "First review round. Greenfield note: with an empty adjudicated set the first pack has no overlay and every row is machine output; the blinded sample doubles as the language's first gold. Follow the per-round operator checklist (guide Appendix A). Record the tier-separation result and the reviewer's rulings; every per-term equivalence in her notes is an extractable, durable asset.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "sme-feedback-rounds"
+}

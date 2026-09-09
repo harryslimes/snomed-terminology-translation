@@ -1,0 +1,14 @@
+{
+  "id": "kog_pool",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "GREENFIELD: the bilingual exemplar pool starts EMPTY \u2014 sourcing one is plan task-1 and the single biggest quality lever (guide \u00a75.4). Adjudicated rows from SME rounds also feed retrieval, so the first rounds seed this.",
+  "output_csv": "data/languages/kog/pool/pool_seed.csv",
+  "csv_path": "data/languages/kog/pool/pool_seed.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "EN",
+    "target": "KO",
+    "source": "source"
+  }
+}

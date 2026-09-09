@@ -5,11 +5,25 @@
 # build_translator (frozen prompt block). Referenced from a project/optimization
 # recipe as `optimization.hard_rules_file`.
 #
-# Two independent switches per rule:
+# Independent switches per rule:
+#   enabled: false -> dropped at load time; NO consumer sees the rule. Use for
+#                     rules kept as documentation or parked pending validation.
+#                     Do not use `enforce: false` for this — the validator
+#                     checks non-enforced rules on purpose (see below).
 #   freeze:  true  -> injected verbatim into the prompt as a constant input
 #                     field. GEPA mutates the style-guide instruction string;
 #                     it cannot touch this field, so the rule survives every
 #                     generation.
+#   severity: blocker -> an OUTPUT violation gates the deliverable (malformed
+#                        or clinically wrong). warning (default) -> surfaces in
+#                        review priority but never blocks. Consumed by
+#                        validate_translations; independent of `penalty`.
+#
+#                        `severity` and `enforce` are genuinely independent:
+#                        validate_translations checks EVERY enabled rule,
+#                        including enforce:false ones, so a rule can gate the
+#                        deliverable without steering the prompt or the metric.
+#
 #   enforce: true  -> the metric subtracts `penalty` (default 0.25 of the
 #                     [0,1] score) when the output violates the rule. This is
 #                     what actually stops GEPA exploring the disallowed form:
@@ -35,6 +49,7 @@ rules:
     forbidden_regex:
       - '[.,;:]\s*$'
     enforce: true
+    severity: blocker
     freeze: true
     penalty: 0.25
 
@@ -44,6 +59,7 @@ rules:
       - '^\s*["“‘]'
       - '["”’]\s*$'
     enforce: true
+    severity: blocker
     freeze: true
     penalty: 0.25
 
@@ -68,6 +84,340 @@ rules:
       - 상지
       - 위팔
       - 하지
+    enabled: false
     enforce: false
     freeze: false
     penalty: 0.5
+
+  # --- Output hygiene. Malformed output, not style. All blockers. ----------
+
+  - id: no-rf2-markup
+    description: >-
+      RF2 caret markup (e.g. "Tl^201^") must never survive into a translation.
+    rationale: >-
+      3 of 5,012 production rows shipped with carets intact (447864009). It is
+      source-format leakage, always wrong, and trivially detectable.
+    evidence: ["run:65e53f071b45"]
+    forbidden_regex:
+      - '\^[^^]*\^'
+    enforce: true
+    freeze: true
+    severity: blocker
+    penalty: 0.25
+
+  # RETIRED 2026-08-19 — superseded by the reviewer's own round-3 ruling.
+  # Batch-2 said plain radiography = 단순 촬영 and this rule banned the x선
+  # forms. Round 3 (returned workbook, run 4e0bdfa92d98) states "plain x-ray =
+  # 일반 x선, 일반 방사선 촬영, 단순 x선, 단순 방사선 촬영" and corrects BARE
+  # 단순 촬영 rows to the 방사선 forms — i.e. the form this rule enforced is
+  # now the defect and a form it forbade is now acceptable. Replaced by
+  # plain-xray-needs-radiation below. Second instance of the standing lesson:
+  # a ruling is adjudicated, but it is not immutable — rules need provenance
+  # so a newer ruling can retire them.
+  - id: no-deprecated-xray-lowercase
+    enabled: false
+    description: >-
+      RETIRED (round-3 supersession) — asserted plain radiography must be
+      단순 촬영 and banned the x선 forms; the reviewer now lists 일반 x선 and
+      단순 x선 as acceptable and corrects bare 단순 촬영. See comment.
+    rationale: >-
+      4 rows shipped as 일반 x선 despite the ruling being in the style guide
+      and in the exemplar-pool curation rules — an output check was the
+      missing link.
+
+      SOURCE-CONDITIONAL, and it has to be. The SME ruling is about plain
+      radiography, not about the string X선, which is correct in other
+      contexts: 이중 에너지 X선 흡수 계측법 is the standard rendering of dual
+      energy X-ray absorptiometry, and 정위적 X선 유도하 of stereotactic X-ray
+      guidance. The unconditional version flagged 6 rows and every one was
+      correct — the same over-generalisation as the first upper-limb rule.
+    evidence: ["run:65e53f071b45", "run:5745daec288b"]
+    when_source: 'plain (x-?ray|radiograph|film)'
+    forbidden_regex:
+      - '(?i)(일반\s*)?x\s*선'
+    examples:
+      flag:
+        - {source: "Plain X-ray of chest", target: "가슴 일반 x선"}
+      pass:
+        - {source: "Dual energy X-ray absorptiometry of heel", target: "발뒤꿈치 이중 에너지 X선 흡수 계측법"}
+        - {source: "Prone core needle biopsy of breast using stereotactic X-ray guidance", target: "복와위 정위적 X선 유도하 유방 중심부 바늘 생검"}
+    enforce: true
+    freeze: true
+    severity: blocker
+    penalty: 0.25
+
+  # --- SME batch-2 rulings (Q&A received 2026-08-09). ----------------------
+
+  # SOURCE-CONDITIONAL. These are statements about a MAPPING, not about the
+  # target string: each Korean term below is correct in general and wrong only
+  # for these source terms. The first attempt banned the substrings outright
+  # and flagged 64 rows of which 40 were correct (위팔뼈 = humerus, 위팔동맥 =
+  # brachial artery, 위팔 = upper arm are all right) — 63% false positives on a
+  # blocker. `when_source` is what makes the rule say what we actually mean.
+  #
+  # OUTPUT-VALIDATION ONLY — not frozen into the prompt, not enforced in the
+  # GEPA metric. A prior ablation found that *prescribing* native body sites
+  # hurt quality (docs/imaging_resources_ablation_findings_2026-04-20.md);
+  # that finding is about the prompt, not about checking what shipped.
+  #
+  # Blocker severity also makes these self-correcting during repair:
+  # build_ancestor_context refuses a blocker-violating ancestor as teaching
+  # context, so the ancestor-repair pass cannot propagate them. It did exactly
+  # that before these existed, reversing two correct renderings, because
+  # hierarchy consistency rewards copying an ancestor whether or not the
+  # ancestor is right.
+
+  - id: upper-limb-not-upper-arm
+    description: >-
+      "Upper limb" / "upper extremity" is the whole arm (팔); 위팔 is
+      specifically the upper arm and is too specific for these sources.
+    evidence: ["run:65e53f071b45", "run:77ad3633b851"]
+    when_source: 'upper (limb|extremit)'
+    # In-batch majority for "upper limb": 팔 154 rows, vs 위팔 11 and 상지 4.
+    canonical:
+      - 팔
+    forbidden_regex:
+      - '위팔(?!뼈|두갈래)'
+    examples:
+      flag:
+        - {source: "Drainage of upper limb using fluoroscopic guidance", target: "투시 유도하 위팔 배액"}
+      pass:
+        - {source: "Computed tomography of upper arm", target: "위팔 컴퓨터 단층 촬영"}
+        - {source: "Plain X-ray of left humerus", target: "왼쪽 위팔뼈 단순 촬영"}
+        - {source: "Angiography of left brachial artery", target: "왼쪽 위팔 동맥 혈관 조영"}
+    enforce: false
+    freeze: false
+    severity: blocker
+    penalty: 0.25
+
+  # RETIRED — I wrote this rule and it was wrong. Kept as the worked example of
+  # how, because the same mistake is easy to repeat.
+  #
+  # The claim was that 엉덩이 is the buttock and wrong for the hip. The SME gold
+  # says otherwise: "Computed tomography of left hip" -> 왼쪽 엉덩이 컴퓨터 단층
+  # 촬영, with no alternative listed. 엉덩관절 appears in gold only where the
+  # source says hip JOINT ("Fluoroscopic arthrography of hip joint"). So 엉덩이
+  # for a plain hip is an SME-approved rendering, and the rule "repaired" 13
+  # rows away from the reviewer's own answer.
+  #
+  # The error was in where I looked. I derived the canonical form from the
+  # in-batch majority (고관절, 34 rows) instead of from sme_gold_all.csv, which
+  # was on disk and authoritative. Batch frequency measures what the model did
+  # most often; it is not evidence about what is correct, and here the batch is
+  # inconsistent four ways for the same source (고관절 34, 엉덩이 13, 엉덩관절 4,
+  # 엉덩뼈 3). One SME data point does not settle that either — so this goes to
+  # the reviewer as a question rather than becoming a rule.
+  #
+  # Rule of thumb this cost us: a canonical form must come from an adjudicated
+  # source. If the only support is a frequency count, there is no rule yet.
+  - id: hip-not-buttock
+    description: >-
+      RETIRED — asserted 엉덩이 was wrong for the hip; SME gold shows it is the
+      approved rendering. See the note above.
+    evidence: ["run:a26b516efa1e", "file:data/evals/korean/sme_gold_splits/sme_gold_all.csv"]
+    enabled: false
+    when_source: '\bhips?\b'
+    forbidden:
+      - 엉덩이
+    enforce: false
+    freeze: false
+    severity: blocker
+    penalty: 0.25
+
+  - id: images-end-yeongsang
+    description: >-
+      Produced images end in 영상, never 조영상 (SME ruling: procedures end
+      조영/조영술, images end 영상 — 조영상 is not used). Corrects the v5.1
+      -gram table which prescribed 조영상.
+    canonical:
+      - 영상
+    forbidden:
+      - 조영상
+    enforce: true
+    severity: warning
+    freeze: true
+    penalty: 0.25
+
+  - id: fluoroscopy-guidance-form
+    description: >-
+      Fluoroscopy as guidance is 투시 유도하 (or 형광 투시 유도하); the
+      standalone-examination form 투시 검사 must not appear inside a guidance
+      phrase (SME ruling distinguishing exam vs guidance).
+    canonical:
+      - 투시 유도하
+    forbidden_regex:
+      - '투시\s*검사\s*유도'
+    enforce: true
+    severity: warning
+    freeze: true
+    penalty: 0.25
+
+  # --- SME round-3 rulings (returned workbook 2026-08-19, run 4e0bdfa92d98).
+  #
+  # All SOURCE-CONDITIONAL mapping rules, same shape as the batch-2 block:
+  # each Korean form below is fine in general and wrong only for these source
+  # terms. Severity is WARNING, not blocker: the reviewer rated every instance
+  # PARTIAL (convention-level), not WRONG, and there will be hundreds across
+  # the 5,012 — they should drive review priority and repair, not gate the
+  # deliverable. Canonicals come from the reviewer's written rulings, not
+  # batch frequency.
+
+  - id: fluoro-adjectival-not-guidance
+    description: >-
+      투시 유도하 is licensed only when the source says guidance/guided.
+      Adjectival "fluoroscopic [study]" is 투시 [study]: fluoroscopic
+      angiography = 투시 혈관 조영. Reviewer: 'if we want to use 투시 유도하,
+      we need "guided or guidance" with "fluoroscopy"'. The old pattern's only
+      pool support is two of our own earlier gold rows, now superseded.
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: '^(?!.*guid).*fluoroscop'
+    canonical:
+      - 투시
+    forbidden:
+      - 유도하
+    examples:
+      flag:
+        - {source: "Fluoroscopic angiography of bronchial artery with contrast", target: "조영제 사용 기관지 동맥 투시 유도하 혈관 조영"}
+        - {source: "Fluoroscopic venography with contrast", target: "조영제 사용 투시 유도하 정맥 조영"}
+      pass:
+        - {source: "Fluoroscopic angiography of bronchial artery with contrast", target: "조영제 사용 기관지 동맥 투시 혈관 조영"}
+        - {source: "Nerve block with injection of lumbar spine using fluoroscopic guidance", target: "투시 유도하 허리 척추 주사 신경 차단"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: transluminal-vascular-naegwan
+    description: >-
+      Transluminal in a vascular context is 혈관내 (혈관 경유 also listed by
+      the reviewer but 혈관내 preferred in every round-3 correction; v6.0's
+      table prescribed 혈관 경유 and every such row came back PARTIAL).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'transluminal'
+    canonical:
+      - 혈관내
+    forbidden_regex:
+      - '혈관\s?경유'
+    examples:
+      flag:
+        - {source: "Percutaneous transluminal angioplasty of tibial artery using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관 경유 경골 동맥 혈관 성형"}
+      pass:
+        - {source: "Percutaneous transluminal angioplasty of tibial artery using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 경골 동맥 혈관 성형"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: cutting-balloon-kalnal
+    description: Cutting balloon is 칼날 풍선, not 절단 풍선 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'cutting balloon'
+    canonical:
+      - 칼날 풍선
+    forbidden_regex:
+      - '절단\s?풍선'
+    examples:
+      flag:
+        - {source: "Percutaneous transluminal cutting balloon angioplasty of portal vein using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 문맥 절단 풍선 혈관 성형"}
+      pass:
+        - {source: "Percutaneous transluminal cutting balloon angioplasty of portal vein using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 피부 경유 혈관내 문맥 칼날 풍선 혈관 성형"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: intrathecal-sumangnae
+    description: Intrathecal is 수막내 (or 지주막내), not 수막공간내 — 공간 is an unnecessary word (reviewer, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'intrathecal'
+    canonical:
+      - 수막내
+    forbidden:
+      - 수막공간내
+    examples:
+      flag:
+        - {source: "Intrathecal injection using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 수막공간내 주사"}
+      pass:
+        - {source: "Intrathecal injection using fluoroscopic guidance with contrast", target: "조영제 사용 투시 유도하 수막내 주사"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: cone-beam-wonppul
+    description: Cone (beam) is 원뿔, not 원추형 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: '\bcone\b'
+    canonical:
+      - 원뿔
+    forbidden:
+      - 원추형
+    examples:
+      flag:
+        - {source: "Aspiration of spine using cone beam computed tomography guidance", target: "원추형 빔 컴퓨터 단층 촬영 유도하 척추 흡인"}
+      pass:
+        - {source: "Aspiration of spine using cone beam computed tomography guidance", target: "원뿔 빔 컴퓨터 단층 촬영 유도하 척추 흡인"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: plain-xray-needs-radiation
+    description: >-
+      Plain X-ray must include 방사선 (or the x선 spelling): 일반 방사선 촬영 /
+      단순 방사선 촬영 / 일반 x선 / 단순 x선. Bare 단순 촬영 — which the
+      batch-2-era guide prescribed — came back corrected on every round-3 row.
+      Replaces no-deprecated-xray-lowercase (retired above).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'plain (x-?ray|radiograph|film)'
+    canonical:
+      - 일반 방사선 촬영
+      - 단순 방사선 촬영
+    forbidden_regex:
+      - '단순\s?촬영'
+    examples:
+      flag:
+        - {source: "Plain X-ray of forearm", target: "아래팔 단순 촬영"}
+      pass:
+        - {source: "Plain X-ray of forearm", target: "아래팔 단순 방사선 촬영"}
+        - {source: "Plain X-ray of left clavicle", target: "왼쪽 빗장뼈 일반 방사선 촬영"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: ecg-gated-donggi
+    description: Electrocardiography gated is 심전도 동기, not the loan 게이팅 (reviewer glossary, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'gated'
+    canonical:
+      - 심전도 동기
+    forbidden:
+      - 게이팅
+    examples:
+      flag:
+        - {source: "Positron emission tomography electrocardiography gated myocardial rest study using fluorodeoxyglucose", target: "플루오로데옥시글루코스 사용 심전도 게이팅 심근 안정 양전자 방출 단층 촬영"}
+      pass:
+        - {source: "Positron emission tomography electrocardiography gated myocardial rest study using fluorodeoxyglucose", target: "플루오로데옥시글루코스 사용 심근 휴식기 심전도 동기 양전자 방출 단층 촬영"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25
+
+  - id: mammography-radiographic
+    description: Mammography is 유방 방사선 촬영, not 유방 촬영술 (reviewer correction, round 3).
+    evidence: ["run:4e0bdfa92d98"]
+    when_source: 'mammograph|mammogram'
+    canonical:
+      - 유방 방사선 촬영
+    forbidden_regex:
+      - '유방\s?촬영술?(?!\s*영상)'
+    examples:
+      flag:
+        - {source: "Mammography and aspiration of right breast", target: "오른쪽 유방 촬영술 및 흡인"}
+      pass:
+        - {source: "Mammography and aspiration of right breast", target: "오른쪽 유방 방사선 촬영 및 흡인"}
+    enforce: true
+    freeze: false
+    severity: warning
+    penalty: 0.25

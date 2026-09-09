@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "name": "gepa_sme_gold_v1",
+  "description": "Clean GEPA re-opt aligned with the SME: seed = hand style guide v6.0 (refine from strength — the leak-free eval showed the hand guide beating GEPA-from-minimal-seed), train/dev = SME gold splits (in-domain imaging, correct register; NOT the KR-extension splits whose Sino register the SME rejects), hard rules frozen+enforced so GEPA cannot undo the Q&A rulings, metric = the calibrated SME-aligned metric, reflection LM = Opus 5. Promotion gate: the GEPA prompt is only promoted if it beats v6.0 on the held-out SME gold test split.",
+  "environment": {
+    "version": 1,
+    "name": "project",
+    "description": "",
+    "language": {
+      "code": "ko",
+      "name": "Korean",
+      "direction": "EN->KO",
+      "tokenizer_lang": "en"
+    },
+    "paths": {
+      "root": ".",
+      "data_dir": "data",
+      "output_dir": "data/evals/korean",
+      "lookup_cache": "data/evals/korean/lookup_cache.json"
+    },
+    "qdrant": {
+      "url": "http://localhost:6333",
+      "bgem3": {
+        "model_name": "BAAI/bge-m3",
+        "use_fp16": false,
+        "batch_size": 256,
+        "max_length": 512
+      }
+    },
+    "overlap_defaults": {
+      "prompt_addendum": "additive",
+      "term_dictionary": "most_specific",
+      "retrieval_corpus": "additive",
+      "exemplar_set": "union_dedupe"
+    },
+    "default_model_key": "gemma4-26b"
+  },
+  "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+  "pool_output_csv": "data/EN-KO/all_bilingual_pairs.csv",
+  "pool_dedup_key": [
+    "en_lower",
+    "target"
+  ],
+  "evaluation": {
+    "scorers": [
+      {
+        "kind": "exact_match",
+        "weight": 0.2,
+        "params": {}
+      },
+      {
+        "kind": "chrf",
+        "weight": 0.5,
+        "params": {}
+      },
+      {
+        "kind": "cosine_similarity",
+        "weight": 0.3,
+        "params": {}
+      }
+    ],
+    "multi_ref": true,
+    "judge": {
+      "kind": "none",
+      "labels": [
+        "ACCEPTABLE",
+        "PARTIAL",
+        "WRONG"
+      ],
+      "concurrency": 8
+    }
+  },
+  "optimization": {
+    "seed_style_guide": "style_guide/style_guide_ko_v6_0.md",
+    "splits_dir": "data/evals/korean/sme_gold_splits",
+    "lookup_cache": "data/sme_review/2026-04-24/lookup_cache.json",
+    "gepa": {
+      "auto": "medium",
+      "track_stats": true
+    },
+    "reflection_candidates": [],
+    "hints_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hints/ko.yaml",
+    "hard_rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml"
+  }
+}

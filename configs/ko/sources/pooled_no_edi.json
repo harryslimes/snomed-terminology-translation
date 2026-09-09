@@ -1,0 +1,13 @@
+{
+  "id": "pooled_no_edi",
+  "kind": "csv",
+  "enabled": true,
+  "output_csv": "data/languages/ko/pool/curated/all_bilingual_pairs_no_edi.csv",
+  "csv_path": "data/languages/ko/pool/curated/all_bilingual_pairs_no_edi.csv",
+  "csv_columns": {
+    "sctid": "sctid",
+    "en": "EN",
+    "target": "KO",
+    "source": "source"
+  }
+}

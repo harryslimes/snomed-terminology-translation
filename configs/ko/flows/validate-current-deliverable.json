@@ -1,0 +1,24 @@
+{
+  "id": "validate-current-deliverable",
+  "name": "validate_current_deliverable",
+  "description": "Run the new validation gate and hierarchy-consistency lint over the ALREADY-PRODUCED 5,012-term cascade output, to turn the ad-hoc expert review into a reproducible, tracked check and produce the machine-generated fix list.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "translations", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "production_cascade_output"}, "inputs": {}},
+    {"id": "validate", "type": "function", "pos": {"x": 340.0, "y": 60.0},
+     "params": {"rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/ko/hard_rules/ko.yaml",
+                "fail_on_blocker": false, "en_col": "preferred_term", "ko_col": "translation",
+                "function": "validate_translations"},
+     "inputs": {"translations": "translations"}},
+    {"id": "hierarchy", "type": "function", "pos": {"x": 340.0, "y": 220.0},
+     "params": {"rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+                "max_depth": 4, "en_col": "preferred_term", "ko_col": "translation",
+                "function": "hierarchy_consistency"},
+     "inputs": {"translations": "translations"}},
+    {"id": "headline", "type": "function", "pos": {"x": 640.0, "y": 60.0},
+     "params": {"expression": "n_rows_with_blocker", "output_name": "rows_with_blocker",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "validate:metrics"}}
+  ]
+}

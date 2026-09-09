@@ -144,6 +144,13 @@ def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
     kept: list[list[str]] = []
     excluded: list[list] = []
     want = str(exclude_sctid) if exclude_sctid not in (None, "") else None
+    # The pool deliberately keeps the SAME (en, ko) pair from several sources
+    # (EDI and SNOMED both translating one term), so an undeduplicated top-N
+    # spends its scarce slots on copies: measured on the 200-row SME set, ~50%
+    # of prompts showed a duplicate and some showed the same Korean 3 times,
+    # making top-5 an effective top-3. Deduplicate on the Korean string —
+    # highest-scoring row wins and keeps its provenance.
+    seen_ko: set[str] = set()
     for rank, (_, p) in enumerate(ranked, 1):
         row = [p.get("text", ""), p.get("translation", ""),
                p.get("row_source", ""), str(p.get("sctid") or "")]
@@ -152,8 +159,14 @@ def lookup_pairs(embedder, store, collection: str, text: str, topn: int,
             if len(kept) < topn:
                 excluded.append([*row, rank])
             continue
+        key = (row[1] or "").replace(" ", "").strip()
+        if not key or key in seen_ko:
+            continue
         if len(kept) < topn:
+            seen_ko.add(key)
             kept.append(row)
+        if len(kept) >= topn:
+            break
     return kept, excluded
 
 
@@ -226,7 +239,7 @@ def translate_one(
     system_prompt: str,
     user_prompt: str,
     llm_params: dict,
-    timeout: tuple[float, float | None] | float | None = (10, None),
+    timeout: tuple[float, float | None] | float | None = (10, 300),
     return_usage: bool = False,
 ):
     """Single chat-completion call.

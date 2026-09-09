@@ -1,0 +1,11 @@
+{
+  "id": "editorial-rulings-ledger",
+  "title": "Editorial rulings ledger",
+  "prose": "The adjudication ledger: every open editorial question and every ruling, each recorded as a note with a lifecycle (open -> asked in round N -> ruled -> encoded in rule/guide-section X, superseding Y). The highest-leverage channel in the project: one well-chosen question settles more rows than a hundred ratings. Expect the reviewer to supersede herself across rounds — that is normal; the ledger is how the process metabolises it. Korean examples: hip (region vs joint), plain X-ray forms (reversed between rounds), -gram image endings.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "sme-feedback-rounds"
+}

@@ -1,0 +1,111 @@
+{
+  "id": "kog-qa-gate",
+  "name": "kog_qa_gate",
+  "description": "The shippability check for kog_deliverable: hard rules + SNOMED is-a hierarchy consistency + duplicate-translation (a PAIR-level check catching what single-row checks structurally cannot), aggregated into one verdict and one prioritised worklist. Re-runnable against whatever the deliverable currently is. Also the mandatory 'after' check for any repair: acceptance must be Pareto — clear the target defect, introduce nothing new on any other axis. Add language-specific detectors (extra findings ports on the gate) as SME rounds surface error classes.",
+  "project": "kog",
+  "nodes": [
+    {
+      "id": "deliverable",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "data_object": "kog_deliverable"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "rules",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 60.0
+      },
+      "params": {
+        "rules_file": "/home/jc2301/Projects/semi-automated-research-with-language-translation/snomed-terminology-translation/configs/kog/hard_rules/kog.yaml",
+        "fail_on_blocker": false,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "gate",
+        "function": "validate_translations"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "hierarchy",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 220.0
+      },
+      "params": {
+        "rf2_relationship_file": "/home/jc2301/SNOMED-Terminologies/SnomedCT_InternationalRF2_PRODUCTION_20260101T120000Z/Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20260101.txt",
+        "max_depth": 4,
+        "en_col": "preferred_term",
+        "ko_col": "translation",
+        "output_tag": "gate",
+        "function": "hierarchy_consistency"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "dupes",
+      "type": "function",
+      "pos": {
+        "x": 360.0,
+        "y": 380.0
+      },
+      "params": {
+        "ko_col": "translation",
+        "en_col": "preferred_term",
+        "severity": "warning",
+        "output_tag": "gate",
+        "function": "duplicate_translation"
+      },
+      "inputs": {
+        "translations": "deliverable"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "function",
+      "pos": {
+        "x": 700.0,
+        "y": 200.0
+      },
+      "params": {
+        "max_blockers": 0,
+        "fail_if_not_shippable": false,
+        "output_tag": "deliverable",
+        "function": "qa_gate"
+      },
+      "inputs": {
+        "findings1": "rules:findings",
+        "findings2": "hierarchy:findings",
+        "findings3": "dupes:findings"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1040.0,
+        "y": 200.0
+      },
+      "params": {
+        "expression": "n_blocker_rows",
+        "output_name": "blocker_rows",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "gate:metrics"
+      }
+    }
+  ]
+}

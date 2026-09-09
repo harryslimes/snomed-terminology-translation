@@ -1,0 +1,9 @@
+{
+  "id": "collision_fix_patch",
+  "kind": "csv",
+  "enabled": true,
+  "_note": "Disambiguations for concept pairs that had been given identical Korean. Each is a minimal edit applied to the existing string (limb 다리->사지, intraoperative +수술 중, sinus 정맥동, tomography 단층, ureter 요관, MRA 자기 공명, rib 갈비뼈), machine rows only, HIGH-confidence cases only. The MEDIUM/LOW proposals are deliberately excluded and go to the reviewer as questions.",
+  "output_csv": "data/languages/ko/derived/collision_fix_patch.csv",
+  "csv_path": "data/languages/ko/derived/collision_fix_patch.csv",
+  "csv_columns": {"sctid": "sctid", "en": "preferred_term", "target": "translation"}
+}

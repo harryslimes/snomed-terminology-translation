@@ -413,6 +413,82 @@
       "investigation": "clean_eval_leakage_fix_v1",
       "status": "done",
       "proposed_by": ""
+    },
+    {
+      "id": "task-34",
+      "title": "Hand-encode SME Q&A rulings into style guide v6.0 + hard rules",
+      "rationale": "The 15-question answers are deterministic knowledge (canonical modality table, contrast-first, -graphy→조영/조영술 vs images→영상, native anatomy, structure-of, approaches, transliteration policy). Encoding by hand banks the win without optimisation risk; freeze+enforce in configs/ko/hard_rules/ko.yaml stops GEPA undoing them.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "style_guide_v6_baseline_v1",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-35",
+      "title": "Build SME gold assets: multi-reference gold + train/dev/held-out splits from batch-1+2",
+      "rationale": "33 confirmed + 67 corrected batch-2 rows (+ batch-1 labels) = ~200 in-domain register-correct references — the first trustworthy optimisation signal. Held-out slice never touches GEPA.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "sme_gold_assets_v1",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-36",
+      "title": "Add contrast-hallucination detector node (source-conditional)",
+      "rationale": "조영제 사용/미사용 invented when the source has no contrast mention: 2 of 5 SME Wrongs, reproduces deterministically. Source-conditional so it cannot be a surface hard rule; wanted both as GEPA metric penalty and production audit flag (sibling of transliteration_detect).",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "sme_metric_calibration_v2",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-37",
+      "title": "Calibrate the optimisation metric against SME ratings",
+      "rationale": "SME boundary: spacing+synonym diffs acceptable, word-order not. Verify candidate metrics rank Correct/Acceptable > Partial > Wrong on batch-2 before GEPA optimises the number.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "sme_metric_calibration_v2",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-38",
+      "title": "Baseline runs: v5.1 vs v6.0 on held-out SME gold",
+      "rationale": "Quantify the deterministic win; v6.0 must ≥ v5.1 to become the GEPA seed.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "style_guide_v6_baseline_v1",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-39",
+      "title": "GEPA re-opt seeded from v6.0 with Opus 5 reflection on SME gold splits",
+      "rationale": "The 'clean GEPA re-opt' flagged by fable_gepa_judge_v1: seed from strength, in-domain gold, frozen hard rules, calibrated metric. Promotion gated on beating v6.0 on held-out.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "investigation": "gepa_sme_gold_v1",
+      "status": "todo",
+      "proposed_by": "agent"
+    },
+    {
+      "id": "task-40",
+      "title": "Production run over the 5,796 imaging pool with winning prompt + audit pass",
+      "rationale": "After promotion: fold SME-corrected pairs into the exemplar pool (re-index), filter/annotate the 11 inactive concepts, translate the full pool, rank low-confidence terms (transliteration echo, contrast-hallucination, acceptability judge) for the SME's sampling, include synonyms column.",
+      "problem": "integrating-batch-2-sme-feedback-into-the-translation-recipe",
+      "addresses": [],
+      "depends_on": [],
+      "status": "todo",
+      "proposed_by": "agent"
     }
   ],
   "gates": [

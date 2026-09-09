@@ -1,0 +1,119 @@
+{
+  "id": "cascade-gemma-qwen-v2",
+  "name": "cascade_gemma_qwen_v2",
+  "description": "Cascade v2: blind escalation plus two fixes from the terminologist assessment of v1 — (a) the agreement vote is spacing-normalised, so spacing-only variation never escalates (5 of 40 assessed escalations were byte-identical no-ops); (b) a contrast-fidelity gate vetoes any revision that INVENTS a 조영제 phrase the source lacks, falling back to the kept answer (an escalation was observed doing exactly that on 241183005). Baseline v1 blind: 41.0% exact / chrF 73.1.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {
+      "id": "terms",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 60.0
+      },
+      "params": {
+        "source": "sme_gold_all"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "exemplars",
+      "type": "datasource",
+      "pos": {
+        "x": 40.0,
+        "y": 200.0
+      },
+      "params": {
+        "source": "pooled_curated_eval"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "style",
+      "type": "function",
+      "pos": {
+        "x": 40.0,
+        "y": 340.0
+      },
+      "params": {
+        "path": "style_guide/style_guide_ko_v6_0.md",
+        "function": "style_guide"
+      },
+      "inputs": {}
+    },
+    {
+      "id": "sample",
+      "type": "function",
+      "pos": {
+        "x": 340.0,
+        "y": 60.0
+      },
+      "params": {
+        "model_key": "gemma4-26b-qat",
+        "samples": 5,
+        "temperature": 0.7,
+        "output_tag": "cascade_v2",
+        "function": "translate_consistency"
+      },
+      "inputs": {
+        "terms": "terms",
+        "exemplars": "exemplars",
+        "style_guide": "style:style_guide"
+      }
+    },
+    {
+      "id": "cascade",
+      "type": "function",
+      "pos": {
+        "x": 640.0,
+        "y": 60.0
+      },
+      "params": {
+        "model": "qwen3.8-max",
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "min_distinct": 2,
+        "show_candidates": false,
+        "concurrency": 8,
+        "output_tag": "gemma_qwen_v2",
+        "function": "escalate_uncertain",
+        "normalize_spacing": true,
+        "gate_contrast": true
+      },
+      "inputs": {
+        "candidates": "sample"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "function",
+      "pos": {
+        "x": 940.0,
+        "y": 60.0
+      },
+      "params": {
+        "function": "evaluate"
+      },
+      "inputs": {
+        "translations": "cascade:translations",
+        "reference": "terms"
+      }
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {
+        "x": 1240.0,
+        "y": 60.0
+      },
+      "params": {
+        "expression": "exact_match_pct",
+        "output_name": "cascade_exact_pct",
+        "function": "evaluate_formula"
+      },
+      "inputs": {
+        "metrics": "evaluate:metrics"
+      }
+    }
+  ]
+}

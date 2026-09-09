@@ -1,0 +1,40 @@
+{
+  "id": "eval-deliverable-vs-gold",
+  "name": "eval_deliverable_vs_gold",
+  "description": "Does the QA/repair pipeline change measured quality? Scores the deliverable against the 200-row SME gold at three points — v0 the production cascade as shipped, v1 after the ancestor-context repair, v2 after the blocker repair — on the 177 gold concepts that are in the batch. Scored on MACHINE text: the packaging overlay replaces adjudicated rows with gold, which would score 100% by construction and measure nothing. Leakage checked: the eval-safe exemplar pool contains 0/200 gold Korean strings and 0/200 gold sctids, so the comparison is honest. Expect a small effect — the repairs touch 161 of 5,012 rows and only a handful are gold concepts, so this BOUNDS the pipeline's quality impact rather than demonstrating it.",
+  "project": "translation_prompt_context_v1",
+  "nodes": [
+    {"id": "gold", "type": "datasource", "pos": {"x": 40.0, "y": 300.0},
+     "params": {"source": "sme_gold_all"}, "inputs": {}},
+
+    {"id": "v0", "type": "datasource", "pos": {"x": 40.0, "y": 60.0},
+     "params": {"source": "production_cascade_output"}, "inputs": {}},
+    {"id": "v1", "type": "datasource", "pos": {"x": 40.0, "y": 180.0},
+     "params": {"source": "deliverable_pre_blocker_repair"}, "inputs": {}},
+    {"id": "v2", "type": "datasource", "pos": {"x": 40.0, "y": 420.0},
+     "params": {"data_object": "ko_imaging_deliverable"}, "inputs": {}},
+
+    {"id": "eval_v0", "type": "function", "pos": {"x": 400.0, "y": 60.0},
+     "params": {"function": "evaluate"},
+     "inputs": {"translations": "v0", "reference": "gold"}},
+    {"id": "eval_v1", "type": "function", "pos": {"x": 400.0, "y": 180.0},
+     "params": {"function": "evaluate"},
+     "inputs": {"translations": "v1", "reference": "gold"}},
+    {"id": "eval_v2", "type": "function", "pos": {"x": 400.0, "y": 420.0},
+     "params": {"function": "evaluate"},
+     "inputs": {"translations": "v2", "reference": "gold"}},
+
+    {"id": "score_v0", "type": "function", "pos": {"x": 760.0, "y": 60.0},
+     "params": {"expression": "exact_match_pct", "output_name": "v0_shipped_exact_pct",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "eval_v0:metrics"}},
+    {"id": "score_v1", "type": "function", "pos": {"x": 760.0, "y": 180.0},
+     "params": {"expression": "exact_match_pct", "output_name": "v1_ancestor_repair_exact_pct",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "eval_v1:metrics"}},
+    {"id": "score_v2", "type": "function", "pos": {"x": 760.0, "y": 420.0},
+     "params": {"expression": "exact_match_pct", "output_name": "v2_blocker_repair_exact_pct",
+                "function": "evaluate_formula"},
+     "inputs": {"metrics": "eval_v2:metrics"}}
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "sme-metric-separation",
+  "name": "sme_metric_separation",
+  "description": "Calibrate candidate optimisation metrics against the SME's own verdicts: score every reviewed translation (batch-1+2) against the multi-reference SME gold with spacing-normalised exact, chrF and BGE-M3 cosine, and measure separation of Correct/Acceptable vs Partial/Wrong. The winning metric (+threshold) is what GEPA optimises.",
+  "project": "sme_metric_calibration_v2",
+  "nodes": [
+    {
+      "id": "labels",
+      "type": "datasource",
+      "pos": {"x": 40.0, "y": 60.0},
+      "params": {"source": "sme_gold_all"},
+      "inputs": {}
+    },
+    {
+      "id": "separation",
+      "type": "function",
+      "pos": {"x": 300.0, "y": 60.0},
+      "params": {"function": "sme_metric_separation", "allrefs_col": "__canonical_only__"},
+      "inputs": {"labels": "labels"}
+    },
+    {
+      "id": "headline",
+      "type": "function",
+      "pos": {"x": 560.0, "y": 60.0},
+      "params": {
+        "expression": "cosine_auc",
+        "output_name": "sme_cosine_auc",
+        "function": "evaluate_formula"
+      },
+      "inputs": {"metrics": "separation:metrics"}
+    }
+  ]
+}

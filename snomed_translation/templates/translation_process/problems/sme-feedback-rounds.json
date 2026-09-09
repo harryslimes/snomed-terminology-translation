@@ -1,0 +1,11 @@
+{
+  "id": "sme-feedback-rounds",
+  "title": "SME feedback rounds (the engine)",
+  "prose": "Phase 3, the engine of the project. Each round: (a) PACKAGE with a blinded stratified sample (40 rows/tier, deterministic seed — the round's experiment: rated without seeing our labels, it measures whether priority predicts error; reviewed rows auto-leave future samples); (b) SME reviews + answers the round's adjudication questions; (c) INGEST as a tracked run; (d) MEASURE tier separation + feedback absorption; (e) FOLD IN deterministic-first: hard rules -> style guide -> pool curation -> gold merge with supersession (older rows violating the newest rulings go to a confirmation list, never silently kept or changed); (f) REGENERATE or REPAIR under the SME lock, no-new-blocker, and Pareto acceptance; (g) AUDIT and cut the next pack. Create one sub-problem per round. Plan 3-5 rounds to plateau.",
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [],
+  "parent": "snomed-translation"
+}
