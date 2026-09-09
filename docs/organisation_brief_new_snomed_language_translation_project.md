@@ -140,6 +140,15 @@ Translate a fresh subset and repeat the review–improvement cycle. Early rounds
 
 Once the agreed quality threshold is met, freeze the winning model, prompt, guide, rules, pool, and code versions. Run the broader scope, audit the output, resolve blockers, and obtain formal SME sign-off before publication.
 
+### Two delivery patterns
+
+The scope of the country's need determines how this process is applied:
+
+- A **targeted-domain project** can run the complete feedback and improvement cycle for one clinical area, produce a signed-off domain translation, and stop there. A country does not need to commit to translating the wider terminology.
+- A **broad-terminology programme** should avoid treating every domain as a separate project. Establish the language once, optimise an initial approach on a representative cross-domain sample, and then score its quality by domain. Repeat domain-specific SME feedback and optimisation only where a domain falls below the agreed quality gate. Domains that already meet the gate can proceed to production and proportionate assurance using the shared language configuration.
+
+This staged approach creates potential economies of scale without assuming that one prompt will work equally well everywhere. The amount of domain-specific work remains an evidence question: it depends on cross-domain performance, clinical risk, and the level of assurance required by the country.
+
 ## 4. Evidence from the Korean work
 
 The presentation `snomed-translation-deck.html` records an accessible early result: in the first 100-term SME review, 47 translations were rated acceptable, 51 partial, and two wrong. This meant 98 were usable or near-usable, but the 51 partial terms still required expert correction. The result demonstrated drafting value, not publication readiness.
@@ -183,15 +192,19 @@ GEPA evaluates many prompt candidates and should have a separate capped budget. 
 
 ### Human resource
 
-| Activity | Planning assumption for a roughly 5,000-concept domain |
+| Activity | How the effort scales |
 |---|---|
-| One standard SME round | about 2–4 hours for a 100–120-term sample and adjudication questions |
-| Number of rounds | commonly 3–5 |
-| Total SME effort | about 10–20 hours with useful existing reference data |
-| Greenfield allowance | roughly 50% more SME effort and one or two additional rounds |
-| Operator effort | approximately one setup week, then 1–2 days per round |
+| Language and platform setup | approximately one operator week, primarily once per language—not once per domain or per 5,000 concepts |
+| Initial optimisation | focused on the requested domain for a targeted project; based on a representative cross-domain sample for a broad programme |
+| One standard feedback round | about 2–4 SME hours for a 100–120-term sample, plus approximately 1–2 operator days to prepare, integrate, and verify the round |
+| Subsequent domain assessment | automated evaluation and sampled SME review before deciding whether more domain-specific work is justified |
+| Domain-specific optimisation | conditional; repeat the feedback cycle only for domains that do not meet the shared quality gate |
+| Targeted-domain planning anchor | about 10–20 SME hours across commonly 3–5 rounds for an imaging-scale domain with useful existing reference data |
+| Greenfield allowance | a targeted project may need roughly 50% more SME effort and one or two additional rounds |
 
-These are planning anchors from one language and domain, not fixed quotations. A customer price must also recover hosting, storage, indexing, monitoring, support, security, data governance, failed runs, provider-price changes, invoicing, and service margin.
+The numerical anchors come primarily from the Korean imaging work. They describe a targeted domain of roughly 5,000 concepts; they are **not a unit cost to multiply across the full terminology**. A credible whole-terminology estimate requires the initial cross-domain evaluation to show how many domains meet the shared quality gate, how many need further optimisation, and how much sampled or exhaustive SME assurance each domain requires.
+
+A customer price must also recover hosting, storage, indexing, monitoring, support, security, data governance, failed runs, provider-price changes, invoicing, and service margin.
 
 ## 6. Ways to make it available
 
